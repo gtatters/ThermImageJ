@@ -39,7 +39,7 @@ Requirements
 -   FFMPEG command line utility. Download instructions: <https://ffmpeg.org/download.html>
 -   Perl. Installation instructions: <https://www.perl.org/get.html>
 -   A custom perl script, provided on this github repository, which can be downloaded and placed in a scripts folder with ImageJ. Link here: <https://github.com/gtatters/ThermImageJ/tree/master/scripts/split.pl/>
--   ThermImageJ macro toolset. A text file containing all the macros and functions: <https://github.com/gtatters/ThermImageJ/tree/master/toolsets/ThermImageJ.IJM/>
+-   ThermImageJ macro toolset. A text file containing all the macros and functions: <https://github.com/gtatters/ThermImageJ/tree/master/toolsets/ThermImageJ.ijm/>
 -   Additional Look Up Tables (LUTS), popularly used in thermal imaging available on this github repository: <https://github.com/gtatters/ThermImageJ/tree/master/luts/>
 -   Byte swapper plugin. Download instructions: <https://imagej.nih.gov/ij/plugins/swapper.html>
 
