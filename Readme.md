@@ -153,7 +153,7 @@ Once installed, the toolset should also populate the **Plugin Dropdown Menu** wi
 
 <img src="./images/plugin-macro.png" width="50%" />
 
-### Download and extract sample files to SampleFLIR folder on desktop:
+### Download and extract sample files to test:
 
 <https://github.com/gtatters/Thermimage/blob/master/Uploads/SampleFLIR.zip>
 
