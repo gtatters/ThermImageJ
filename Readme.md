@@ -109,7 +109,7 @@ This verifies that the perl script is installed where your machine can access it
 
 If you see:
 
-*"Can't open perl script "/Applications/Fiji.app/scripts/split2.pl": No such file or directory"*
+*"Can't open perl script "/Applications/Fiji.app/scripts/split.pl": No such file or directory"*
 
 you will need to re-check the location of the script or the path information provided.
 
