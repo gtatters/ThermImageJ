@@ -1,10 +1,7 @@
-README
+ThermImageJ - Macros for ImageJ
 ================
 
-ThermImageJ - Macros for ImageJ
--------------------------------
-
-A collection of macros and command line tools to allow for import and conversion of thermal image files to assist in converting and extracting raw data from infrared thermal images and converting them to temperatures using standard equations in thermography. Provides an open source tool for assisting with infrared thermographic analysis.
+ThermImageJ is a collection of macros and command line tools to allow for import and conversion of thermal image files to assist in converting and extracting raw data from infrared thermal images and converting them to temperatures using standard equations in thermography. Provides an open source tool for assisting with infrared thermographic analysis.
 
 Normally, these thermal images require access to software that only runs on Windows operating system, or has limited access to statistical image analysis. These macros will allow you to import most FLIR jpgs and videos and process the images in ImageJ.
 
