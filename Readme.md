@@ -1,11 +1,11 @@
 ThermImageJ - Macros for ImageJ
 ================
 
-ThermImageJ is a collection of macros and command line tools to allow for import and conversion of thermal image files to assist in converting and extracting raw data from infrared thermal images and converting them to temperatures using standard equations in thermography. Provides an open source tool for assisting with infrared thermographic analysis.
+ThermImageJ is a collection of ImageJ macros to allow for import and conversion of thermal image files to assist in extracting raw data from infrared thermal images and converting them to temperatures using standard equations in thermography.
 
-Normally, these thermal images require access to software that only runs on Windows operating system, or has limited access to statistical image analysis. These macros will allow you to import most FLIR jpgs and videos and process the images in ImageJ.
+ThermImageJ provides an open source tool for assisting with infrared thermographic analysis.
 
-Designed for use with FIJI/ImageJ.
+These macros will allow you to import most FLIR jpgs and videos and process the images in ImageJ.
 
 Version History
 ---------------
@@ -29,7 +29,7 @@ Main Functions
 Compatibility
 -------------
 
--   ThermImageJ was developed on OSX, and tested using ImageJ v 1.52n. Many features require installation of command line tools that may or may not work as effectively in different operating systems. Testing and troubleshooting is ongoing. Report issues here: <https://github.com/gtatters/ThermImageJ/issues>
+-   ThermImageJ was developed on OSX, and tested using ImageJ v1.52n. Many features require installation of command line tools that may or may not work as effectively in different operating systems. Testing and troubleshooting is ongoing. Report issues here: <https://github.com/gtatters/ThermImageJ/issues>
 
 Requirements
 ------------
@@ -55,6 +55,7 @@ Installation Instructions
 -   Download the perl script, **split.pl** from this site and copy into a FIJI/scripts folder.
 -   Download **Byte\_Swapper.class** to the plugins folder.
 -   Restart ImageJ.
+-   If everything succeeded, the toolset should be installed and visible from your plugins menu.
 
 Installation Checks
 -------------------
@@ -66,10 +67,10 @@ exiftool -ver
 which exiftool
 ```
 
-    ## 10.67
+    ## 11.37
     ## /usr/local/bin/exiftool
 
-If you see a version number (probably &gt; 10) and no error, exiftool is installed. The second line will tell you the path to where it is installed.
+If you see a version number (probably &gt; 10) and no error, then exiftool is installed properly. The second line will tell you the path to where it is installed.
 
 Do the same for perl:
 
@@ -95,7 +96,7 @@ which perl
 
 Verify no errors on your system to ensure perl is installed correctly.
 
-Check that the perl script is installed by:
+Check that the perl script is accessible by:
 
 ``` bash
 perl /Applications/Fiji.app/scripts/split.pl
@@ -103,7 +104,7 @@ perl /Applications/Fiji.app/scripts/split.pl
 
 You should see the following warning message:
 
-*"Error: Please specify input file, output folder, the output filename base, pattern to split, and output file extension."*
+**"Error: Please specify input file, output folder, the output filename base, pattern to split, and output file extension."**
 
 This verifies that the perl script is installed where your machine can access it.
 
@@ -139,9 +140,11 @@ Setting ThermImageJ Macros Up in FIJI/ImageJ
 
 Once you have installed everything above, and verified no errors, you can set the macros up in FIJI/ImageJ.
 
-Launch FIJI, find the **more-tools menu**, which is the **&gt;&gt;** on the far right side of the menu bar, and click on **ThermImageJ**
+Launch FIJI, left click the **more-tools menu**, which is the **&gt;&gt;** on the far right side of the menu bar:
 
 <img src="./images/toolbar-before-install.png" width="100%" />
+
+Which will reveal any of the toolsets in the folder. Click on **ThermImageJ** to replace the present icons with ThermImageJ specific icons / macros:
 
 <img src="./images/more-tools-toolsets-menu.png" width="50%" />
 
@@ -159,7 +162,7 @@ Once installed, the toolset should also populate the **Plugin Dropdown Menu** wi
 
 ### References
 
-The following open source programs and programmers were critical to the development of ThermImageJ.
+The following open source programs and programmers were crucial to the development of ThermImageJ.
 
 -   Thermimage: <https://github.com/gtatters/Thermimage>
 
