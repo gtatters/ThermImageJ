@@ -1,11 +1,11 @@
-////////////////////////////////////////////////////////////////////////////////////////////////////////
-////                                                                                                ////
-////	This ImageJ toolset allows to access ImageJ macros for working with thermal images.         ////
-////		Main Features: import, conversion, and transformation of thermal images.                ////
-////					Requires: exiftool, ffmpeg, perl                                            ////
-////					 		Glenn J. Tattersall                                                 ////
-////						April, 2019 - Version 1.0                                               ////
-////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+////                                                                                               ////
+////    This ImageJ toolset allows to access ImageJ macros for working with thermal images.        ////
+////        Main Features: import, conversion, and transformation of thermal images.               ////
+////                    Requires: exiftool, ffmpeg, perl                                           ////
+////                            Glenn J. Tattersall                                                ////
+////                        April, 2019 - Version 1.0                                              ////
+///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var luts = getLutMenu();
 var lCmds = newMenu("LUT Menu Tool", luts);
