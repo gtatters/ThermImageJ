@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////																								////
-////	This ImageJ toolset allows to access ImageJ macros for working with Thermal Images.		////
+////	This ImageJ toolset allows to access ImageJ macros for working with Thermal Images.	////
 ////		Main Feature: Import, Conversion, and Transformation of thermal images.			////
 ////					Requires: exiftool, ffmpeg, perl								////
 ////					 		Glenn J. Tattersall										////
