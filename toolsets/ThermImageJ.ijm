@@ -4,7 +4,8 @@
 ////        Main Features: import, conversion, and transformation of thermal images.               ////
 ////                    Requires: exiftool, ffmpeg, perl                                           ////
 ////                            Glenn J. Tattersall                                                ////
-////                        April, 2019 - Version 1.0                                              ////
+////                         April, 2019 - Version 1.0                                             ////
+////                                                                                               ////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var luts = getLutMenu();
