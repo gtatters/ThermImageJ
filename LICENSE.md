@@ -1,7 +1,5 @@
 LICENSE
 ================
-Glenn J Tattersall
-2019-04-21
 
 ### ThermImageJ Functions and Macros
 
