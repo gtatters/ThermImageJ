@@ -16,10 +16,20 @@ var list;
 var color = 0;
 var colors = newArray("Red", "Green", "Blue", "Cyan", "Magenta", "Yellow");
 
-var perlscriptpath="/Applications/Fiji.app/scripts/";
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+// 
+//                    User should verify the following path location:
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// var perlscriptpath="c:/Users/Username/Fiji/scripts/" // <- VERIFY THIS - A likely Windows location 
+var perlscriptpath="/Applications/Fiji.app/scripts/";   // <- VERIFY THIS - A likely OSX or Linux location
 var perlsplit=perlscriptpath + "split.pl";	
 
+
+// Extract Operating system user is on.  OS will be used in most macros calling command line tools
 var OS=getInfo("os.name");
+
 // OSX Users verify these settings:
 var perlpathOSX="/usr/local/bin/";
 var exiftoolpathOSX="/usr/local/bin/";
@@ -33,10 +43,10 @@ var exiftoolLinux="exiftool";
 var ffmpegpathLinux="/usr/local/bin/";
 
 // Windows Users verify these settings:
-var perlpath="c:/windows/";
-var exiftoolpath="c:/windows/";
-var exiftool="exiftool.exe";
-var ffmpegpath="C:/FFmpeg/bin/";
+var perlpathWindows="c:/Perl64/bin/";
+var exiftoolpathWindows="c:/windows/";
+var exiftoolWindows="exiftool.exe";
+var ffmpegpathWindows="c:/FFmpeg/bin/";
 
 
 macro "LUT Menu Tool - C037T0b11LT6b09UTcb09T" {
@@ -322,7 +332,7 @@ function RawImportFLIRSEQ() {
 		setMinAndMax(minpix, maxpix);
 		
 	if(converttotemperature) {
-		run("Raw2TempSC660");
+		run("Raw2Temp SC660");
 	}
 
 	//run("Calibration Bar...", "location=[Upper Right] fill=White label=Black number=5 decimal=1 font=12 zoom=1 bold overlay");
@@ -442,7 +452,7 @@ function ConvertImportFLIRJPG() {
 	//convertjpg =  exiftoollocation + exiftool + " " + filepath + " -b -RawThermalImage | convert - gray:- | convert -depth 16 -endian lsb -size 640x480 gray:- " + filedir + "/temp/" + "filename.png";
 	// I cannot get double or single pipes to convert to work when called from imageJ, so I revert to this method:
 	
-	convertjpg =  exiftoolpath + exiftool + " '" + filepath + "' -b -RawThermalImage > '" + filedir + "/temp/" + fileout + "'";
+	convertjpg =  exiftoolpath + exiftool + " '" + filepath + "' -b -RawThermalImage > '" + tempfolder + File.separator + fileout + "'";
 
 	// print(convertjpg);
 
@@ -450,8 +460,21 @@ function ConvertImportFLIRJPG() {
 	// Difficulty getting the Piping to work with the default exec command.  See: http://imagej.1557.x6.nabble.com/macro-Redirection-in-exec-UNIX-binary-td3687463.html
 	// Execute the combine command this way (not sure it will work in Windows):
 
-	exec("/bin/sh", "-c", convertjpg);
+	// The following is verified to work in Mac
+	
+	if(OS=="Mac OS X"){
+		exec("/bin/sh", "-c", convertjpg);
+	}
 
+	if(OS=="Linux"){
+		exec("/bin/sh", "-c", convertjpg);
+	}
+	
+	// experimenting with this:
+	if(substring(OS, 0, 7)=="Windows"){
+		exec("cmd", "/c", exiftoolpath + exiftool, filepath, "-b", "-RawThermalImage", ">", tempfolder + File.separator + fileout);
+	}
+	
 	fileoutpath=filedir + File.separator + "temp" + File.separator + fileout;
 	
 	print("Temporary file saved to:", fileoutpath);
@@ -479,14 +502,15 @@ function ConvertImportFLIRJPG() {
 	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
 	Dialog.create("Camera and Object Parameters");
 	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
-	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
-	Dialog.addMessage("Camera Calibration Constants:");
+	Dialog.addMessage("Byte swap should be peformed on the 16-bit\nimage before converting to temperature");
+	Dialog.addChoice("Swap byte order before conversion?", byteorder, defaultbyteorder); 
+	Dialog.addMessage("Camera Calibration Constants obtained from Exiftool:");
 	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
 	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
-	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
-	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
+	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless");  //1501 //1507.2
+	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");  //1
     Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
-    Dialog.addMessage("Object Parameters:");
+    Dialog.addMessage("Object Parameters obtained from Exiftool:");
     Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
     Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
     Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
@@ -594,7 +618,7 @@ function ConvertFLIRJPGs() {
 
 	for (i = 0; i < filelist.length; i++){
 		
-		filepath=dirpath + filelist[i];
+		filepath=filelist[i];
 		
 		if (endsWith(toLowerCase(filepath), ".jpg")) {
 			
@@ -602,13 +626,15 @@ function ConvertFLIRJPGs() {
 		filename=substring(filename, 0, lengthOf(filename)-4);
 	
 		// run Exiftool to return the meta tags with the word "RawThermalImageType".  It should be either TIFF or PNG.	
-
+		
 		flirimageraw = exec(exiftoolpath + exiftool, "-RawThermalImageType", filepath);
 		RawThermalType = substring(flirimageraw, indexOf(flirimageraw, ":")+1 );
 		
 		// determine the data storage format of the flir jpg.  Either tiff or png	
 		RawThermalType=replace(RawThermalType, "\n", "");
 		RawThermalType=replace(RawThermalType, " ", "");
+		
+		print("Raw Thermal Type: " , RawThermalType);
 		
 		fileout=filename + "." + toLowerCase(RawThermalType);
 		fileout=replace(fileout, " ", "");
@@ -617,11 +643,23 @@ function ConvertFLIRJPGs() {
 		fileout=replace(fileout, ".PNG", ".png");
 
 		print("Converting " + filename + ".jpg" + " to " + fileout);
+		
 		// Define the syntax for the exec command to convert the jpg file into a png or tiff file for import
 		convertjpg =  exiftoolpath + exiftool + " '" + filepath + "' -b -RawThermalImage > '" + convertfolder + File.separator + fileout + "'";
-
+		print(convertjpg);
+		
 		// Execute the convert command
-		exec("/bin/sh", "-c", convertjpg);
+		if(OS=="Mac OS X"){
+			exec("/bin/sh", "-c", convertjpg);	
+		}
+
+		if(OS=="Linux"){
+			exec("/bin/sh", "-c", convertjpg);	
+		}
+
+		if(substring(OS, 0, 7)=="Windows"){
+			exec("cmd", "/c", exiftoolpath + exiftool, filepath, "-b", "-RawThermalImage", ">", convertfolder + File.separator + fileout);
+		}
 
 		// print(fileout + " saved to: ", convertfolder);
 		}
@@ -637,11 +675,11 @@ function ConvertFLIRJPGs() {
 
 
 macro "Import FLIR SEQ Action Tool - C000D04D0bD0cD0dD0eD13D14D1bD1cD1dD22D23D25D26D27D29D2bD2dD32D35D37D39D3dD41D42D45D47D48D49D4dD4eD51D5eD60D61D65D66D67D68D69D6eD6fD70D75D77D79D7fD80D85D87D89D8fD90D91D9eD9fDa1Da5Da6Da7Da8Da9DaeDb1Db2Db5Db9DbdDbeDc2Dc5Dc6Dc7Dc8Dc9DcaDcdDd2Dd4Dd9DdaDdcDddDe2De3De4DebDecDf1Df2Df3Df4DfbC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
-	ConvertFLIRVideo("seq", "avi", "png");
+	ConvertFLIRVideo("seq", "avi", "jpegls");
 }
 
 macro "Import FLIR SEQ" {
-	ConvertFLIRVideo("seq", "avi", "png");
+	ConvertFLIRVideo("seq", "avi", "jpegls");
 }
 
 macro "Import FLIR CSQ Action Tool - C000D04D0bD0cD0dD0eD13D14D1bD1cD1dD22D23D25D26D27D28D29D2bD2dD32D35D39D3dD41D42D45D49D4dD4eD51D5eD60D61D65D66D67D69D6eD6fD70D75D77D79D7fD80D85D87D88D89D8fD90D91D9eD9fDa1Da5Da6Da7Da8Da9DaeDb1Db2Db5Db9DbdDbeDc2Dc5Dc6Dc7Dc8Dc9DcaDcdDd2Dd4Dd9DdaDdcDddDe2De3De4DebDecDf1Df2Df3Df4DfbC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
@@ -723,9 +761,23 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 
 	// Extract Date/Time Original from the .fff files
 	timefind =  exiftoolpath + exiftool + " -*Original* " + tempfolder + File.separator + "*.fff -r -q";
+
 	
-	flirvals=exec("/bin/sh", "-c", timefind);
+	// Execute the timefind command
+	//	flirvals=exec("/bin/sh", "-c", timefind);
 	
+	if(OS=="Mac OS X"){
+		flirvals=exec("/bin/sh", "-c", timefind);	
+	}
+
+	if(OS=="Linux"){
+		flirvals=exec("/bin/sh", "-c", timefind);		
+	}
+
+	if(substring(OS, 0, 7)=="Windows"){
+		flirvals=exec("cmd", "/c", timefind);
+	}
+
 	flirvals=replace(flirvals, "Date/Time Original", "");
 	flirvals=replace(flirvals, "  ", ""); // 2 spaces replace with null
 	flirvals=replace(flirvals, ": ", ""); // 2 spaces replace with null
@@ -761,11 +813,22 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 	// Difficulty getting the piping (> or |) to work with the default exec command. 
 	// See: http://imagej.1557.x6.nabble.com/macro-Redirection-in-exec-UNIX-binary-td3687463.html
 	// Execute the combine command using the "/bin/sh" way (still need to confirm if this will work in Windows)
-	rawcombinecmd = exiftoolpath + exiftool +  " -b -RawThermalImage " + tempfolder + "/*.fff > " + filedir + File.separator + "thermalvid.raw";
+	rawcombinecmd = exiftoolpath + exiftool +  " -b -RawThermalImage " + tempfolder + File.separator + "*.fff > " + filedir + File.separator + "thermalvid.raw";
 	print("Combine the fff files into a thermalvid.raw file with: ");
 	print(rawcombinecmd);
-	exec("/bin/sh", "-c", rawcombinecmd);
-	//exec(exiftoolpath + exiftool, "-b", "-RawThermalImage", filedir + File.separator + "temp" + File.separator + "*.fff", ">", filedir + File.separator + "thermalvid.raw");
+	
+	if(OS=="Mac OS X"){
+		exec("/bin/sh", "-c", rawcombinecmd);	
+	}
+
+	if(OS=="Linux"){
+		exec("/bin/sh", "-c", rawcombinecmd);		
+	}
+
+	if(substring(OS, 0, 7)=="Windows"){
+		exec("cmd", "/c", exiftoolpath + exiftool, "-b", "-RawThermalImage", tempfolder + File.separator + "*.fff", ">", filedir + File.separator + "thermalvid.raw");
+	}
+	
 
 
 	// Execute the split.pl script on thermalvid.raw to create tiff (or jpegls) files
@@ -778,14 +841,15 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 	}
 	
 	if(vidtype=="csq"){
-		exec(perl, perlsplit, "-i", filedir + File.separator + "thermalvid.raw", "-o", tempfolder + "-b", "frame", "-p", "jpegls", "-x", "jpegls");
+		exec(perl, perlsplit, "-i", filedir + File.separator + "thermalvid.raw", "-o", filedir + File.separator + "temp", "-b", "frame", "-p", "jpegls", "-x", "jpegls");
 	}
 
 	// Execute the ffmpeg command to assimilate all the tiff files into one avi file
-	tiffcombinecmd = "/usr/local/bin/ffmpeg" + " -f" + " image2" + " -vcodec" + " " + RawThermalType + " -r" + " 30" + " -i " + tempfolder + File.separator + "frame%05d." + RawThermalType + " -pix_fmt" + " gray16be" + " -vcodec " + outcodec + " " + filedir + File.separator + fileout + " -y";   
+	tiffcombinecmd = ffmpeg + " -f" + " image2" + " -vcodec" + " " + RawThermalType + " -r" + " 30" + " -i " + tempfolder + File.separator + "frame%05d." + RawThermalType + " -pix_fmt" + " gray16be" + " -vcodec " + outcodec + " " + filedir + File.separator + fileout + " -y";   
     print(tiffcombinecmd);    
-    exec(ffmpeg, "-f", "image2", "-vcodec", RawThermalType, "-r", "30", "-i", tempfolder + File.separator + "frame%05d." + RawThermalType, "-vcodec", outcodec, filedir + File.separator + fileout, "-y");
-
+    //exec(ffmpeg, "-f", "image2", "-vcodec", RawThermalType, "-r", "30", "-i", tempfolder + File.separator + "frame%05d." + RawThermalType, "-vcodec", outcodec, filedir + File.separator + fileout, "-y");
+    exec(ffmpeg, "-f", "image2", "-vcodec", RawThermalType, "-r", "30", "-i", tempfolder + File.separator + "frame%05d." + RawThermalType, "-pix_fmt", "gray16be", "-vcodec", outcodec, filedir + File.separator + fileout, "-y");
+	
 	templist = getFileList(tempfolder);
 	for (i = 0; i < templist.length; i++)
       tempfilesdelete_success=File.delete(tempfolder + File.separator + templist[i]);	

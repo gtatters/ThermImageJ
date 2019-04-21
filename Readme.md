@@ -156,6 +156,51 @@ Once installed, the toolset should also populate the **Plugin Dropdown Menu** wi
 
 <img src="./images/plugin-macro.png" width="50%" />
 
+Features
+--------
+
+### Lookup tables and adjusting colour ranges
+
+-   LUT menu
+-   Grayscale LUT
+-   Next LUT
+-   Previous LUT
+-   Invert LUT
+-   Brightness/Contrast setting min and max
+
+### Direct Import
+
+Import RTV
+
+Import SEQ
+
+Swap Bytes
+
+### Imports that use Command Line Conversions
+
+Import FLIR JPG
+
+Import FLIR SEQ
+
+Import FLIR CSQ
+
+### Utilities
+
+FLIR Calibrations
+
+FLIR Dates
+
+### Temperature Conversion
+
+Raw2Temp
+
+Workflow
+--------
+
+-   Determine your FLIR camera's calibration constants
+-   Convert Image to a 16-bit Grayscale File
+-   Import to imageJ
+
 ### Download and extract sample files to test:
 
 <https://github.com/gtatters/Thermimage/blob/master/Uploads/SampleFLIR.zip>
