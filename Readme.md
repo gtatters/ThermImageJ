@@ -12,20 +12,6 @@ Version History
 
 -   v 1.0: Released April, 2019
 
-Main Functions
---------------
-
--   LUT shortcuts
--   Raw Import Mikron RTV
--   Raw Import FLIR SEQ
--   Convert FLIR JPG
--   Import FLIR JPG
--   Import FLIR SEQ
--   Import FLIR CSQ
--   Raw2Temp
--   FLIR Calibration Values
--   FLIR Date Stamps
-
 Compatibility
 -------------
 
@@ -36,11 +22,11 @@ Requirements
 
 -   FIJI is Just ImageJ. Download instructions: <https://imagej.net/Fiji/Downloads>
 -   Exiftool. Installation instructions: <http://www.sno.phy.queensu.ca/~phil/exiftool/install.html>
--   FFMPEG command line utility. Download instructions: <https://ffmpeg.org/download.html>
+-   FFMPEG command line utility (static version). Download instructions: <https://ffmpeg.org/download.html>
 -   Perl. Installation instructions: <https://www.perl.org/get.html>
 -   A custom perl script, provided on this github repository, which can be downloaded and placed in a scripts folder with ImageJ. Link here: <https://github.com/gtatters/ThermImageJ/tree/master/scripts/split.pl/>
--   ThermImageJ macro toolset. A text file containing all the macros and functions: <https://github.com/gtatters/ThermImageJ/tree/master/toolsets/ThermImageJ.ijm/>
--   Additional Look Up Tables (LUTS), popularly used in thermal imaging available on this github repository: <https://github.com/gtatters/ThermImageJ/tree/master/luts/>
+-   ThermImageJ macro toolset. A text file (.ijm) containing all the macros and functions: <https://github.com/gtatters/ThermImageJ/tree/master/toolsets/ThermImageJ.ijm/>
+-   Additional Look Up Tables (LUTS), popularly used in thermal imaging, available on this github repository: <https://github.com/gtatters/ThermImageJ/tree/master/luts/>
 -   Byte swapper plugin. Download instructions: <https://imagej.nih.gov/ij/plugins/swapper.html>
 
 Installation Instructions
@@ -60,7 +46,7 @@ Installation Instructions
 Installation Checks
 -------------------
 
-Verify exiftool is installed by launching a terminal (or cmd prompt) window and typing:
+Verify exiftool is installed by launching a terminal (or cmd prompt) window and typing the following bash commands:
 
 ``` bash
 exiftool -ver
@@ -156,43 +142,58 @@ Once installed, the toolset should also populate the **Plugin Dropdown Menu** wi
 
 <img src="./images/plugin-macro.png" width="50%" />
 
-Features
---------
+Main Functions and Features
+---------------------------
 
 ### Lookup tables and adjusting colour ranges
 
--   LUT menu
--   Grayscale LUT
+-   LUT (look up table) menu
+    -   for rapidly accessing different pseudocolour palettes
 -   Next LUT
+    -   select the next LUT in the list
 -   Previous LUT
+    -   select the previous LUT in the list
 -   Invert LUT
--   Brightness/Contrast setting min and max
+    -   invert the colour scale of the LUT - this can be toggled
+-   Brightness/Contrast
+    -   setting the min and max values of the pseudocolour scale
+-   Add Calibration bar
+    -   makes use of the built-in Analyze-Tools-Calibration Bar
+    -   use this after temperature conversion of image
 
-### Direct Import
+### Direct Import of Raw Data
 
-Import RTV
+-   Import RTV
+    -   custom macro to import an old Mikron Mikrospec R/T video format
+    -   these files had simple encoding and are not likely in use, except by the author
+-   Import SEQ
+    -   custom macro to import FLIR SEQ using the Import-Raw command
+    -   use only if you know the precise offset byte start and the number of bytes between frames.
+    -   only works for certain SEQ files, and only formats where tiff format underlies the video
 
-Import SEQ
+### Swap Bytes
 
-Swap Bytes
+-   Byte swap
+    -   simple call to the Byte Swapper plugin.
+    -   since FLIR files are sometimes saved using little endian order (tiff) and big endian order (png), a short-cut to a pixel byte swap is a fast way to repair files that have byte order mixed up
 
 ### Imports that use Command Line Conversions
 
-Import FLIR JPG
+-   Import/Convert FLIR JPG
+    -   user selects a candidate jpg or folder of jpgs, and a call to the command line tools, exiftool,
+-   Import FLIR SEQ
 
-Import FLIR SEQ
-
-Import FLIR CSQ
+-   Import FLIR CSQ
 
 ### Utilities
 
-FLIR Calibrations
+-   FLIR Calibrations
 
-FLIR Dates
+-   FLIR Dates
 
 ### Temperature Conversion
 
-Raw2Temp
+-   Raw2Temp
 
 Workflow
 --------

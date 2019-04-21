@@ -54,12 +54,6 @@ macro "LUT Menu Tool - C037T0b11LT6b09UTcb09T" {
 	if (cmd!="-") run(cmd);
 }
 
-macro "Grayscale LUT Action Tool - C111F123dC444F423dC888F723dCbbbFa23dCeeeFd23d" {
-        run("Grays");
-        if (getWidth==256 && getHeight==32)
-            rename("Grayscale");
-}
-
 macro "Grayscale LUT" {
         run("Grays");
         if (getWidth==256 && getHeight==32)
@@ -94,6 +88,18 @@ macro "Invert LUT" {
         run("Invert LUT");
 }
 
+macro "Calibration Bar Action Tool - C000D10D11D12D13D14D15D16D17D18D19D1aD1bD1cD1dD1eD1fD20D2dD2eD2fD30D3dD3eD3fD40D4dD4eD4fD50D5dD5eD5fD60D61D62D63D64D65D66D67D68D69D6aD6bD6cD6dD6eD6fD70D72D74D76D78D7aD7cD7eD80D82D84D86D88D8aD8cD8eDa4Da5Da6Da9DaaDabDacDadDb3Db7Db9DbbDc3Dc7Dc9DcbDd4Dd6Dd9C000C111C222D2bD2cD3bD3cD4bD4cD5bD5cC222C333C444D29D2aD39D3aD49D4aD59D5aC444C555C666D27D28D37D38D47D48D57D58C666C777C888C999D25D26D35D36D45D46D55D56C999CaaaCbbbD23D24D33D34D43D44D53D54CbbbCcccCdddD21D22D31D32D41D42D51D52CdddCeeeCfff"{
+	run("32-bit");
+	run("Calibrate...", "function=None");
+	run("Calibration Bar...", "location=[Upper Right] fill=None label=White number=5 decimal=1 font=12 zoom=1 overlay=1");
+}
+
+
+macro "Calibration Bar Tool"{
+	run("32-bit");
+	run("Calibrate...", "function=None");
+	run("Calibration Bar...", "location=[Upper Right] fill=None label=White number=5 decimal=1 font=12 zoom=1 overlay=1");
+}
 
 macro "-" {} //menu divider
 
@@ -143,7 +149,7 @@ macro "-" {} //menu divider
   }
 
 
-macro "Raw Import Mikron RTV Action Tool - C000D18D19D1aD1bD1cD1dD1eD28D2bD38D3bD3cD3dD43D48D49D4aD4bD4dD4eD54D65D68D70D71D72D73D74D75D76D78D79D7aD7bD7cD7dD7eD80D81D82D83D84D85D86D88D95Da4Da8Da9DaaDb3DbaDbbDbcDccDcdDceDdaDdbDdcDe8De9DeaC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
+macro "Raw Import Mikron RTV Action Tool - C000D00D01D02D03D04D05D06D09D0aD0bD0cD0dD0eD0fD10D13D19D1cD20D23D24D25D29D2cD2dD2eD30D31D32D33D35D36D39D3aD3bD3cD3eD3fD54D55D56D59D61D62D63D64D69D70D71D74D76D77D79D7aD7bD7cD7dD7eD7fD81D82D83D84D89D94D95D96D99Db0Db1Db2Db3Db9DbaDbbDc3Dc4Dc5Dc6DcbDccDcdDd1Dd2Dd3Dd4DddDdeDdfDe3De4De5De6DebDecDedDf0Df1Df2Df3Df9DfaDfbC000C111C222C333C444C555C666C777C888C999D67D78D87C999CaaaCbbbCcccCdddCeeeCfff" {
 	RawImportMikronRTV();
 }
 
@@ -218,7 +224,7 @@ function RawImportMikronRTV() {
 }
 
 
-macro "Raw Import FLIR SEQ Action Tool - C000D19D1aD1eD28D2bD2eD38D3bD3eD43D48D4cD4dD54D65D68D69D6aD6bD6cD6dD6eD70D71D72D73D74D75D76D78D7bD7eD80D81D82D83D84D85D86D88D8bD8eD95D98D9eDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DddDdeDe9DeaDebDecDedDeeDefDffC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
+macro "Raw Import FLIR SEQ Action Tool - C000D00D01D02D03D04D05D06D0aD0bD0fD10D13D19D1cD1fD20D23D24D25D29D2cD2fD30D31D32D33D35D36D39D3dD3eD3fD54D55D56D59D5aD5bD5cD5dD5eD5fD61D62D63D64D69D6cD6fD70D71D74D76D77D79D7cD7fD81D82D83D84D89D8cD8fD94D95D96D99D9fDb0Db1Db2Db3DbaDbbDbcDbdDbeDc3Dc4Dc5Dc6Dc9DcfDd1Dd2Dd3Dd4Dd9DdeDdfDe3De4De5De6DeaDebDecDedDeeDefDf0Df1Df2Df3DffC000C111C222C333C444C555C666C777C888C999D67D78D87C999CaaaCbbbCcccCdddCeeeCfff" {
 	RawImportFLIRSEQ();
 }
 
@@ -674,28 +680,143 @@ function ConvertFLIRJPGs() {
 
 
 
-macro "Import FLIR SEQ Action Tool - C000D04D0bD0cD0dD0eD13D14D1bD1cD1dD22D23D25D26D27D29D2bD2dD32D35D37D39D3dD41D42D45D47D48D49D4dD4eD51D5eD60D61D65D66D67D68D69D6eD6fD70D75D77D79D7fD80D85D87D89D8fD90D91D9eD9fDa1Da5Da6Da7Da8Da9DaeDb1Db2Db5Db9DbdDbeDc2Dc5Dc6Dc7Dc8Dc9DcaDcdDd2Dd4Dd9DdaDdcDddDe2De3De4DebDecDf1Df2Df3Df4DfbC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
-	ConvertFLIRVideo("seq", "avi", "jpegls");
+macro "Import FLIR SEQ Action Tool - C000D19D1aD1eD28D2bD2eD38D3bD3eD43D48D4cD4dD4eD54D65D68D69D6aD6bD6cD6dD6eD70D71D72D73D74D75D76D78D7bD7eD80D81D82D83D84D85D86D88D8bD8eD95D98D9eDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DdeDe9DeaDebDecDedDeeDefDfeDffC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
+	
+	Dialog.create("Import FLIR SEQ File");
+	Dialog.addMessage("Define parameters");
+	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files will be created for each SEQ frame");
+	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files will be created for each SEQ frame");
+	Dialog.addMessage("If you choose file type 'Video', a single .avi file will be created and imported using Import-MOVIE (FFMPEG)\n");
+	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
+	Dialog.addChoice("Video Image Encoding (ignore if choosing file)", newArray("jpegls", "png"), "jpegls");
+	Dialog.show();
+	
+	var outtypechoice=Dialog.getChoice();
+	var encodetypechoice = Dialog.getChoice();
+
+	if(outtypechoice=="avi"){
+		var outtype="avi";
+		var outcodec=encodetypechoice;
+	}
+
+	if(outtypechoice=="png"){
+		var outtype="png";
+		var outcodec="png";
+	}
+
+	if(outtypechoice=="tiff"){
+		var outtype="tiff";
+		var outcodec="tiff";
+	}
+	
+	ConvertFLIRVideo("seq", outtype, outcodec);
 }
 
 macro "Import FLIR SEQ" {
-	ConvertFLIRVideo("seq", "avi", "jpegls");
+
+	Dialog.create("Import FLIR SEQ File");
+	Dialog.addMessage("Define parameters");
+	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files will be created for each SEQ frame");
+	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files will be created for each SEQ frame");
+	Dialog.addMessage("If you choose file type 'Video', a single .avi file will be created and imported using Import-MOVIE (FFMPEG)\n");
+	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
+	Dialog.addChoice("Video Image Encoding (ignore if choosing file)", newArray("jpegls", "png"), "jpegls");
+	Dialog.show();
+	
+	var outtypechoice=Dialog.getChoice();
+	var encodetypechoice = Dialog.getChoice();
+
+	if(outtypechoice=="avi"){
+		var outtype="avi";
+		var outcodec=encodetypechoice;
+	}
+
+	if(outtypechoice=="png"){
+		var outtype="png";
+		var outcodec="png";
+	}
+
+	if(outtypechoice=="tiff"){
+		var outtype="tiff";
+		var outcodec="tiff";
+	}
+	
+	ConvertFLIRVideo("seq", outtype, outcodec);
 }
 
-macro "Import FLIR CSQ Action Tool - C000D04D0bD0cD0dD0eD13D14D1bD1cD1dD22D23D25D26D27D28D29D2bD2dD32D35D39D3dD41D42D45D49D4dD4eD51D5eD60D61D65D66D67D69D6eD6fD70D75D77D79D7fD80D85D87D88D89D8fD90D91D9eD9fDa1Da5Da6Da7Da8Da9DaeDb1Db2Db5Db9DbdDbeDc2Dc5Dc6Dc7Dc8Dc9DcaDcdDd2Dd4Dd9DdaDdcDddDe2De3De4DebDecDf1Df2Df3Df4DfbC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
-	ConvertFLIRVideo("csq", "avi", "copy");
+macro "Import FLIR CSQ Action Tool - C000D19D1aD1bD1cD1dD28D2eD38D3eD43D48D4eD54D65D69D6aD6eD70D71D72D73D74D75D76D78D7bD7eD80D81D82D83D84D85D86D88D8bD8eD95D98D9cD9dD9eDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DdeDe9DeaDebDecDedDeeDefDfeDffC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
+	
+	Dialog.create("Import FLIR CSQ File");
+	Dialog.addMessage("Define parameters");
+	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files will be created for each SEQ frame");
+	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files will be created for each SEQ frame");
+	Dialog.addMessage("If you choose file type 'Video', a single .avi file will be created and imported using Import-MOVIE (FFMPEG)\n");
+	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
+	Dialog.addChoice("Video Image Encoding (ignore if choosing file)", newArray("jpegls", "png"), "jpegls");
+	Dialog.show();
+	
+	var outtypechoice=Dialog.getChoice();
+	var encodetypechoice = Dialog.getChoice();
+
+	if(outtypechoice=="avi"){
+		var outtype="avi";
+		var outcodec=encodetypechoice;
+	}
+
+	if(outtypechoice=="png"){
+		var outtype="png";
+		var outcodec="png";
+	}
+
+	if(outtypechoice=="tiff"){
+		var outtype="tiff";
+		var outcodec="tiff";
+	}
+	
+	ConvertFLIRVideo("csq", outtype, outcodec);
 }
 
 macro "Import FLIR CSQ" {
-	ConvertFLIRVideo("csq", "avi", "copy");
+	
+	Dialog.create("Import FLIR CSQ File");
+	Dialog.addMessage("Define parameters");
+	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files will be created for each SEQ frame");
+	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files will be created for each SEQ frame");
+	Dialog.addMessage("If you choose file type 'Video', a single .avi file will be created and imported using Import-MOVIE (FFMPEG)\n");
+	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
+	Dialog.addChoice("Video Image Encoding (ignore if choosing file)", newArray("jpegls", "png"), "jpegls");
+	Dialog.show();
+	
+	var outtypechoice=Dialog.getChoice();
+	var encodetypechoice = Dialog.getChoice();
+
+	if(outtypechoice=="avi"){
+		var outtype="avi";
+		var outcodec=encodetypechoice;
+	}
+
+	if(outtypechoice=="png"){
+		var outtype="png";
+		var outcodec="png";
+	}
+
+	if(outtypechoice=="tiff"){
+		var outtype="tiff";
+		var outcodec="tiff";
+	}
+	
+	ConvertFLIRVideo("csq", outtype, outcodec);
+	
 }
 
 function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 	// vidtype should be seq or csq
-	// outtype should be avi or png
-	// outcodec is the type of file compression needed for avi files - usually png.
+	// outtype should be avi, png, or tiff (this will be the file extension for the final file)
+	// outcodec is the type of file compression needed for avi files - usually jpegls, but png or tiff will work on some OS.
 	// Using command line tools: perl, a perl split.pl script, exiftool and ffmpeg, this macro will convert a SEQ file into an 16-bit avi file in png format
 	// to subsquently be imported using import-ffmpeg
+	
+	print("\n");
 	
 	if(vidtype=="seq"){
 		RawThermalType="tiff";		
@@ -746,14 +867,27 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 	
 	print("Loading: ", filepath);
 
-	fileout=File.nameWithoutExtension + "." + outtype;
-    
-    // this is the syntax that works.
-    //exec("perl split.pl -i Rec-1.seq -o temp -b frame -p fff -x fff");
+	if(outtype=="avi"){
+		fileout=File.nameWithoutExtension + "." + outtype; // outtype should be "avi"
+	}
 
+	if(outtype=="png"){
+		outputfolder=filedir + File.separator + File.nameWithoutExtension;
+		//print(outputfolder);
+		File.makeDirectory(outputfolder);
+		fileout=File.nameWithoutExtension + File.separator + File.nameWithoutExtension + "_%05d" + "." + outtype; // outtype should be "png"
+	}
+    
+	if(outtype=="tiff"){
+		outputfolder=filedir + File.separator + File.nameWithoutExtension;
+		//print(outputfolder);
+		File.makeDirectory(outputfolder);
+		fileout=File.nameWithoutExtension + File.separator + File.nameWithoutExtension + "_%05d" + "." + outtype; // outtype should be "tiff"
+	}
+	
 	// Define the syntax for the exec command to split the sequence file into .fff files
 	splitfffexeccmd = perlpath + "perl " + perlsplit + " -i " + filepath + " -o " + tempfolder + " -b frame -p fff -x fff";
-	print("Split the video file into its .fff files with: ");
+	print("Splitting the video file into its .fff files with: ");
 	print(splitfffexeccmd);
 
 	// Execute the split.pl script on the SEQ file to create fff files
@@ -828,12 +962,11 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 	if(substring(OS, 0, 7)=="Windows"){
 		exec("cmd", "/c", exiftoolpath + exiftool, "-b", "-RawThermalImage", tempfolder + File.separator + "*.fff", ">", filedir + File.separator + "thermalvid.raw");
 	}
-	
 
 
 	// Execute the split.pl script on thermalvid.raw to create tiff (or jpegls) files
 	splittiffexeccmd = perlpath + "perl " + perlsplit + " -i " + filedir + "/thermalvid.raw" + " -o " + filedir + "/temp -b frame -p " + RawThermalType + " -x " + RawThermalType;
-	print("Split the thermalvid.raw file into " + RawThermalType + " files with: ");
+	print("Splitting the thermalvid.raw file into " + RawThermalType + " files with: ");
 	print(splittiffexeccmd);
 	
 	if(vidtype=="seq"){
@@ -861,9 +994,21 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 		print("Temporary files and folder deleted.");
 	}
 
-	ffmpegimportarguments = "choose=" + filedir + File.separator + fileout + " first_frame=0 last_frame=-1";
-	
-	run("Movie (FFMPEG)...", ffmpegimportarguments);
+
+	if(outtype=="png"){
+		pngsequenceimportarguments="open=" + outputfolder + " sort";
+		run("Image Sequence...", pngsequenceimportarguments);
+	}
+
+	if(outtype=="tiff"){
+		tiffsequenceimportarguments="open=" + outputfolder + " sort";
+		run("Image Sequence...", tiffsequenceimportarguments);
+	}
+
+	if(outtype=="avi"){
+		ffmpegimportarguments = "choose=" + filedir + File.separator + fileout + " first_frame=0 last_frame=-1";
+		run("Movie (FFMPEG)...", ffmpegimportarguments);
+	}
 
 	for (i=1; i<=nSlices; i++) { 
 		setSlice(i);
