@@ -37,6 +37,7 @@ Installation Instructions
 -   Launch FIJI--&gt;Help--&gt;Update, allow it to update any plug-ins, then while the update window is open, select **Manage update websites**, and ensure that the FFMPEG box is ticked. Select ok, then click the **Apply** option, and restart FIJI. This FFMPEG is required for importing avi files created during the conversion process.
 -   Navigate to where FIJI is installed to find all the subfolders. On a Mac, you may need to right-click and click **Show Package Contents** to open up FIJI as a folder to reveal the various folders (macros, plugins, jars, etc..)
 -   Download the **ThermImageJ.ijm** file from this site and copy into the FIJI/macros/toolsets folder.
+-   Open the ThermImageJ.ijm file in any text editor, and verify the paths are properly set for your respective operating system. See the comments with the text file for guidance.
 -   Download the **luts** files from this site and copy into the FIJI/luts folder.
 -   Download the perl script, **split.pl** from this site and copy into a FIJI/scripts folder.
 -   Download **Byte\_Swapper.class** to the plugins folder.
@@ -90,7 +91,7 @@ perl /Applications/Fiji.app/scripts/split.pl
 
 You should see the following warning message:
 
-**"Error: Please specify input file, output folder, the output filename base, pattern to split, and output file extension."**
+*"Error: Please specify input file, output folder, the output filename base, pattern to split, and output file extension."*
 
 This verifies that the perl script is installed where your machine can access it.
 
@@ -98,7 +99,7 @@ If you see:
 
 *"Can't open perl script "/Applications/Fiji.app/scripts/split.pl": No such file or directory"*
 
-you will need to re-check the location of the script or the path information provided.
+you will need to re-check the location of the script or the path information provided at the top of the ThermImageJ.ijm file.
 
 Now, do the same for ffmpeg:
 
@@ -180,31 +181,47 @@ Main Functions and Features
 ### Imports that use Command Line Conversions
 
 -   Import/Convert FLIR JPG
-    -   user selects a candidate jpg or folder of jpgs, and a call to the command line tools, exiftool,
+    -   user selects a candidate JPG or folder of jpgs, and a call to the command line tool, exiftool, is performed to extract the raw-binary 16 bit pixel data, save this to a gray scale tif or png, and save or import that file.
 -   Import FLIR SEQ
-
+    -   user selects a candidate SEQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg are performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
 -   Import FLIR CSQ
+    -   user selects a candidate CSQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg are performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
 
 ### Utilities
 
 -   FLIR Calibrations
-
+    -   user selects a candidate FLIR file (jpg, seq, csq) to have the calibration constants and built-in object parameters stored at image capture extracted and displayed. Typically, the user would use the Planck constants and Object Paramters in the Raw2Temp macro.
 -   FLIR Dates
+    -   user selects a candidate FLIR file (jpg, seq, csq) to have the Date/Time Original returned. Use this to quickly scan a file for capture times.
 
 ### Temperature Conversion
 
 -   Raw2Temp
+    -   converts a 16-bit grayscale thermal image (or image stack) into estimated temperature using standard equations used in infrared thermography.
+    -   user must provide the camera calibration constants and object parameters that can be obtained using the FLIR Calibrations macro.
+    -   various custom versions of Raw2Temp are included for different cameras the author has used, since the calibration constants do not change from image to image, and only when the camera is sent back to manufacturer for re-calibration.
 
-Workflow
---------
+Typical Workflow
+----------------
 
 -   Determine your FLIR camera's calibration constants
 -   Convert Image to a 16-bit Grayscale File
 -   Import to imageJ
+-   Run Raw2Temp or one of the custom Raw2Temp macros for your particular camera
+-   Use ImageJ ROI tools and Measurement tools
 
-### Download and extract sample files to test:
+Download and extract sample files to test:
+------------------------------------------
 
 <https://github.com/gtatters/Thermimage/blob/master/Uploads/SampleFLIR.zip>
+
+Caution
+-------
+
+-   The maximum number of video frames (i.e. stacks) is limited by the CPU and speed of ImageJ macros.
+-   Due to performance limitations, memory allocation, and file size of videos, users are recommended to avoid converting their loaded video files to temperatures, as the memory required to is double that required to work with the 16-bit grayscale images.
+-   Consider cropping videos, re-sampling video stacks if you have a high sample rate, or performing analyses on the 16-bit raw data and then peforming the Raw2Temp calculations on summarised data.
+-   Finally, users should verify the values obtained with these macros are similar to the ones obtained using thermal imaging software. See <https://github.com/gtatters/ThermimageCalibration>.
 
 ### References
 
