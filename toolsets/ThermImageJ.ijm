@@ -15,6 +15,8 @@ var lutdir = getDirectory("luts");
 var list;
 var color = 0;
 var colors = newArray("Red", "Green", "Blue", "Cyan", "Magenta", "Yellow");
+var defaultpalette="Grays";
+var palettetypes=newArray("Grays", "FLIR", "Rainbow");
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 
@@ -213,7 +215,7 @@ function RawImportMikronRTV() {
 		run("Macro...", "code=v=v/10-273.15 stack");
 		}
 	
-	run("HighContrastRainbow1234 256");
+	run("Rainbow");
 	
 	Stack.getStatistics(count, mean, min, max, std);
 		var minpix=min;
@@ -329,8 +331,6 @@ function RawImportFLIRSEQ() {
 		print("IR Window Transmission: ", d2s(IRT,3));
 		print("Relative Humidity: ", d2s(RH,2));
 		print("\n");
-
-	//run("HighContrastRainbow1234 256");
 	
 	Stack.getStatistics(count, mean, min, max, std);
 		var minpix=min;
@@ -494,7 +494,6 @@ function ConvertImportFLIRJPG() {
 	    selectWindow(title);
 	}
 	
-	palettetypes=newArray("Greyscale", "FLIR", "Rainbow");
 	byteorder=newArray("Default", "Swap");
 	
 	if(RawThermalType=="TIFF"){
@@ -506,7 +505,7 @@ function ConvertImportFLIRJPG() {
 	}
 	
 	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Camera and Object Parameters");
+	Dialog.create("Verify Camera and Object Parameters");
 	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
 	Dialog.addMessage("Byte swap should be peformed on the 16-bit\nimage before converting to temperature");
 	Dialog.addChoice("Swap byte order before conversion?", byteorder, defaultbyteorder); 
@@ -524,7 +523,7 @@ function ConvertImportFLIRJPG() {
     Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
     Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
     Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, "Rainbow");
+    Dialog.addChoice("Palette", palettetypes, defaultpalette);
 	Dialog.show();
 
 	var ByteOrder=Dialog.getChoice();
@@ -540,20 +539,8 @@ function ConvertImportFLIRJPG() {
 	var IRWTemp = Dialog.getNumber();
 	var IRT = Dialog.getNumber();
 	var RH = Dialog.getNumber();
-	var palettetypechoice = Dialog.getChoice();
+	var palettetype = Dialog.getChoice();
 
-	if(palettetypechoice=="Greyscale"){
-		var palettetype="Grays";
-	}
-	
-	if(palettetypechoice=="FLIR"){
-		var palettetype="Ironbow";
-	}
-	
-	if(palettetypechoice=="Rainbow"){
-		var palettetype="HighContrastRainbow1234 256";
-	}
-	
 	if(fileoutpathexist==1){
 		filedelete_success=File.delete(fileoutpath);
 		folderdelete_success=File.delete(filedir + File.separator + "temp" + File.separator );
@@ -567,7 +554,7 @@ function ConvertImportFLIRJPG() {
 		print("Temporary file and folder deleted.");
 	}
 	
-		Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype);	
+		Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");	
 
 }
 
@@ -866,7 +853,34 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 	File.makeDirectory(tempfolder);
 	
 	print("Loading: ", filepath);
+	
+	print("Extracting calibration and image settings");
+	
+	// populate an array called flirvals with 14 entries to accept the array output from the flirvalues function
+	flirvals=newArray(14);
 
+	var printvalues="No";
+	
+	flirvals=flirvalues(filepath, printvalues);
+	
+	// define the constants extracted from the flir values function
+	var PR1=flirvals[0];
+	var PB=flirvals[1];
+	var PF=flirvals[2];
+	var PO=flirvals[3];
+	var PR2=flirvals[4];
+	var E=flirvals[5];
+	var OD=flirvals[6];
+	var RTemp=flirvals[7];
+	var ATemp=flirvals[8];
+	var IRWTemp=flirvals[9];
+	var IRT=flirvals[10];
+	var RH=flirvals[11];
+	var imagewidth=flirvals[12];
+	var imageheight=flirvals[13];
+
+	Array.print(flirvals);
+	
 	if(outtype=="avi"){
 		fileout=File.nameWithoutExtension + "." + outtype; // outtype should be "avi"
 	}
@@ -927,14 +941,15 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 	for(i = 1; i <=nframes; i++){
 		timeoriginal[i]=substring(flirvals, 11+(i-1)*30, 23+(i-1)*30);
 	}
-	
-	secoriginal=newArray(11);
-	for(i=0; i<11; i++){
+
+	maxnumframe=minOf(11, nframes);
+	secoriginal=newArray(maxnumframe);
+	for(i=0; i<maxnumframe; i++){
 		secoriginal[i]=parseFloat(substring(timeoriginal[i+1], 6, 12));
 	}
 	
-	framediff=newArray(10);
-	for(i=0; i<10; i++){
+	framediff=newArray(maxnumframe-1);
+	for(i=0; i<maxnumframe-1; i++){
 		framediff[i]=secoriginal[i+1] - secoriginal[i];
 	}
 	
@@ -963,7 +978,6 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 		exec("cmd", "/c", exiftoolpath + exiftool, "-b", "-RawThermalImage", tempfolder + File.separator + "*.fff", ">", filedir + File.separator + "thermalvid.raw");
 	}
 
-
 	// Execute the split.pl script on thermalvid.raw to create tiff (or jpegls) files
 	splittiffexeccmd = perlpath + "perl " + perlsplit + " -i " + filedir + "/thermalvid.raw" + " -o " + filedir + "/temp -b frame -p " + RawThermalType + " -x " + RawThermalType;
 	print("Splitting the thermalvid.raw file into " + RawThermalType + " files with: ");
@@ -980,6 +994,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 	// Execute the ffmpeg command to assimilate all the tiff files into one avi file
 	tiffcombinecmd = ffmpeg + " -f" + " image2" + " -vcodec" + " " + RawThermalType + " -r" + " 30" + " -i " + tempfolder + File.separator + "frame%05d." + RawThermalType + " -pix_fmt" + " gray16be" + " -vcodec " + outcodec + " " + filedir + File.separator + fileout + " -y";   
     print(tiffcombinecmd);    
+    
     //exec(ffmpeg, "-f", "image2", "-vcodec", RawThermalType, "-r", "30", "-i", tempfolder + File.separator + "frame%05d." + RawThermalType, "-vcodec", outcodec, filedir + File.separator + fileout, "-y");
     exec(ffmpeg, "-f", "image2", "-vcodec", RawThermalType, "-r", "30", "-i", tempfolder + File.separator + "frame%05d." + RawThermalType, "-pix_fmt", "gray16be", "-vcodec", outcodec, filedir + File.separator + fileout, "-y");
 	
@@ -993,7 +1008,6 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 	if(tempfilesdelete_success + tempfolderdelete_success + thermalviddelete_success==3){
 		print("Temporary files and folder deleted.");
 	}
-
 
 	if(outtype=="png"){
 		pngsequenceimportarguments="open=" + outputfolder + " sort";
@@ -1014,6 +1028,11 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 		setSlice(i);
 		run("Set Label...", "label=" + timeoriginal[i]);
 	}
+	
+	//run("Raw2Temp Tool");
+	
+	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, "Rainbow", "Yes");
+	
 }
 
 macro "-" {} //menu divider
@@ -1048,26 +1067,26 @@ macro "-" {} //menu divider
 macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D30D33D35D36D40D41D42D43D46D47D59D63D6aD6cD74D76D7bD7cD85D86D88D8aD8bD8cD94D95D96D98Da8Db8Dc8Dd8De8Df8Ce50DbaDcaCfc0DbdDcdCf80DbbDcbCff7DbfDcfCd17Db9Dc9Cfe2DbeDceCfb0DbcDcc"{
 
 	// Planck Constants after Recalibration and Service with New Lens in November 2018:
-	var PR1=17998.529;
-	var PR2=0.015145967;
-	var PB=1453.1; 
-	var PF=1;
-	var PO=-5854;
+	//var PR1=17998.529;
+	//var PR2=0.015145967;
+	//var PB=1453.1; 
+	//var PF=1;
+	//var PO=-5854;
 	
-	var E = 0.95;
-	var OD = 1.5;
-	var RTemp = 30.0;
-	var ATemp = 30.0;
-	var IRWTemp = 30.0;
-	var IRT = 1.0;
-	var RH = 80.0;
+	//var E = 0.95;
+	//var OD = 1.5;
+	//var RTemp = 30.0;
+	//var ATemp = 30.0;
+	//var IRWTemp = 30.0;
+	//var IRT = 1.0;
+	//var RH = 80.0;
 
 	palettetypes=newArray("Greyscale", "FLIR", "Rainbow");
 	byteorder=newArray("Default", "Swap");
 	defaultbyteorder="Default";
 	
 	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Camera and Object Parameters");
+	Dialog.create("Verify Camera and Object Parameters");
 	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
 	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
 	Dialog.addMessage("Camera Calibration Constants:");
@@ -1100,25 +1119,13 @@ macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D
 	var IRWTemp = Dialog.getNumber();
 	var IRT = Dialog.getNumber();
 	var RH = Dialog.getNumber();
-	var palettetypechoice = Dialog.getChoice();
-
-	if(palettetypechoice=="Greyscale"){
-		var palettetype="Grays";
-	}
-	
-	if(palettetypechoice=="FLIR"){
-		var palettetype="Ironbow";
-	}
-	
-	if(palettetypechoice=="Rainbow"){
-		var palettetype="HighContrastRainbow1234 256";
-	}
+	var palettetype = Dialog.getChoice();
 	
 	if(ByteOrder == "Swap"){
 		run("Byte Swapper");
 	}
 
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype);
+	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
 
 }
 	
@@ -1126,26 +1133,26 @@ macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D
 macro "Raw2Temp Tool"{
 
 	// Planck Constants after Recalibration and Service with New Lens in November 2018:
-	var PR1=17998.529;
-	var PR2=0.015145967;
-	var PB=1453.1; 
-	var PF=1;
-	var PO=-5854;
+	// var PR1=17998.529;
+	// var PR2=0.015145967;
+	// var PB=1453.1; 
+	// var PF=1;
+	// var PO=-5854;
 	
-	var E = 0.95;
-	var OD = 1.5;
-	var RTemp = 30.0;
-	var ATemp = 30.0;
-	var IRWTemp = 30.0;
-	var IRT = 1.0;
-	var RH = 80.0;
+	// var E = 0.95;
+	// var OD = 1.5;
+	// var RTemp = 30.0;
+	// var ATemp = 30.0;
+	// var IRWTemp = 30.0;
+	// var IRT = 1.0;
+	// var RH = 80.0;
 
 	palettetypes=newArray("Greyscale", "FLIR", "Rainbow");
 	byteorder=newArray("Default", "Swap");
 	defaultbyteorder="Default";
 	
 	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Camera and Object Parameters");
+	Dialog.create("Verify Camera and Object Parameters");
 	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
 	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
 	Dialog.addMessage("Camera Calibration Constants:");
@@ -1178,25 +1185,13 @@ macro "Raw2Temp Tool"{
 	var IRWTemp = Dialog.getNumber();
 	var IRT = Dialog.getNumber();
 	var RH = Dialog.getNumber();
-	var palettetypechoice = Dialog.getChoice();
-
-	if(palettetypechoice=="Greyscale"){
-		var palettetype="Grays";
-	}
-	
-	if(palettetypechoice=="FLIR"){
-		var palettetype="Ironbow";
-	}
-	
-	if(palettetypechoice=="Rainbow"){
-		var palettetype="HighContrastRainbow1234 256";
-	}
+	var palettetype = Dialog.getChoice();
 	
 	if(ByteOrder == "Swap"){
 		run("Byte Swapper");
 	}
 
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype);
+	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
 
 }
 
@@ -1220,7 +1215,7 @@ macro "Raw2Temp SC660" {
 	defaultbyteorder="Default";
 	
 	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Camera and Object Parameters");
+	Dialog.create("Verify Camera and Object Parameters");
 	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
 	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
 	Dialog.addMessage("Camera Calibration Constants:");
@@ -1253,25 +1248,13 @@ macro "Raw2Temp SC660" {
 	var IRWTemp = Dialog.getNumber();
 	var IRT = Dialog.getNumber();
 	var RH = Dialog.getNumber();
-	var palettetypechoice = Dialog.getChoice();
-
-	if(palettetypechoice=="Greyscale"){
-		var palettetype="Grays";
-	}
-	
-	if(palettetypechoice=="FLIR"){
-		var palettetype="Ironbow";
-	}
-	
-	if(palettetypechoice=="Rainbow"){
-		var palettetype="HighContrastRainbow1234 256";
-	}
+	var palettetype = Dialog.getChoice();
 	
 	if(ByteOrder == "Swap"){
 		run("Byte Swapper");
 	}
 
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype);
+	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
 	
 }
 
@@ -1304,7 +1287,7 @@ macro "Raw2Temp T1030" {
 	defaultbyteorder="Default";
 	
 	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Camera and Object Parameters");
+	Dialog.create("Verify Camera and Object Parameters");
 	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
 	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
 	Dialog.addMessage("Camera Calibration Constants:");
@@ -1337,25 +1320,13 @@ macro "Raw2Temp T1030" {
 	var IRWTemp = Dialog.getNumber();
 	var IRT = Dialog.getNumber();
 	var RH = Dialog.getNumber();
-	var palettetypechoice = Dialog.getChoice();
-
-	if(palettetypechoice=="Greyscale"){
-		var palettetype="Grays";
-	}
-	
-	if(palettetypechoice=="FLIR"){
-		var palettetype="Ironbow";
-	}
-	
-	if(palettetypechoice=="Rainbow"){
-		var palettetype="HighContrastRainbow1234 256";
-	}
+	var palettetype = Dialog.getChoice();
 	
 	if(ByteOrder == "Swap"){
 		run("Byte Swapper");
 	}
 
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype);
+	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
 	
 }
 
@@ -1379,7 +1350,7 @@ macro "Raw2Temp FlirVueProR" {
 	defaultbyteorder="Default";
 	
 	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Camera and Object Parameters");
+	Dialog.create("Verify Camera and Object Parameters");
 	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
 	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
 	Dialog.addMessage("Camera Calibration Constants:");
@@ -1412,25 +1383,13 @@ macro "Raw2Temp FlirVueProR" {
 	var IRWTemp = Dialog.getNumber();
 	var IRT = Dialog.getNumber();
 	var RH = Dialog.getNumber();
-	var palettetypechoice = Dialog.getChoice();
-
-	if(palettetypechoice=="Greyscale"){
-		var palettetype="Grays";
-	}
-	
-	if(palettetypechoice=="FLIR"){
-		var palettetype="Ironbow";
-	}
-	
-	if(palettetypechoice=="Rainbow"){
-		var palettetype="HighContrastRainbow1234 256";
-	}
+	var palettetype = Dialog.getChoice();
 	
 	if(ByteOrder == "Swap"){
 		run("Byte Swapper");
 	}
 
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype);
+	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
 		
 }
 
@@ -1456,7 +1415,7 @@ macro "Raw2Temp E40" {
 	defaultbyteorder="Default";
 	
 	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Camera and Object Parameters");
+	Dialog.create("Verify Camera and Object Parameters");
 	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
 	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
 	Dialog.addMessage("Camera Calibration Constants:");
@@ -1489,25 +1448,13 @@ macro "Raw2Temp E40" {
 	var IRWTemp = Dialog.getNumber();
 	var IRT = Dialog.getNumber();
 	var RH = Dialog.getNumber();
-	var palettetypechoice = Dialog.getChoice();
-
-	if(palettetypechoice=="Greyscale"){
-		var palettetype="Grays";
-	}
-	
-	if(palettetypechoice=="FLIR"){
-		var palettetype="Ironbow";
-	}
-	
-	if(palettetypechoice=="Rainbow"){
-		var palettetype="HighContrastRainbow1234 256";
-	}
+	var palettetype = Dialog.getChoice();
 	
 	if(ByteOrder == "Swap"){
 		run("Byte Swapper");
 	}
 
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype);
+	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
 	
 	//a = newArray(65536); 
 	//templookup=newArray(65536);
@@ -1558,10 +1505,37 @@ function getLutList() {
 
 
 
-function Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype) {
-
+function Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, dialogprompt) {
+	
+	
 	if(is("Virtual Stack")==true){
 		run("Duplicate...", "duplicate");
+	}
+	
+	if(dialogprompt=="Yes"){
+		
+		byteorder=newArray("Default", "Swap");
+		defaultbyteorder="Default";
+		// Create a prompt dialog to ask user to verify the values to be used in the calculations below
+		Dialog.create("Verify Camera and Object Parameters");
+		Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
+		Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
+		Dialog.addMessage("Camera Calibration Constants:");
+		Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
+		Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
+		Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
+		Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
+  		Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+    	Dialog.addMessage("Object Parameters:");
+   		Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
+    	Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
+    	Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
+    	Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
+   	 	Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
+    	Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
+    	Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
+    	Dialog.addChoice("Palette", palettetypes, "Rainbow");
+		Dialog.show();
 	}
 	
 	//setBatchMode(true);
@@ -1626,7 +1600,6 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, p
 	maxtemp=PB/log(PR1/(PR2*(maxpix/rawdivisor-rawsubtract+PO))+PF)-273.15;
 	setMinAndMax(mintemp, maxtemp);
 	run(palettetype);
-	//run("HighContrastRainbow1234 256");
 }
 
 
