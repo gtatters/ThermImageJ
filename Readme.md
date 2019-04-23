@@ -7,7 +7,7 @@ ThermImageJ provides an open source tool for assisting with infrared thermograph
 
 These macros will allow you to import most FLIR jpgs and videos and process the images in ImageJ.
 
-ThermImageJ emerged from Thermimage (<https://github.com/gtatters/Thermimage>), an R package that has similar features, with less emphasis on image analysis.
+ThermImageJ emerged from Thermimage (<https://github.com/gtatters/Thermimage>), an R package that has similar features, but with more emphasis on biological heat transfer analysis.
 
 Version History
 ---------------
@@ -17,7 +17,7 @@ Version History
 Compatibility
 -------------
 
--   ThermImageJ was developed on OSX, and tested using ImageJ v1.52n. Many features require installation of command line tools that may present future challenges on different operating systems. Testing and troubleshooting is ongoing. Report issues here: <https://github.com/gtatters/ThermImageJ/issues>
+-   ThermImageJ was developed on OSX, and tested using ImageJ v1.52n. Many features require installation of command line tools that may present future challenges on different operating systems. Testing and troubleshooting is ongoing. Please report issues here: <https://github.com/gtatters/ThermImageJ/issues>
 
 Requirements
 ------------
@@ -188,16 +188,17 @@ Main Functions and Features
 ### Imports that use Command Line Conversions
 
 -   Import/Convert FLIR JPG
-    -   user selects a candidate JPG or folder of jpgs, and a call to the command line tool, exiftool, is performed to extract the raw-binary 16 bit pixel data, save this to a gray scale tif or png, and save or import that file.
+    -   select a candidate JPG or folder of JPGs, and a call to the command line tool, exiftool, is performed to extract the raw-binary 16 bit pixel data, save this to a gray scale tif or png, and save or import that file.
 -   Import FLIR SEQ
-    -   user selects a candidate SEQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg are performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
+    -   select a candidate SEQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg is performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
 -   Import FLIR CSQ
-    -   user selects a candidate CSQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg are performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
+    -   select a candidate CSQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg is performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
 
 ### Utilities
 
 -   FLIR Calibrations
-    -   user selects a candidate FLIR file (jpg, seq, csq) to have the calibration constants and built-in object parameters stored at image capture extracted and displayed. Typically, the user would use the Planck constants and Object Paramters in the Raw2Temp macro.
+    -   select a candidate FLIR file (jpg, seq, csq) to display the calibration constants and built-in object parameters stored at image capture. Typically, the user would then use the Planck constants and Object Paramters in the Raw2Temp macro.
+    -   use this function on the original FLIR file if you have a 16-bit grayscale image of the raw data in a separate file and need to convert to temperature under specified conditions.
 -   FLIR Dates
     -   user selects a candidate FLIR file (jpg, seq, csq) to have the Date/Time Original returned. Use this to quickly scan a file for capture times.
 
@@ -227,8 +228,8 @@ Caution
 -------
 
 -   The maximum number of video frames (i.e. stacks) is limited by the CPU and speed of ImageJ macros.
--   Due to performance limitations, memory allocation, and file size of videos, users are recommended to avoid converting their loaded video files to temperatures, as the memory required to is double that required to work with the 16-bit grayscale images.
--   Consider cropping videos, re-sampling video stacks if you have a high sample rate, or performing analyses on the 16-bit raw data and then peforming the Raw2Temp calculations on summarised data.
+-   Due to performance limitations, memory allocation, and file size of videos, users are recommended to delay converting their loaded video files to temperatures, until files have been otherwise processed, as the memory required to is double that required to work with the 16-bit grayscale images.
+-   Consider cropping videos, re-sampling fewer stacks if you have a high stack size, or performing ROI analyses on the 16-bit raw data and then peforming the Raw2Temp calculations on summarised data.
 -   Finally, users should verify that the values obtained with these macros are similar to the ones obtained using thermal imaging software. See <https://github.com/gtatters/ThermimageCalibration>.
 
 ### References
