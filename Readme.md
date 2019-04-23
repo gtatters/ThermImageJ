@@ -7,6 +7,8 @@ ThermImageJ provides an open source tool for assisting with infrared thermograph
 
 These macros will allow you to import most FLIR jpgs and videos and process the images in ImageJ.
 
+ThermImageJ emerged from Thermimage (<https://github.com/gtatters/Thermimage>), an R package that has similar features, with less emphasis on image analysis.
+
 Version History
 ---------------
 
@@ -15,7 +17,7 @@ Version History
 Compatibility
 -------------
 
--   ThermImageJ was developed on OSX, and tested using ImageJ v1.52n. Many features require installation of command line tools that may or may not work as effectively in different operating systems. Testing and troubleshooting is ongoing. Report issues here: <https://github.com/gtatters/ThermImageJ/issues>
+-   ThermImageJ was developed on OSX, and tested using ImageJ v1.52n. Many features require installation of command line tools that may present future challenges on different operating systems. Testing and troubleshooting is ongoing. Report issues here: <https://github.com/gtatters/ThermImageJ/issues>
 
 Requirements
 ------------
@@ -34,11 +36,11 @@ Installation Instructions
 
 -   Install FIJI, exiftool, and perl according to the website instructions above.
 -   Launch FIJI and follow any update instructions.
--   Launch FIJI--&gt;Help--&gt;Update, allow it to update any plug-ins, then while the update window is open, select **Manage update websites**, and ensure that the FFMPEG box is ticked. Select ok, then click the **Apply** option, and restart FIJI. This FFMPEG is required for importing avi files created during the conversion process.
+-   Launch FIJI--&gt;Help--&gt;Update, allow it to update any plug-ins, then while the update window is open, select **Manage update websites**, and ensure that the FFMPEG box is ticked. Select **ok**, then click the **Apply** option, and restart FIJI. This FFMPEG is required for importing avi files created during the conversion process, although it might require that you have FFMPEG installed .
 -   Navigate to where FIJI is installed to find all the subfolders. On a Mac, you may need to right-click and click **Show Package Contents** to open up FIJI as a folder to reveal the various folders (macros, plugins, jars, etc..)
 -   Download the **ThermImageJ.ijm** file from this site and copy into the FIJI/macros/toolsets folder.
--   Open the ThermImageJ.ijm file in any text editor, and verify the paths are properly set for your respective operating system. See the comments with the text file for guidance.
--   Download the **luts** files from this site and copy into the FIJI/luts folder.
+-   Open the **ThermImageJ.ijm** file in any text editor, and verify the paths are properly set for your respective operating system. See the comments with the text file for guidance.
+-   Download the additional **luts** files from this site and copy into your FIJI/luts folder. These are palettes that are commonly used in thermal imaging.
 -   Download the perl script, **split.pl** from this site and copy into a FIJI/scripts folder.
 -   Download **Byte\_Swapper.class** to the plugins folder.
 -   Restart ImageJ.
@@ -148,16 +150,21 @@ Main Functions and Features
 
 ### Lookup tables and adjusting colour ranges
 
--   LUT (look up table) menu
+-   LUT (Thermal Palette Look Up Table) menu
     -   for rapidly accessing different pseudocolour palettes
+    -   Grays, Ironbow, and Rainbow are more commonly used in thermal imaging
+    -   ImageJ's built in LUTs can be always be accessed from the Image-Lookup Tables Menu
 -   Next LUT
-    -   select the next LUT in the list
+    -   select the next LUT in the list of all ImageJ LUTs, including the ones in the Thermal LUT list
 -   Previous LUT
-    -   select the previous LUT in the list
+    -   select the previous LUT in the list all ImageJ LUTs, including the ones in the Thermal LUT list
 -   Invert LUT
-    -   invert the colour scale of the LUT - this can be toggled
+    -   invert the colour scale of the LUT
+    -   this can be toggled
 -   Brightness/Contrast
     -   setting the min and max values of the pseudocolour scale
+    -   set min equal to the lowest temperature desired on the lookup table scale
+    -   set max equal to the highest temperature deisred on the lookup table scale
 -   Add Calibration bar
     -   makes use of the built-in Analyze-Tools-Calibration Bar
     -   use this after temperature conversion of image
@@ -166,7 +173,7 @@ Main Functions and Features
 
 -   Import RTV
     -   custom macro to import an old Mikron Mikrospec R/T video format
-    -   these files had simple encoding and are not likely in use, except by the author
+    -   these files had simple encoding and are not likely in use any longer, except by the author
 -   Import SEQ
     -   custom macro to import FLIR SEQ using the Import-Raw command
     -   use only if you know the precise offset byte start and the number of bytes between frames.
@@ -213,7 +220,7 @@ Typical Workflow
 Download and extract sample files to test:
 ------------------------------------------
 
-<https://github.com/gtatters/Thermimage/blob/master/Uploads/SampleFLIR.zip>
+<https://github.com/gtatters/ThermImageJ/blob/master/SampleFiles.zip>
 
 Caution
 -------
