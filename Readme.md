@@ -1,4 +1,4 @@
-ThermImageJ - Functions, and Macros for ImageJ
+ThermImageJ - Functions and Macros for ImageJ
 ================
 
 ThermImageJ is a collection of ImageJ macros to allow for import and conversion of thermal image files to assist in extracting raw data from infrared thermal images and converting them to temperatures using standard equations in thermography.
