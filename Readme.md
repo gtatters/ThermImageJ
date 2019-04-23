@@ -211,10 +211,11 @@ Main Functions and Features
 Typical Workflow
 ----------------
 
--   Determine your FLIR camera's calibration constants
--   Convert Image to a 16-bit Grayscale File
--   Import to imageJ
+-   Determine your FLIR camera's calibration constants (i.e. use the Calibration Values Tool)
+-   Convert Image to a 16-bit Grayscale File (i.e. Convert FLIR JPG)
+-   Import to ImageJ
 -   Run Raw2Temp or one of the custom Raw2Temp macros for your particular camera
+-   Choose your palette (LUT in ImageJ)
 -   Use ImageJ ROI tools and Measurement tools
 
 Download and extract sample files to test:
@@ -228,7 +229,7 @@ Caution
 -   The maximum number of video frames (i.e. stacks) is limited by the CPU and speed of ImageJ macros.
 -   Due to performance limitations, memory allocation, and file size of videos, users are recommended to avoid converting their loaded video files to temperatures, as the memory required to is double that required to work with the 16-bit grayscale images.
 -   Consider cropping videos, re-sampling video stacks if you have a high sample rate, or performing analyses on the 16-bit raw data and then peforming the Raw2Temp calculations on summarised data.
--   Finally, users should verify the values obtained with these macros are similar to the ones obtained using thermal imaging software. See <https://github.com/gtatters/ThermimageCalibration>.
+-   Finally, users should verify that the values obtained with these macros are similar to the ones obtained using thermal imaging software. See <https://github.com/gtatters/ThermimageCalibration>.
 
 ### References
 
