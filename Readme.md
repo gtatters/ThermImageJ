@@ -171,13 +171,15 @@ Main Functions and Features
 
 ### Direct Import of Raw Data
 
--   Import RTV
+-   Raw Import RTV
     -   custom macro to import an old Mikron Mikrospec R/T video format
     -   these files had simple encoding and are not likely in use any longer, except by the author
--   Import SEQ
+    -   see SampleFiles.zip for sample data
+-   Raw Import SEQ
     -   custom macro to import FLIR SEQ using the Import-Raw command
     -   use only if you know the precise offset byte start and the number of bytes between frames.
     -   only works for certain SEQ files, and only formats where tiff format underlies the video
+-   see SampleFiles.zip for sample data
 
 ### Swap Bytes
 
@@ -191,6 +193,7 @@ Main Functions and Features
     -   select a candidate JPG or folder of JPGs, and a call to the command line tool, exiftool, is performed to extract the raw-binary 16 bit pixel data, save this to a gray scale tif or png, and save or import that file.
 -   Import FLIR SEQ
     -   select a candidate SEQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg is performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
+    -   this may work FCF file types as well but has not been thoroughly tested
 -   Import FLIR CSQ
     -   select a candidate CSQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg is performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
 
@@ -219,6 +222,22 @@ Typical Workflow
 -   Choose your palette (LUT in ImageJ)
 -   Use ImageJ ROI tools and Measurement tools
 
+Video Workflow
+--------------
+
+-   Use the Import SEQ or Import CSQ functions that scan the file to determine calibration constants before import
+-   Select the video import option and jpegls as the codec (i.e. the defaults) This will keep file size as small as possible and preserves compatibility with the ImageJ FFMPEG implementation
+-   The Import SEQ and Import CSQ macros will automatically attempt to calculate temperature
+-   Once the file is converted and imported, double check that the calibration constants and object parameters are appropriate and select ok. If you escape at this stage, you should still have a 16-bit grayscale image stack, and could run the Raw2Temp function later
+
+ROI analysis
+------------
+
+-   First set the parameters you are interested in extracting in the Analyze-&gt;Set Measurements menu.
+-   Typical values are min, max, mean, modal, median, standard deviation, but ImageJ offers so many other values.
+-   In ImageJ terminology, "Intensity" or "Gray Value" corresponds to the number stored in each pixel. This might be the 16-bit raw value or it might be the 32-bit decimal converted temperature, depending on when analysis is performed.
+-   Take advantage of all the ImageJ ROI tools, or Tools-&gt;ROI Manager to draw regions of interest over sites of interest.
+
 Download and extract sample files to test:
 ------------------------------------------
 
@@ -228,9 +247,9 @@ Caution
 -------
 
 -   The maximum number of video frames (i.e. stacks) is limited by the CPU and speed of ImageJ macros.
--   Due to performance limitations, memory allocation, and file size of videos, users are recommended to delay converting their loaded video files to temperatures, until files have been otherwise processed, as the memory required to is double that required to work with the 16-bit grayscale images.
--   Consider cropping videos, re-sampling fewer stacks if you have a high stack size, or performing ROI analyses on the 16-bit raw data and then peforming the Raw2Temp calculations on summarised data.
--   Finally, users should verify that the values obtained with these macros are similar to the ones obtained using thermal imaging software. See <https://github.com/gtatters/ThermimageCalibration>.
+-   Due to performance limitations, memory allocation, and file size of videos, users are recommended to delay converting their loaded video files to temperature, until files have been otherwise processed, as the memory required to is double that required to work with the 16-bit grayscale images.
+-   Consider cropping videos, re-sampling fewer stacks if you have oversampled videos, or performing ROI analyses on the 16-bit raw data and then calculate temperature using the raw2temp function also available in an R package (Thermimage)
+-   Finally, users are advised to verify that the values obtained with these macros are similar to the ones obtained using official thermal imaging software. See <https://github.com/gtatters/ThermimageCalibration> for details on performance accuracy.
 
 ### References
 
