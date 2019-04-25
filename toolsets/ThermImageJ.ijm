@@ -10,13 +10,15 @@
 
 var luts = getLutMenu();
 var lCmds = newMenu("LUT Menu Tool", luts);
+var thermlCmds = newMenu("Thermal LUT Menu Tool", newArray("Grays", "Ironbow", "Rainbow", "Spectrum", "Thermal", "Yellow", "Yellow Hot", "Green Fire Blue", "Red Green", "5 Ramps", "6 Shades"));
 var lut = -1;
 var lutdir = getDirectory("luts");
 var list;
 var color = 0;
 var colors = newArray("Red", "Green", "Blue", "Cyan", "Magenta", "Yellow");
+
+var palettetypes=newArray("Grays", "Ironbow", "Rainbow");
 var defaultpalette="Grays";
-var palettetypes=newArray("Grays", "FLIR", "Rainbow");
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 
@@ -39,10 +41,10 @@ var exiftoolOSX="exiftool";
 var ffmpegpathOSX="/usr/local/bin/";
 
 // Linux Users verify these settings:
-var perlpathLinux="/usr/local/bin/";
-var exiftoolpathLinux="/usr/local/bin/";
+var perlpathLinux="/usr/bin/";
+var exiftoolpathLinux="/usr/bin/";
 var exiftoolLinux="exiftool";
-var ffmpegpathLinux="/usr/local/bin/";
+var ffmpegpathLinux="/usr/bin/";
 
 // Windows Users verify these settings:
 var perlpathWindows="c:/Perl64/bin/";
@@ -50,10 +52,16 @@ var exiftoolpathWindows="c:/windows/";
 var exiftoolWindows="exiftool.exe";
 var ffmpegpathWindows="c:/FFmpeg/bin/";
 
+/// This will call all the LUTs from the lut folder
+//macro "LUT Menu" {
+//	cmd = getArgument();
+//	if (cmd!="-") run(cmd);
+//}
 
-macro "LUT Menu Tool - C037T0b11LT6b09UTcb09T" {
-	cmd = getArgument();
-	if (cmd!="-") run(cmd);
+// This will call a smaller subset of LUTs that are more appropriate for thermal imaging.
+macro "Thermal LUT Menu Tool - C037T0b11LT6b09UTcb09T" {
+      cmd = getArgument();
+          run(cmd);
 }
 
 macro "Grayscale LUT" {
@@ -90,14 +98,14 @@ macro "Invert LUT" {
         run("Invert LUT");
 }
 
-macro "Calibration Bar Action Tool - C000D10D11D12D13D14D15D16D17D18D19D1aD1bD1cD1dD1eD1fD20D2dD2eD2fD30D3dD3eD3fD40D4dD4eD4fD50D5dD5eD5fD60D61D62D63D64D65D66D67D68D69D6aD6bD6cD6dD6eD6fD70D72D74D76D78D7aD7cD7eD80D82D84D86D88D8aD8cD8eDa4Da5Da6Da9DaaDabDacDadDb3Db7Db9DbbDc3Dc7Dc9DcbDd4Dd6Dd9C000C111C222D2bD2cD3bD3cD4bD4cD5bD5cC222C333C444D29D2aD39D3aD49D4aD59D5aC444C555C666D27D28D37D38D47D48D57D58C666C777C888C999D25D26D35D36D45D46D55D56C999CaaaCbbbD23D24D33D34D43D44D53D54CbbbCcccCdddD21D22D31D32D41D42D51D52CdddCeeeCfff"{
+macro "Add Calibration Bar Action Tool - C000D10D11D12D13D14D15D16D17D18D19D1aD1bD1cD1dD1eD1fD20D2dD2eD2fD30D3dD3eD3fD40D4dD4eD4fD50D5dD5eD5fD60D61D62D63D64D65D66D67D68D69D6aD6bD6cD6dD6eD6fD70D72D74D76D78D7aD7cD7eD80D82D84D86D88D8aD8cD8eDa4Da5Da6Da9DaaDabDacDadDb3Db7Db9DbbDc3Dc7Dc9DcbDd4Dd6Dd9C001C002C003C004C005C006C007C107C108C208C308C309C409D2bD2cD3bD3cD4bD4cD5bD5cC409C509C609C709C809C909Ca09D29D2aD39D3aD49D4aD59D5aCa09Cb09Cc09Cc08Cc18Cc17Cd17Cd26D27D28D37D38D47D48D57D58Cd26Cd25Cd34Cd33Ce33Ce32Ce41Ce40Ce50Ce60D25D26D35D36D45D46D55D56Ce60Cf60Cf70Cf80Cf90Cfa0D23D24D33D34D43D44D53D54Cfa0Cfb0Cfc0Cfd0Cfd1D21D22D31D32D41D42D51D52Cfd1Cfe2Cfe3Cfe4Cfe5Cfe6Cff6Cff7Cff8Cff9CffaCffbCffcCffdCffeCfff"{
 	run("32-bit");
 	run("Calibrate...", "function=None");
 	run("Calibration Bar...", "location=[Upper Right] fill=None label=White number=5 decimal=1 font=12 zoom=1 overlay=1");
 }
 
 
-macro "Calibration Bar Tool"{
+macro "Add Calibration Bar"{
 	run("32-bit");
 	run("Calibrate...", "function=None");
 	run("Calibration Bar...", "location=[Upper Right] fill=None label=White number=5 decimal=1 font=12 zoom=1 overlay=1");
@@ -215,7 +223,7 @@ function RawImportMikronRTV() {
 		run("Macro...", "code=v=v/10-273.15 stack");
 		}
 	
-	run("Rainbow");
+	run(defaultpalette);
 	
 	Stack.getStatistics(count, mean, min, max, std);
 		var minpix=min;
@@ -224,7 +232,6 @@ function RawImportMikronRTV() {
 	
 	//run("Calibration Bar...", "location=[Upper Right] fill=White label=Black number=5 decimal=1 font=10 zoom=0.5 bold overlay");
 }
-
 
 macro "Raw Import FLIR SEQ Action Tool - C000D00D01D02D03D04D05D06D0aD0bD0fD10D13D19D1cD1fD20D23D24D25D29D2cD2fD30D31D32D33D35D36D39D3dD3eD3fD54D55D56D59D5aD5bD5cD5dD5eD5fD61D62D63D64D69D6cD6fD70D71D74D76D77D79D7cD7fD81D82D83D84D89D8cD8fD94D95D96D99D9fDb0Db1Db2Db3DbaDbbDbcDbdDbeDc3Dc4Dc5Dc6Dc9DcfDd1Dd2Dd3Dd4Dd9DdeDdfDe3De4De5De6DeaDebDecDedDeeDefDf0Df1Df2Df3DffC000C111C222C333C444C555C666C777C888C999D67D78D87C999CaaaCbbbCcccCdddCeeeCfff" {
 	RawImportFLIRSEQ();
@@ -292,7 +299,7 @@ function RawImportFLIRSEQ() {
 		flirvals=exec("/usr/local/bin/exiftool",  "-Planck*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
 	}
 	
-	if(substring(OS, 0, 7)=="Windows"){
+	if(substring(OS, 0, 5)=="Windo"){
 		flirvals=exec("c:/Windows/exiftool.exe", "-Planck*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
 	}
         var PR1 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck R1"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck R1")) ));
@@ -341,18 +348,50 @@ function RawImportFLIRSEQ() {
 		run("Raw2Temp SC660");
 	}
 
-	//run("Calibration Bar...", "location=[Upper Right] fill=White label=Black number=5 decimal=1 font=12 zoom=1 bold overlay");
 
 }
 
 
 macro "-" {} //menu divider
 
-macro "Byte Swap Action Tool - C000D12D13D1cD1dD21D24D25D26D27D28D29D2aD2bD2eD31D34D35D36D37D38D39D3aD3bD3eD42D43D4cD4dD82D83D91D92D93D94Da0Da1Da2Da3Da4Da5Db2Db3Dc2Dc3DccDcdDd2Dd3Dd4Dd5Dd6Dd7Dd8Dd9DdaDdbDdeDe2De3De4De5De6De7De8De9DeaDebDeeDfcDfdC000C111C222C333C444C555C666C777C888C999CaaaD1bD4bCaaaD11D14DcbDceDfbDfeCaaaD1eD4eCaaaD41D44CbbbCcccD2dD3dCcccD22DddDedCcccD32CcccD72D73CcccDc4CcccCdddD23D2cD3cDdcDecCdddDb1CdddD33CeeeDb0CeeeD8cD8dDb4DbcDbdCeeeCfffD20D30Df5CfffDc7CfffD17D18D47D48Dc6Dc8Df6Df7Df8CfffD16D19D46D49Dc9Df9CfffDf4CfffDb5CfffDc1"{
+
+macro "Frame Start Byte"{
+
+	var imagewidth=640;
+	var imageheight=480;
+	Dialog.create("Scan for potential offset byte start in FLIR SEQ Videos"); 
+	Dialog.addMessage("This macro will scan a SEQ file for the offset byte");
+	Dialog.addMessage("position that resembles: 0200wwwwhhhh");
+	Dialog.addMessage("where wwww and hhhh is the image width and height\nin little endian hexadecimal");
+	Dialog.addMessage("\n");
+	Dialog.addNumber("Image Width:", imagewidth, 0, 6, "pixels");
+	Dialog.addNumber("Image Height:", imageheight, 0, 6, "pixels");
+    Dialog.show();
+	
+	width=leadzero(toString(toHex(imagewidth)), 4);
+	height=leadzero(toString(toHex(imageheight)), 4);
+	
+	magicbyte= "0200" + swap(width) + swap(height);
+		
+	filepath=File.openDialog("Select a File"); 
+	print("Scanning: ", filepath, "for ", magicbyte);
+	print("\n");
+
+	command="xxd -p -l 100000 " + filepath + " | grep -aob " + magicbyte + " | head -n2";
+	print(command);
+	//exec("xxd", "-p", "-l", "10000", filepath, "|", "grep", "-aob", magicbyte, "|", "head", "-n2");
+	
+	res=exec("/bin/sh", "-c", command);
+	res=replace(res, ":" + magicbyte, "");
+	string.split
+	print(res/2);
+}
+
+macro "Image Byte Swap Action Tool - C000D12D13D1cD1dD21D24D25D26D27D28D29D2aD2bD2eD31D34D35D36D37D38D39D3aD3bD3eD42D43D4cD4dD82D83D91D92D93D94Da0Da1Da2Da3Da4Da5Db2Db3Dc2Dc3DccDcdDd2Dd3Dd4Dd5Dd6Dd7Dd8Dd9DdaDdbDdeDe2De3De4De5De6De7De8De9DeaDebDeeDfcDfdC000C111C222C333C444C555C666C777C888C999CaaaD1bD4bCaaaD11D14DcbDceDfbDfeCaaaD1eD4eCaaaD41D44CbbbCcccD2dD3dCcccD22DddDedCcccD32CcccD72D73CcccDc4CcccCdddD23D2cD3cDdcDecCdddDb1CdddD33CeeeDb0CeeeD8cD8dDb4DbcDbdCeeeCfffD20D30Df5CfffDc7CfffD17D18D47D48Dc6Dc8Df6Df7Df8CfffD16D19D46D49Dc9Df9CfffDf4CfffDb5CfffDc1"{
 	run("Byte Swapper");
 }
 
-macro "Byte Swap Tool"{
+macro "Image Byte Swap"{
 	run("Byte Swapper");
 }
 
@@ -389,7 +428,7 @@ function ConvertImportFLIRJPG() {
 		var ffmpegpath=ffmpegpathLinux;
 	}
 	
-	if(substring(OS, 0, 7)=="Windows"){
+	if(substring(OS, 0, 5)=="Windo"){
 		var perlpath=perlpathWindows;
 		var exiftoolpath=exiftoolpathWindows;
 		var exiftool=exiftoolWindows;
@@ -477,7 +516,7 @@ function ConvertImportFLIRJPG() {
 	}
 	
 	// experimenting with this:
-	if(substring(OS, 0, 7)=="Windows"){
+	if(substring(OS, 0, 5)=="Windo"){
 		exec("cmd", "/c", exiftoolpath + exiftool, filepath, "-b", "-RawThermalImage", ">", tempfolder + File.separator + fileout);
 	}
 	
@@ -578,7 +617,7 @@ function ConvertFLIRJPGs() {
 		var ffmpegpath=ffmpegpathLinux;
 	}
 	
-	if(substring(OS, 0, 7)=="Windows"){
+	if(substring(OS, 0, 5)=="Windo"){
 		var perlpath=perlpathWindows;
 		var exiftoolpath=exiftoolpathWindows;
 		var exiftool=exiftoolWindows;
@@ -650,7 +689,7 @@ function ConvertFLIRJPGs() {
 			exec("/bin/sh", "-c", convertjpg);	
 		}
 
-		if(substring(OS, 0, 7)=="Windows"){
+		if(substring(OS, 0, 5)=="Windo"){
 			exec("cmd", "/c", exiftoolpath + exiftool, filepath, "-b", "-RawThermalImage", ">", convertfolder + File.separator + fileout);
 		}
 
@@ -670,12 +709,12 @@ function ConvertFLIRJPGs() {
 macro "Import FLIR SEQ Action Tool - C000D19D1aD1eD28D2bD2eD38D3bD3eD43D48D4cD4dD4eD54D65D68D69D6aD6bD6cD6dD6eD70D71D72D73D74D75D76D78D7bD7eD80D81D82D83D84D85D86D88D8bD8eD95D98D9eDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DdeDe9DeaDebDecDedDeeDefDfeDffC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
 	
 	Dialog.create("Import FLIR SEQ File");
-	Dialog.addMessage("Define parameters");
-	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files will be created for each SEQ frame");
-	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files will be created for each SEQ frame");
-	Dialog.addMessage("If you choose file type 'Video', a single .avi file will be created and imported using Import-MOVIE (FFMPEG)\n");
+	Dialog.addMessage("Define parameters for Video Import");
+	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
+	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
+	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files\nwill be created for each SEQ frame");
 	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
-	Dialog.addChoice("Video Image Encoding (ignore if choosing file)", newArray("jpegls", "png"), "jpegls");
+	Dialog.addChoice("Video Image Encoding (ignored if choosing file)", newArray("jpegls", "png"), "jpegls");
 	Dialog.show();
 	
 	var outtypechoice=Dialog.getChoice();
@@ -702,12 +741,12 @@ macro "Import FLIR SEQ Action Tool - C000D19D1aD1eD28D2bD2eD38D3bD3eD43D48D4cD4d
 macro "Import FLIR SEQ" {
 
 	Dialog.create("Import FLIR SEQ File");
-	Dialog.addMessage("Define parameters");
-	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files will be created for each SEQ frame");
-	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files will be created for each SEQ frame");
-	Dialog.addMessage("If you choose file type 'Video', a single .avi file will be created and imported using Import-MOVIE (FFMPEG)\n");
+	Dialog.addMessage("Define parameters for Video Import");
+	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
+	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
+	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files\nwill be created for each SEQ frame");
 	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
-	Dialog.addChoice("Video Image Encoding (ignore if choosing file)", newArray("jpegls", "png"), "jpegls");
+	Dialog.addChoice("Video Image Encoding (ignored if choosing file)", newArray("jpegls", "png"), "jpegls");
 	Dialog.show();
 	
 	var outtypechoice=Dialog.getChoice();
@@ -734,12 +773,12 @@ macro "Import FLIR SEQ" {
 macro "Import FLIR CSQ Action Tool - C000D19D1aD1bD1cD1dD28D2eD38D3eD43D48D4eD54D65D69D6aD6eD70D71D72D73D74D75D76D78D7bD7eD80D81D82D83D84D85D86D88D8bD8eD95D98D9cD9dD9eDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DdeDe9DeaDebDecDedDeeDefDfeDffC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
 	
 	Dialog.create("Import FLIR CSQ File");
-	Dialog.addMessage("Define parameters");
-	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files will be created for each SEQ frame");
-	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files will be created for each SEQ frame");
-	Dialog.addMessage("If you choose file type 'Video', a single .avi file will be created and imported using Import-MOVIE (FFMPEG)\n");
+	Dialog.addMessage("Define parameters for Video Import");
+	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
+	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
+	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files\nwill be created for each SEQ frame");
 	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
-	Dialog.addChoice("Video Image Encoding (ignore if choosing file)", newArray("jpegls", "png"), "jpegls");
+	Dialog.addChoice("Video Image Encoding (ignored if choosing file)", newArray("jpegls", "png"), "jpegls");
 	Dialog.show();
 	
 	var outtypechoice=Dialog.getChoice();
@@ -766,12 +805,12 @@ macro "Import FLIR CSQ Action Tool - C000D19D1aD1bD1cD1dD28D2eD38D3eD43D48D4eD54
 macro "Import FLIR CSQ" {
 	
 	Dialog.create("Import FLIR CSQ File");
-	Dialog.addMessage("Define parameters");
-	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files will be created for each SEQ frame");
-	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files will be created for each SEQ frame");
-	Dialog.addMessage("If you choose file type 'Video', a single .avi file will be created and imported using Import-MOVIE (FFMPEG)\n");
+	Dialog.addMessage("Define parameters for Video Import");
+	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
+	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
+	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files\nwill be created for each SEQ frame");
 	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
-	Dialog.addChoice("Video Image Encoding (ignore if choosing file)", newArray("jpegls", "png"), "jpegls");
+	Dialog.addChoice("Video Image Encoding (ignored if choosing file)", newArray("jpegls", "png"), "jpegls");
 	Dialog.show();
 	
 	var outtypechoice=Dialog.getChoice();
@@ -828,7 +867,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 		var ffmpegpath=ffmpegpathLinux;
 	}
 	
-	if(substring(OS, 0, 7)=="Windows"){
+	if(substring(OS, 0, 5)=="Windo"){
 		var perlpath=perlpathWindows;
 		var exiftoolpath=exiftoolpathWindows;
 		var exiftool=exiftoolWindows;
@@ -878,18 +917,25 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 	var RH=flirvals[11];
 	var imagewidth=flirvals[12];
 	var imageheight=flirvals[13];
-
+	
 	Array.print(flirvals);
 	
 	if(outtype=="avi"){
 		fileout=File.nameWithoutExtension + "." + outtype; // outtype should be "avi"
 	}
 
+	var pixfmt="gray16be";
+	
+	if(outcodec=="tiff"){
+		pixfmt="gray16le";
+	}
+	
 	if(outtype=="png"){
 		outputfolder=filedir + File.separator + File.nameWithoutExtension;
 		//print(outputfolder);
 		File.makeDirectory(outputfolder);
 		fileout=File.nameWithoutExtension + File.separator + File.nameWithoutExtension + "_%05d" + "." + outtype; // outtype should be "png"
+		pixfmt="gray16be";
 	}
     
 	if(outtype=="tiff"){
@@ -897,6 +943,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 		//print(outputfolder);
 		File.makeDirectory(outputfolder);
 		fileout=File.nameWithoutExtension + File.separator + File.nameWithoutExtension + "_%05d" + "." + outtype; // outtype should be "tiff"
+		pixfmt="gray16le";
 	}
 	
 	// Define the syntax for the exec command to split the sequence file into .fff files
@@ -922,7 +969,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 		flirvals=exec("/bin/sh", "-c", timefind);		
 	}
 
-	if(substring(OS, 0, 7)=="Windows"){
+	if(substring(OS, 0, 5)=="Windo"){
 		flirvals=exec("cmd", "/c", timefind);
 	}
 
@@ -974,7 +1021,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 		exec("/bin/sh", "-c", rawcombinecmd);		
 	}
 
-	if(substring(OS, 0, 7)=="Windows"){
+	if(substring(OS, 0, 5)=="Windo"){
 		exec("cmd", "/c", exiftoolpath + exiftool, "-b", "-RawThermalImage", tempfolder + File.separator + "*.fff", ">", filedir + File.separator + "thermalvid.raw");
 	}
 
@@ -995,8 +1042,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 	tiffcombinecmd = ffmpeg + " -f" + " image2" + " -vcodec" + " " + RawThermalType + " -r" + " 30" + " -i " + tempfolder + File.separator + "frame%05d." + RawThermalType + " -pix_fmt" + " gray16be" + " -vcodec " + outcodec + " " + filedir + File.separator + fileout + " -y";   
     print(tiffcombinecmd);    
     
-    //exec(ffmpeg, "-f", "image2", "-vcodec", RawThermalType, "-r", "30", "-i", tempfolder + File.separator + "frame%05d." + RawThermalType, "-vcodec", outcodec, filedir + File.separator + fileout, "-y");
-    exec(ffmpeg, "-f", "image2", "-vcodec", RawThermalType, "-r", "30", "-i", tempfolder + File.separator + "frame%05d." + RawThermalType, "-pix_fmt", "gray16be", "-vcodec", outcodec, filedir + File.separator + fileout, "-y");
+    exec(ffmpeg, "-f", "image2", "-vcodec", RawThermalType, "-r", "30", "-i", tempfolder + File.separator + "frame%05d." + RawThermalType, "-pix_fmt", pixfmt, "-vcodec", outcodec, filedir + File.separator + fileout, "-y");
 	
 	templist = getFileList(tempfolder);
 	for (i = 0; i < templist.length; i++)
@@ -1031,7 +1077,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 	
 	//run("Raw2Temp Tool");
 	
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, "Rainbow", "Yes");
+	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, defaultpalette, "Yes");
 	
 }
 
@@ -1067,21 +1113,20 @@ macro "-" {} //menu divider
 macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D30D33D35D36D40D41D42D43D46D47D59D63D6aD6cD74D76D7bD7cD85D86D88D8aD8bD8cD94D95D96D98Da8Db8Dc8Dd8De8Df8Ce50DbaDcaCfc0DbdDcdCf80DbbDcbCff7DbfDcfCd17Db9Dc9Cfe2DbeDceCfb0DbcDcc"{
 
 	// Planck Constants after Recalibration and Service with New Lens in November 2018:
-	//var PR1=17998.529;
-	//var PR2=0.015145967;
-	//var PB=1453.1; 
-	//var PF=1;
-	//var PO=-5854;
+	 var PR1=17998.529;
+	 var PR2=0.015145967;
+	 var PB=1453.1; 
+	 var PF=1;
+	 var PO=-5854;
 	
-	//var E = 0.95;
-	//var OD = 1.5;
-	//var RTemp = 30.0;
-	//var ATemp = 30.0;
-	//var IRWTemp = 30.0;
-	//var IRT = 1.0;
-	//var RH = 80.0;
+	 var E = 0.95;
+	 var OD = 1;
+	 var RTemp = 20.0;
+	 var ATemp = 20.0;
+	 var IRWTemp = 20.0;
+	 var IRT = 1.0;
+	 var RH = 50.0;
 
-	palettetypes=newArray("Greyscale", "FLIR", "Rainbow");
 	byteorder=newArray("Default", "Swap");
 	defaultbyteorder="Default";
 	
@@ -1103,7 +1148,7 @@ macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D
     Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
     Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
     Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, "Rainbow");
+    Dialog.addChoice("Palette", palettetypes, defaultpalette);
 	Dialog.show();
 
 	var ByteOrder=Dialog.getChoice();
@@ -1133,21 +1178,20 @@ macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D
 macro "Raw2Temp Tool"{
 
 	// Planck Constants after Recalibration and Service with New Lens in November 2018:
-	// var PR1=17998.529;
-	// var PR2=0.015145967;
-	// var PB=1453.1; 
-	// var PF=1;
-	// var PO=-5854;
+	 var PR1=17998.529;
+	 var PR2=0.015145967;
+	 var PB=1453.1; 
+	 var PF=1;
+	 var PO=-5854;
 	
-	// var E = 0.95;
-	// var OD = 1.5;
-	// var RTemp = 30.0;
-	// var ATemp = 30.0;
-	// var IRWTemp = 30.0;
-	// var IRT = 1.0;
-	// var RH = 80.0;
+	 var E = 0.95;
+	 var OD = 1;
+	 var RTemp = 20.0;
+	 var ATemp = 20.0;
+	 var IRWTemp = 20.0;
+	 var IRT = 1.0;
+	 var RH = 50.0;
 
-	palettetypes=newArray("Greyscale", "FLIR", "Rainbow");
 	byteorder=newArray("Default", "Swap");
 	defaultbyteorder="Default";
 	
@@ -1169,7 +1213,7 @@ macro "Raw2Temp Tool"{
     Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
     Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
     Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, "Rainbow");
+    Dialog.addChoice("Palette", palettetypes, defaultpalette);
 	Dialog.show();
 
 	var ByteOrder=Dialog.getChoice();
@@ -1209,8 +1253,7 @@ macro "Raw2Temp SC660" {
 	var IRWTemp = 20.0;
 	var IRT = 1.0;
 	var RH = 50.0;
-
-	palettetypes=newArray("Greyscale", "FLIR", "Rainbow");
+	
 	byteorder=newArray("Default", "Swap");
 	defaultbyteorder="Default";
 	
@@ -1232,7 +1275,7 @@ macro "Raw2Temp SC660" {
     Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
     Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
     Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, "Rainbow");
+    Dialog.addChoice("Palette", palettetypes, defaultpalette);
 	Dialog.show();
 
 	var ByteOrder=Dialog.getChoice();
@@ -1282,7 +1325,6 @@ macro "Raw2Temp T1030" {
 	var IRT = 1.0;
 	var RH = 80.0;
 
-	palettetypes=newArray("Greyscale", "FLIR", "Rainbow");
 	byteorder=newArray("Default", "Swap");
 	defaultbyteorder="Default";
 	
@@ -1304,7 +1346,7 @@ macro "Raw2Temp T1030" {
     Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
     Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
     Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, "Rainbow");
+    Dialog.addChoice("Palette", palettetypes, defaultpalette);
 	Dialog.show();
 
 	var ByteOrder=Dialog.getChoice();
@@ -1345,7 +1387,6 @@ macro "Raw2Temp FlirVueProR" {
 	var IRT = 1.0;
 	var RH = 50.0;
 	
-	palettetypes=newArray("Greyscale", "FLIR", "Rainbow");
 	byteorder=newArray("Default", "Swap");
 	defaultbyteorder="Default";
 	
@@ -1367,7 +1408,7 @@ macro "Raw2Temp FlirVueProR" {
     Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
     Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
     Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, "Rainbow");
+    Dialog.addChoice("Palette", palettetypes, defaultpalette);
 	Dialog.show();
 
 	var ByteOrder=Dialog.getChoice();
@@ -1409,8 +1450,6 @@ macro "Raw2Temp E40" {
 	var IRT = 1.0;
 	var RH = 50.0;
 	
-	
-	palettetypes=newArray("Greyscale", "FLIR", "Rainbow");
 	byteorder=newArray("Default", "Swap");
 	defaultbyteorder="Default";
 	
@@ -1432,7 +1471,7 @@ macro "Raw2Temp E40" {
     Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
     Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
     Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, "Rainbow");
+    Dialog.addChoice("Palette", palettetypes, defaultpalette);
 	Dialog.show();
 
 	var ByteOrder=Dialog.getChoice();
@@ -1534,8 +1573,23 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, p
    	 	Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
     	Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
     	Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    	Dialog.addChoice("Palette", palettetypes, "Rainbow");
+    	Dialog.addChoice("Palette", palettetypes, defaultpalette);
 		Dialog.show();
+
+		var ByteOrder=Dialog.getChoice();
+		var PR1 = Dialog.getNumber();
+		var PR2 = Dialog.getNumber();
+		var PB = Dialog.getNumber();
+		var PF = Dialog.getNumber();
+		var PO = Dialog.getNumber();
+		var E = Dialog.getNumber();
+		var OD = Dialog.getNumber();
+		var RTemp = Dialog.getNumber();
+		var ATemp = Dialog.getNumber();
+		var IRWTemp = Dialog.getNumber();
+		var IRT = Dialog.getNumber();
+		var RH = Dialog.getNumber();
+		var palettetype = Dialog.getChoice();
 	}
 	
 	//setBatchMode(true);
@@ -1622,7 +1676,7 @@ function flirvalues(filepath, printvalues){
 		var ffmpegpath=ffmpegpathLinux;
 	}
 	
-	if(substring(OS, 0, 7)=="Windows"){
+	if(substring(OS, 0, 5)=="Windo"){
 		var perlpath=perlpathWindows;
 		var exiftoolpath=exiftoolpathWindows;
 		var exiftool=exiftoolWindows;
@@ -1725,7 +1779,7 @@ function flirdate(filepath, printvalues){
 		var ffmpegpath=ffmpegpathLinux;
 	}
 	
-	if(substring(OS, 0, 7)=="Windows"){
+	if(substring(OS, 0, 5)=="Windo"){
 		var perlpath=perlpathWindows;
 		var exiftoolpath=exiftoolpathWindows;
 		var exiftool=exiftoolWindows;
@@ -1758,6 +1812,27 @@ function flirdate(filepath, printvalues){
 	
 		return output;	
 
+}
+
+
+
+// function to add leading zeros to a string (usually a number)
+function leadzero(val, digits){
+	newval=val;
+	digitdiff=digits - lengthOf(val);
+	
+	for(i = 1; i <= digitdiff; i++){
+		newval="0" + newval;
+	}
+		
+	return newval;
+}
+
+
+// simple byte swap for 8 bit string representation.  ie. "8002" --> "0280"  
+function swap(val){
+	newval=substring(val, 2, 4) + substring(val, 0,2);
+	return newval;
 }
 
 
