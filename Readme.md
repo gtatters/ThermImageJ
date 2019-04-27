@@ -185,9 +185,6 @@ Main Functions and Features
 
 ### Bits and Bytes
 
--   Frame Start Byte
-    ----------------
-
 -   Image Byte swap
     -   simple call to the Byte Swapper plugin.
     -   since FLIR files are sometimes saved using little endian order (tiff) and big endian order (png), a short-cut to a pixel byte swap is a fast way to repair files that have byte order mixed up
