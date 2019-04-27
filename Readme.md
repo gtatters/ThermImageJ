@@ -148,9 +148,7 @@ Once installed, the toolset should also populate the **Plugin Dropdown Menu** wi
 Main Functions and Features
 ---------------------------
 
-### Lookup tables and adjusting colour ranges
-
-<img src='./images/PaletteChoices.gif' align="right" height="300">
+### Lookup tables and adjusting colour ranges <img src='./images/PaletteChoices.gif' align="right" height="300">
 
 -   LUT (Thermal Palette Look Up Table) menu
     -   for rapidly accessing different pseudocolour palettes
@@ -173,11 +171,11 @@ Main Functions and Features
 
 ### Direct Import of Raw Data
 
--   Raw Import RTV <img src='./images/ImportRTV.png' align="right">
+-   Raw Import RTV <img src='./images/ImportRTV.png'>
     -   custom macro to import an old Mikron Mikrospec R/T video format
     -   these files had simple encoding and are not likely in use any longer, except by the author
     -   see SampleFiles.zip for sample data
--   Raw Import SEQ
+-   Raw Import SEQ <img src='./images/ImportSEQ.png'>
     -   custom macro to import FLIR SEQ using the Import-Raw command
     -   use only if you know the precise offset byte start and the number of bytes between frames.
     -   only works for certain SEQ files, and only formats where tiff format underlies the video
@@ -185,7 +183,7 @@ Main Functions and Features
 
 ### Bits and Bytes
 
--   Image Byte swap
+-   Image Byte swap <img src='./images/ByteSwap.png'>
     -   simple call to the Byte Swapper plugin.
     -   since FLIR files are sometimes saved using little endian order (tiff) and big endian order (png), a short-cut to a pixel byte swap is a fast way to repair files that have byte order mixed up
 
@@ -195,25 +193,25 @@ Main Functions and Features
     -   select a candidate JPG or folder of JPGs, and a call to the command line tool, exiftool, is performed to extract the raw-binary 16 bit pixel data, save this to a gray scale tif or png, placed into a 'converted' subfolder.
     -   subsequently the user can import these 16-bit grayscale images and apply custom transformations or custom Raw2Temp conversions.
     -   some images may be converted in reverse byte order due to FLIR conventions. These can be fixed with the Byte Swapper plugin after import.
--   Import FLIR JPG
+-   Import FLIR JPG <img src='./images/ImportJPG.png'>
     -   select a candidate JPG, and a call to the command line tool, exiftool, is performed to extract the raw-binary 16 bit pixel data, temporarily save this to a gray scale tif or png, import that file, and calls the Raw2Temp function using the calibration constants derived from the FLIR JPG file.
--   Import FLIR SEQ
+-   Import FLIR SEQ <img src='./images/ConvertSEQ.png'>
     -   select a candidate SEQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg is performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
     -   this may work FCF file types as well but has not been thoroughly tested
--   Import FLIR CSQ
+-   Import FLIR CSQ <img src='./images/ConvertCSQ.png'>
     -   select a candidate CSQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg is performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
 
 ### Utilities
 
--   FLIR Calibrations
+-   FLIR Calibrations <img src='./images/FLIRSettings.png'>
     -   select a candidate FLIR file (jpg, seq, csq) to display the calibration constants and built-in object parameters stored at image capture. Typically, the user would then use the Planck constants and Object Paramters in the Raw2Temp macro.
     -   use this function on the original FLIR file if you have a 16-bit grayscale image of the raw data in a separate file and need to convert to temperature under specified conditions.
--   FLIR Dates
+-   FLIR Dates <img src='./images/DateTime.png'>
     -   user selects a candidate FLIR file (jpg, seq, csq) to have the Date/Time Original returned. Use this to quickly scan a file for capture times.
 
 ### Temperature Conversion
 
--   Raw2Temp
+-   Raw2Temp <img src='./images/Raw2Temp.png'>
     -   converts a 16-bit grayscale thermal image (or image stack) into estimated temperature using standard equations used in infrared thermography.
     -   user must provide the camera calibration constants and object parameters that can be obtained using the FLIR Calibrations macro.
     -   various custom versions of Raw2Temp are included for different cameras the author has used, since the calibration constants do not change from image to image, and only when the camera is sent back to manufacturer for re-calibration.
