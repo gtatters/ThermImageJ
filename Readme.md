@@ -150,6 +150,8 @@ Main Functions and Features
 
 ### Lookup tables and adjusting colour ranges
 
+<img src='images/PaletteChoice.gif' align="right" height="300">
+
 -   LUT (Thermal Palette Look Up Table) menu
     -   for rapidly accessing different pseudocolour palettes
     -   Grays, Ironbow, and Rainbow are more commonly used in thermal imaging
@@ -181,9 +183,12 @@ Main Functions and Features
     -   only works for certain SEQ files, and only formats where tiff format underlies the video
 -   see SampleFiles.zip for sample data
 
-### Swap Bytes
+### Bits and Bytes
 
--   Byte swap
+-   Frame Start Byte
+    ----------------
+
+-   Image Byte swap
     -   simple call to the Byte Swapper plugin.
     -   since FLIR files are sometimes saved using little endian order (tiff) and big endian order (png), a short-cut to a pixel byte swap is a fast way to repair files that have byte order mixed up
 
@@ -251,7 +256,8 @@ Caution
 -   Consider cropping videos, re-sampling fewer stacks if you have oversampled videos, or performing ROI analyses on the 16-bit raw data and then calculate temperature using the raw2temp function also available in an R package (Thermimage)
 -   Finally, users are advised to verify that the values obtained with these macros are similar to the ones obtained using official thermal imaging software. See <https://github.com/gtatters/ThermimageCalibration> for details on performance accuracy.
 
-### References
+References
+----------
 
 The following open source programs and programmers were crucial to the development of ThermImageJ.
 
