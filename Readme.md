@@ -173,7 +173,7 @@ Main Functions and Features
 
 ### Direct Import of Raw Data
 
--   Raw Import RTV
+-   Raw Import RTV <img src='./images/ImportRTV.png' align="right">
     -   custom macro to import an old Mikron Mikrospec R/T video format
     -   these files had simple encoding and are not likely in use any longer, except by the author
     -   see SampleFiles.zip for sample data
@@ -191,8 +191,12 @@ Main Functions and Features
 
 ### Imports that use Command Line Conversions
 
--   Import/Convert FLIR JPG
-    -   select a candidate JPG or folder of JPGs, and a call to the command line tool, exiftool, is performed to extract the raw-binary 16 bit pixel data, save this to a gray scale tif or png, and save or import that file.
+-   Convert FLIR JPG
+    -   select a candidate JPG or folder of JPGs, and a call to the command line tool, exiftool, is performed to extract the raw-binary 16 bit pixel data, save this to a gray scale tif or png, placed into a 'converted' subfolder.
+    -   subsequently the user can import these 16-bit grayscale images and apply custom transformations or custom Raw2Temp conversions.
+    -   some images may be converted in reverse byte order due to FLIR conventions. These can be fixed with the Byte Swapper plugin after import.
+-   Import FLIR JPG
+    -   select a candidate JPG, and a call to the command line tool, exiftool, is performed to extract the raw-binary 16 bit pixel data, temporarily save this to a gray scale tif or png, import that file, and calls the Raw2Temp function using the calibration constants derived from the FLIR JPG file.
 -   Import FLIR SEQ
     -   select a candidate SEQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg is performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
     -   this may work FCF file types as well but has not been thoroughly tested
