@@ -7,7 +7,7 @@ ThermImageJ provides an open source tool for assisting with infrared thermograph
 
 These macros will allow you to import most FLIR jpgs and videos and process the images in ImageJ.
 
-ThermImageJ emerged from Thermimage (<https://github.com/gtatters/Thermimage>), an R package that has similar features, but with more emphasis on biological heat transfer analysis.
+ThermImageJ emerged from Thermimage (<https://github.com/gtatters/Thermimage>), the latter an R package with more emphasis on biological heat transfer analysis.
 
 Version History
 ---------------
@@ -17,7 +17,7 @@ Version History
 Compatibility
 -------------
 
--   ThermImageJ was developed on OSX, and tested using ImageJ v1.52n. Many features require installation of command line tools that may present future challenges on different operating systems. Testing and troubleshooting is ongoing. Please report issues here: <https://github.com/gtatters/ThermImageJ/issues>
+-   ThermImageJ was developed on OSX, and tested using ImageJ v1.52n. Many features require installation of command line tools that may present future challenges on different operating systems. Testing and troubleshooting is ongoing, especially in Windows. Please report issues here: <https://github.com/gtatters/ThermImageJ/issues>, or consider converting to Mac or Linux.
 
 How to Cite
 -----------
@@ -127,10 +127,10 @@ which ffmpeg
     ## libpostproc    55.  3.100 / 55.  3.100
     ## /usr/local/bin/ffmpeg
 
-Setting ThermImageJ Macros Up in FIJI/ImageJ
---------------------------------------------
+Setting and verifying paths to command line tools
+-------------------------------------------------
 
-Once you have installed everything above, and verified no errors, you can set the macros up in FIJI/ImageJ.
+Once you have installed everything above, and verified no errors, you can check or change the directory paths in FIJI/ImageJ.
 
 Navigate to the ThermImageJ.ijm toolset file and open it using a text editor or the built-in ImageJ macro editor:
 
@@ -144,9 +144,14 @@ This also applies to the location of the split.pl file that should be placed in 
 
 <img src="./images/UserSplitPathCustomise.png" width="100%" />
 
-Next, launch FIJI, left click the **more-tools menu**, which is the **&gt;&gt;** on the far right side of the menu bar:
+Setting ThermImageJ Macros Up in FIJI/ImageJ
+--------------------------------------------
 
-<img src="./images/toolbar-before-install.png" width="100%" />
+Once you have installed everything above, and verified no errors, you can set the macros up in FIJI/ImageJ.
+
+Launch FIJI, left click the **more-tools menu**, which is the **&gt;&gt;** on the far right side of the menu bar:
+
+<img src="./images/toolbar-before-install.png" width="80%" />
 
 Which will reveal any of the toolsets in the folder. Click on **ThermImageJ** to replace the present icons with ThermImageJ specific icons / macros:
 
@@ -257,8 +262,8 @@ ROI analysis
 -   In ImageJ terminology, "Intensity" or "Gray Value" corresponds to the number stored in each pixel. This might be the 16-bit raw value or it might be the 32-bit decimal converted temperature, depending on when analysis is performed.
 -   Take advantage of all the ImageJ ROI tools, or Tools-&gt;ROI Manager to draw regions of interest over sites of interest.
 
-Download and extract sample files to test:
-------------------------------------------
+Sample files to test:
+---------------------
 
 <https://github.com/gtatters/ThermImageJ/blob/master/SampleFiles.zip>
 
