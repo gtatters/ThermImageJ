@@ -7,11 +7,6 @@ These macros will allow you to import most FLIR jpgs and videos and process the 
 
 ThermImageJ emerged from Thermimage (<https://github.com/gtatters/Thermimage>), the latter an R package with similar tools but more emphasis on biological heat transfer analysis.
 
-Version History
----------------
-
--   v 1.0: Released April, 2019
-
 Compatibility
 -------------
 
