@@ -47,7 +47,7 @@ Installation Instructions
 -   Download the perl script, **split.pl** from this site and copy into a FIJI/scripts folder.
 -   Download **Byte\_Swapper.class** to the plugins folder.
 -   Restart ImageJ.
--   If everything succeeded, the toolset should be installed and visible from your plugins menu.
+-   If everything succeeded (see checks below), the toolset should be installed and visible from your plugins menu.
 
 Installation Checks
 -------------------
@@ -88,7 +88,7 @@ which perl
 
 Verify no errors on your system to ensure perl is installed correctly.
 
-Check that the perl script is accessible by:
+Check that the perl script is accessible by (be sure to provide the proper path to the split.pl file on your system):
 
 ``` bash
 perl /Applications/Fiji.app/scripts/split.pl
@@ -132,7 +132,19 @@ Setting ThermImageJ Macros Up in FIJI/ImageJ
 
 Once you have installed everything above, and verified no errors, you can set the macros up in FIJI/ImageJ.
 
-Launch FIJI, left click the **more-tools menu**, which is the **&gt;&gt;** on the far right side of the menu bar:
+Navigate to the ThermImageJ.ijm toolset file and open it using a text editor or the built-in ImageJ macro editor:
+
+<img src="./images/ToolsetHeader.png" width="100%" />
+
+Depending on your operating system or how system files are installed you may need to edit the specific path locations for your respective system:
+
+<img src="./images/UserPathCustomise.png" width="50%" />
+
+This also applies to the location of the split.pl file that should be placed in the scripts folder inside the Fiji folder:
+
+<img src="./images/UserSplitPathCustomise.png" width="100%" />
+
+Next, launch FIJI, left click the **more-tools menu**, which is the **&gt;&gt;** on the far right side of the menu bar:
 
 <img src="./images/toolbar-before-install.png" width="100%" />
 
