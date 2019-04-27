@@ -20,8 +20,6 @@ How to Cite
 Requirements
 ------------
 
-DOI: 10.5281/zenodo.2652896
-
 -   FIJI is Just ImageJ. Download instructions: <https://imagej.net/Fiji/Downloads>
 -   Exiftool. Installation instructions: <http://www.sno.phy.queensu.ca/~phil/exiftool/install.html>
 -   FFMPEG command line utility (static version). Download instructions: <https://ffmpeg.org/download.html>
