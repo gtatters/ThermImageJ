@@ -10,7 +10,7 @@
 
 var luts = getLutMenu();
 var lCmds = newMenu("LUT Menu Tool", luts);
-var thermlCmds = newMenu("Thermal LUT Menu Tool", newArray("Grays", "Ironbow", "Rainbow", "Spectrum", "Thermal", "Yellow", "Yellow Hot", "Green Fire Blue", "Red Green", "5 Ramps", "6 Shades"));
+var thermlCmds = newMenu("Thermal LUT Menu Tool", newArray("Grays", "Ironbow", "Rainbow", "Spectrum", "Thermal", "Yellow", "Yellow Hot", "Green Fire Blue", "Red/Green", "5 Ramps", "6 Shades"));
 var lut = -1;
 var lutdir = getDirectory("luts");
 var list;
