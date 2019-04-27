@@ -16,18 +16,21 @@ var lutdir = getDirectory("luts");
 var list;
 var color = 0;
 var colors = newArray("Red", "Green", "Blue", "Cyan", "Magenta", "Yellow");
-
 var palettetypes=newArray("Grays", "Ironbow", "Rainbow");
 var defaultpalette="Grays";
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 
-//                    User should verify the following path location:
+//        User should verify the following path location for their operating system and set up:
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// var perlscriptpath="c:/Users/Username/Fiji/scripts/" // <- VERIFY THIS - A likely Windows location 
+// var perlscriptpath="C:/Users/Username/Fiji/scripts/" // <- VERIFY THIS - A likely Windows location 
 var perlscriptpath="/Applications/Fiji.app/scripts/";   // <- VERIFY THIS - A likely OSX or Linux location
+
+
+
+// full path to the split.pl script
 var perlsplit=perlscriptpath + "split.pl";	
 
 
@@ -355,38 +358,6 @@ function RawImportFLIRSEQ() {
 macro "-" {} //menu divider
 
 
-macro "Frame Start Byte"{
-
-	var imagewidth=640;
-	var imageheight=480;
-	Dialog.create("Scan for potential offset byte start in FLIR SEQ Videos"); 
-	Dialog.addMessage("This macro will scan a SEQ file for the offset byte");
-	Dialog.addMessage("position that resembles: 0200wwwwhhhh");
-	Dialog.addMessage("where wwww and hhhh is the image width and height\nin little endian hexadecimal");
-	Dialog.addMessage("\n");
-	Dialog.addNumber("Image Width:", imagewidth, 0, 6, "pixels");
-	Dialog.addNumber("Image Height:", imageheight, 0, 6, "pixels");
-    Dialog.show();
-	
-	width=leadzero(toString(toHex(imagewidth)), 4);
-	height=leadzero(toString(toHex(imageheight)), 4);
-	
-	magicbyte= "0200" + swap(width) + swap(height);
-		
-	filepath=File.openDialog("Select a File"); 
-	print("Scanning: ", filepath, "for ", magicbyte);
-	print("\n");
-
-	command="xxd -p -l 100000 " + filepath + " | grep -aob " + magicbyte + " | head -n2";
-	print(command);
-	//exec("xxd", "-p", "-l", "10000", filepath, "|", "grep", "-aob", magicbyte, "|", "head", "-n2");
-	
-	res=exec("/bin/sh", "-c", command);
-	res=replace(res, ":" + magicbyte, "");
-	string.split
-	print(res/2);
-}
-
 macro "Image Byte Swap Action Tool - C000D12D13D1cD1dD21D24D25D26D27D28D29D2aD2bD2eD31D34D35D36D37D38D39D3aD3bD3eD42D43D4cD4dD82D83D91D92D93D94Da0Da1Da2Da3Da4Da5Db2Db3Dc2Dc3DccDcdDd2Dd3Dd4Dd5Dd6Dd7Dd8Dd9DdaDdbDdeDe2De3De4De5De6De7De8De9DeaDebDeeDfcDfdC000C111C222C333C444C555C666C777C888C999CaaaD1bD4bCaaaD11D14DcbDceDfbDfeCaaaD1eD4eCaaaD41D44CbbbCcccD2dD3dCcccD22DddDedCcccD32CcccD72D73CcccDc4CcccCdddD23D2cD3cDdcDecCdddDb1CdddD33CeeeDb0CeeeD8cD8dDb4DbcDbdCeeeCfffD20D30Df5CfffDc7CfffD17D18D47D48Dc6Dc8Df6Df7Df8CfffD16D19D46D49Dc9Df9CfffDf4CfffDb5CfffDc1"{
 	run("Byte Swapper");
 }
@@ -480,12 +451,19 @@ function ConvertImportFLIRJPG() {
 	//flirimageraw = exec("/usr/local/bin/exiftool", "-RawThermalImageType", filepath);	
   	print(exiftoolpath+exiftool);
 
+	var RawThermalType=""; // set RawThermalType as blank to start
+	
 	flirimageraw = exec(exiftoolpath + exiftool, "-RawThermalImageType", filepath);
 	RawThermalType = substring(flirimageraw, indexOf(flirimageraw, ":")+1 );
 	
 	// determine the data storage format of the flir jpg.  Either tiff or png	
 	RawThermalType=replace(RawThermalType, "\n", "");
 	RawThermalType=replace(RawThermalType, " ", "");
+
+	if(RawThermalType=="  " || RawThermalType==" " || RawThermalType==""){
+		print("Raw Thermal Type Unknown. Setting it to png");
+		RawThermalType="png";
+	}
 	
 	fileout=File.nameWithoutExtension + "." + toLowerCase(RawThermalType);
 	fileout=replace(fileout, " ", "");
@@ -645,12 +623,12 @@ function ConvertFLIRJPGs() {
 		dirpath=File.getParent(filelist[0]);
 	}
 	
-	convertfolder=dirpath + File.separator + "converted";
+	convertfolder=dirpath + "converted";
 	File.makeDirectory(convertfolder);
 
 	for (i = 0; i < filelist.length; i++){
 		
-		filepath=filelist[i];
+		filepath=dirpath + filelist[i];
 		
 		if (endsWith(toLowerCase(filepath), ".jpg")) {
 			
@@ -665,6 +643,11 @@ function ConvertFLIRJPGs() {
 		// determine the data storage format of the flir jpg.  Either tiff or png	
 		RawThermalType=replace(RawThermalType, "\n", "");
 		RawThermalType=replace(RawThermalType, " ", "");
+		
+		if(RawThermalType=="  " || RawThermalType==" " || RawThermalType==""){
+			print("Raw Thermal Type Unknown. Setting it to tiff");
+			RawThermalType="tiff";
+		}
 		
 		print("Raw Thermal Type: " , RawThermalType);
 		
@@ -1086,25 +1069,34 @@ macro "-" {} //menu divider
 macro "FLIR Calibration Values Action Tool - C000D00D01D02D03D04D05D10D16D20D22D23D24D27D2dD2eD30D32D34D36D37D38D39D3aD3bD3cD3fD40D42D44D47D4fD50D52D54D56D57D58D59D5aD5bD5cD5fD60D62D63D64D67D6dD6eD70D76D80D81D82D83D84D85DbbDbcDbdDbeDc1Dc2Dc3Dc4Dc5Dc6Dc7Dc8Dc9DcaDcbDcfDd0DdfDe1De2De3De4De5De6De7De8De9DeaDebDefDf3Df5Df7Df9DfbDfcDfdDfeCfffD06D07D08D09D0aD0bD0cD0dD0eD0fD11D12D13D14D15D17D18D19D1aD1bD1cD1dD1eD1fD21D25D26D28D29D2aD2bD2cD2fD31D33D35D3dD3eD41D43D45D46D48D49D4aD4bD4cD4dD4eD51D53D55D5dD5eD61D65D66D68D69D6aD6bD6cD6fD71D72D73D74D75D77D78D79D7aD7bD7cD7dD7eD7fD86D87D88D89D8aD8bD8cD8dD8eD8fD90D91D92D93D94D95D96D97D98D99D9aD9bD9cD9dD9eD9fDa0Da1Da2Da3Da4Da5Da6Da7Da8Da9DaaDabDacDadDaeDafDb0Db1Db2Db3Db4Db5Db6Db7Db8Db9DbaDbfDc0Dd1Dd2Dd3Dd4De0Df0Df1Df2Df4Df6Df8DfaDffCc10DccDcdDceDd5Dd6Dd7Dd8Dd9DdaDdbDdcDddDdeDecDedDee" {
 	filepath=File.openDialog("Select a FLIR Image or Video File"); 
 	printvalues="Yes";
-	flirvalues(filepath, printvalues);
+	if(File.exists(filepath)){
+		flirvalues(filepath, printvalues);
+	}
 }
 
 macro "FLIR Calibration Values" {
 	filepath=File.openDialog("Select a FLIR Image or Video File"); 
 	printvalues="Yes";
-	flirvalues(filepath, printvalues);
+	if(File.exists(filepath)){
+		flirvalues(filepath, printvalues);
+	}
 }
 
 macro "FLIR Date Stamps Action Tool - C000D08D09D0aD0bD0cD17D1dD26D2eD35D3eD45D4fD55D57D58D59D5aD5fD65D6aD6fD72D73D75D7aD7eD82D86D8aD8eD90D91D92D94D97D9dDa2Da8Da9DaaDabDacDb2Db4Db6Dc2Dc8Dd0Dd1Dd2Dd4Dd6Dd8De2De8Df2Df3Df4Df5Df6Df7Df8C000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccDc1CcccDd7CcccD83CcccD81CcccDe1CcccCdddD56CdddDe7CdddDa1CdddDb3CdddDc7CdddD16CdddD2dCdddD1eD48D4eDb7CdddD69CdddD49D7bCdddCeeeD46Dc4CeeeD6bDc6CeeeD6eCeeeD93Dc3CeeeDe3CeeeDe9CeeeDa3CeeeDd9CeeeDd3CeeeD99Db5CeeeD74CeeeD1bD2fD54D8fCeeeD19D85Dd5CeeeD25D96Db1De4CeeeDa4Db8CeeeDe6CfffD9bDbaCfffD5eD79CfffDe5CfffD8bCfffD68DadCfffD0dCfffD07D64CfffD1aD63D89Da7Dc5CfffD9aCfffD44D5bDb9De0CfffD84Da0DbbCfffD4aD80Da5Dc0Dc9Df1CfffD62D71Df9CfffD47" {
 	filepath=File.openDialog("Select a FLIR Image or Video File"); 
 	printvalues="Yes";
-	flirdate(filepath, printvalues);
+	if(File.exists(filepath)){
+		flirdate(filepath, printvalues);
+	}
 }
 
 macro "FLIR Date Stamps" {
 	filepath=File.openDialog("Select a FLIR Image or Video File"); 
 	printvalues="Yes";
-	flirdate(filepath, printvalues);
+	if(File.exists(filepath)){
+		flirdate(filepath, printvalues);
+	}
+	
 }
 
 
@@ -1710,6 +1702,7 @@ function flirvalues(filepath, printvalues){
 			Dialog.addMessage("Plank O: " + PO);
 			Dialog.addMessage("Thermal Image Width: " + imagewidth);
 			Dialog.addMessage("Thermal Image Height: " + imageheight);
+			Dialog.addMessage("Press OK to export results to Log window");
 			Dialog.show()
 			
 			print("\n");
@@ -1797,6 +1790,7 @@ function flirdate(filepath, printvalues){
 			Dialog.create("Date/Time Information:");
 			Dialog.addMessage("Date Original: " + dateoriginal);
 			Dialog.addMessage("Time Original: " + timeoriginal);
+			Dialog.addMessage("Press OK to export results to Log window");
 			Dialog.show()
 
 			print("\n");
