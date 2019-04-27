@@ -247,10 +247,10 @@ Download and extract sample files to test:
 
 <https://github.com/gtatters/ThermImageJ/blob/master/SampleFiles.zip>
 
-Caution
--------
+Performance, Speed, and File Size
+---------------------------------
 
--   The maximum number of video frames (i.e. stacks) is limited by the CPU and speed of ImageJ macros.
+-   The maximum number of video frames (i.e. stacks) will limited by the CPU and RAM.
 -   Due to performance limitations, memory allocation, and file size of videos, users are recommended to delay converting their loaded video files to temperature, until files have been otherwise processed, as the memory required to is double that required to work with the 16-bit grayscale images.
 -   Consider cropping videos, re-sampling fewer stacks if you have oversampled videos, or performing ROI analyses on the 16-bit raw data and then calculate temperature using the raw2temp function also available in an R package (Thermimage)
 -   Finally, users are advised to verify that the values obtained with these macros are similar to the ones obtained using official thermal imaging software. See <https://github.com/gtatters/ThermimageCalibration> for details on performance accuracy.
