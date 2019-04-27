@@ -150,22 +150,22 @@ Main Functions and Features
 
 ### Lookup tables and adjusting colour ranges <img src='./images/PaletteChoices.gif' align="right" height="300">
 
--   LUT (Thermal Palette Look Up Table) menu
+-   LUT (Thermal Palette Look Up Table) menu <img src='./images/LUT.png'>
     -   for rapidly accessing different pseudocolour palettes
     -   Grays, Ironbow, and Rainbow are more commonly used in thermal imaging
     -   ImageJ's built in LUTs can be always be accessed from the Image-Lookup Tables Menu
--   Next LUT
+-   Next LUT <img src='./images/NextLUT.png'>
     -   select the next LUT in the list of all ImageJ LUTs, including the ones in the Thermal LUT list
--   Previous LUT
+-   Previous LUT <img src='./images/PreviousLUT.png'>
     -   select the previous LUT in the list all ImageJ LUTs, including the ones in the Thermal LUT list
--   Invert LUT
+-   Invert LUT <img src='./images/InvertLUT.png'>
     -   invert the colour scale of the LUT
     -   this can be toggled
--   Brightness/Contrast
+-   Brightness/Contrast <img src='./images/BrightContrast.png'>
     -   setting the min and max values of the pseudocolour scale
     -   set min equal to the lowest temperature desired on the lookup table scale
     -   set max equal to the highest temperature deisred on the lookup table scale
--   Add Calibration bar
+-   Add Calibration bar <img src='./images/Calbar.png'>
     -   makes use of the built-in Analyze-Tools-Calibration Bar
     -   use this after temperature conversion of image
 
