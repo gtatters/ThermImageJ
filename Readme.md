@@ -155,7 +155,7 @@ Which will reveal any of the toolsets in the folder. Click on **ThermImageJ** to
 
 <img src="./images/more-tools-toolsets-menu.png" width="50%" />
 
-Once installed, the toolbar menu populate with new icons corresponding to the primary ThermImageJ functions:
+Once installed, the toolbar menu populates with new icons corresponding to the primary ThermImageJ functions:
 
 <img src="./images/toolbar-after-install.png" width="100%" />
 
@@ -184,7 +184,8 @@ Main Functions and Features
     -   set min equal to the lowest temperature desired on the lookup table scale
     -   set max equal to the highest temperature deisred on the lookup table scale
 -   Add Calibration bar <img src='./images/CalBar.png'>
-    -   makes use of the built-in Analyze-Tools-Calibration Bar
+    -   short-cut to ImageJ's built-in Analyze-&gt;Tools-&gt;Calibration Bar
+    -   creates a duplicate image first
     -   use this after temperature conversion of image
 
 ### Direct Import of Raw Data
@@ -221,7 +222,7 @@ Main Functions and Features
 
 ### Utilities
 
--   FLIR Calibrations <img src='./images/FLIRSettings.png'>
+-   FLIR Calibration Values <img src='./images/FLIRSettings.png'>
     -   select a candidate FLIR file (jpg, seq, csq) to display the calibration constants and built-in object parameters stored at image capture. Typically, the user would then use the Planck constants and Object Paramters in the Raw2Temp macro.
     -   use this function on the original FLIR file if you have a 16-bit grayscale image of the raw data in a separate file and need to convert to temperature under specified conditions.
 -   FLIR Dates <img src='./images/DateTime.png'>
@@ -232,7 +233,21 @@ Main Functions and Features
 -   Raw2Temp <img src='./images/Raw2Temp.png'>
     -   converts a 16-bit grayscale thermal image (or image stack) into estimated temperature using standard equations used in infrared thermography.
     -   user must provide the camera calibration constants and object parameters that can be obtained using the FLIR Calibrations macro.
-    -   various custom versions of Raw2Temp are included for different cameras the author has used, since the calibration constants do not change from image to image, and only when the camera is sent back to manufacturer for re-calibration.
+    -   various custom versions of Raw2Temp are included for different cameras the author has used, since the calibration constants do not change from image to image, and only when the camera is sent back to manufacturer for re-calibration. Edit these macros once calibration constants are known for other cameras.
+
+### ROI (Region of Interest) Tools
+
+-   ROI 1 to ROI 4
+    -   macros coded to short-cut keys, 1,2,3, and 4 by adding \[\#\] to the name of the macro in the ThermImageJ.ijm file
+    -   extracts mean, min, max, sd, and area of the given ROI and saves to results window as well as to a ROI\_Results.csv file to user's desktop
+    -   location of ROI\_Results.csv file can be changed by user by editting the variable desktopdir at the top of the ThermImageJ.ijm file
+    -   Sample results file: <https://github.com/gtatters/ThermImageJ/blob/master/ROI_Results.csv>
+    -   edit the ThermImageJ.ijm to change the nature of the results to extract
+    -   addition ROIs can be added to the toolset file
+    -   designed to work with single images or image stacks
+    -   slice label and number are recorded to the results table as:
+
+<img src='./images/ROI_Results.csv.png'>
 
 Typical Workflow
 ----------------
@@ -259,6 +274,7 @@ ROI analysis
 -   Typical values are min, max, mean, modal, median, standard deviation, but ImageJ offers so many other values.
 -   In ImageJ terminology, "Intensity" or "Gray Value" corresponds to the number stored in each pixel. This might be the 16-bit raw value or it might be the 32-bit decimal converted temperature, depending on when analysis is performed.
 -   Take advantage of all the ImageJ ROI tools, or Tools-&gt;ROI Manager to draw regions of interest over sites of interest.
+-   Or, use the ROI 1 through 4 macros included as described earlier in the document.
 
 Sample files to test:
 ---------------------
