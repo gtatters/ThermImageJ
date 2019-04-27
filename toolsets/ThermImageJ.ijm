@@ -19,41 +19,45 @@ var colors = newArray("Red", "Green", "Blue", "Cyan", "Magenta", "Yellow");
 var palettetypes=newArray("Grays", "Ironbow", "Rainbow");
 var defaultpalette="Grays";
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 
-//        User should verify the following path location for their operating system and set up:
-//
-////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+////                                                                                               ////
+////      User should verify the following path locations for their operating system:              ////
+////                                                                                               ////
+///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// var perlscriptpath="C:/Users/Username/Fiji/scripts/" // <- VERIFY THIS - A likely Windows location 
-var perlscriptpath="/Applications/Fiji.app/scripts/";   // <- VERIFY THIS - A likely OSX or Linux location
+// The following will set the perl script path to the location of your image folder's scripts subfolder
+var perlscriptpath=getDirectory("imageJ") + "scripts/";   			// <- VERIFY THIS
 
-
+// ROI commands will automatically save a ROI_Results file to user's desktop folder 
+var desktopdir= getInfo("user.home") + File.separator + "Desktop"; // <- VERIFY THIS
 
 // full path to the split.pl script
 var perlsplit=perlscriptpath + "split.pl";	
 
-
-// Extract Operating system user is on.  OS will be used in most macros calling command line tools
+// Extract Operating system user is on.  
+// OS will be used in most macros calling command line tools
 var OS=getInfo("os.name");
 
-// OSX Users verify these settings:
+// OSX Users verify these settings:									 // <- VERIFY THIS
 var perlpathOSX="/usr/local/bin/";
 var exiftoolpathOSX="/usr/local/bin/";
 var exiftoolOSX="exiftool";
 var ffmpegpathOSX="/usr/local/bin/";
 
-// Linux Users verify these settings:
+// Linux Users verify these settings:								 // <- VERIFY THIS
 var perlpathLinux="/usr/bin/";
 var exiftoolpathLinux="/usr/bin/";
 var exiftoolLinux="exiftool";
 var ffmpegpathLinux="/usr/bin/";
 
-// Windows Users verify these settings:
+// Windows Users verify these settings:								 // <- VERIFY THIS
 var perlpathWindows="c:/Perl64/bin/";
 var exiftoolpathWindows="c:/windows/";
 var exiftoolWindows="exiftool.exe";
 var ffmpegpathWindows="c:/FFmpeg/bin/";
+
+
+/////////////////////////////////////////////// Macros //////////////////////////////////////////////////////
 
 /// This will call all the LUTs from the lut folder
 //macro "LUT Menu" {
@@ -116,52 +120,6 @@ macro "Add Calibration Bar"{
 
 macro "-" {} //menu divider
 
-  // Based on the LUTFileTool by Gabriel Landini
-  function cycleLUTs(inc) {
-       if (lut==-1)
-           createLutList();
-       if (nImages==0) {
-          call("ij.gui.ImageWindow.centerNextImage");
-          newImage("LUT", "8-bit ramp", 256, 32, 1);
-       }
-       if (bitDepth==24)
-           exit("RGB images do not have LUTs");
-       if (isKeyDown("alt"))
-           lut = 0;
-       else
-          lut += inc;
-      if (lut<0) lut = list.length-1;
-      if (lut>list.length-1) lut = 0;
-      name = list[lut];
-      run("LUT... ", "open=["+lutdir+name+"]");
-      name = substring(name, 0, lengthOf(name)-4);
-      if (getWidth==256 && getHeight==32)
-            rename(name);
-      showStatus((lut+1) + ". " + name);
-  }
-
-  function createLutList() {
-      err = "No LUTs in the '/ImageJ/luts' folder";
-      if (!File.exists(lutdir))
-           exit(err);
-      rawlist = getFileList(lutdir);
-      if (rawlist.length==0)
-          exit(err);
-      count = 0;
-      for (i=0; i< rawlist.length; i++) {
-          if (endsWith(rawlist[i], ".lut")) count++;
-      }
-      if (count==0)
-          exit(err);
-      list = newArray(count);
-      index = 0;
-      for (i=0; i< rawlist.length; i++) {
-          if (endsWith(rawlist[i], ".lut"))
-              list[index++] = rawlist[i];
-      }
-  }
-
-
 macro "Raw Import Mikron RTV Action Tool - C000D00D01D02D03D04D05D06D09D0aD0bD0cD0dD0eD0fD10D13D19D1cD20D23D24D25D29D2cD2dD2eD30D31D32D33D35D36D39D3aD3bD3cD3eD3fD54D55D56D59D61D62D63D64D69D70D71D74D76D77D79D7aD7bD7cD7dD7eD7fD81D82D83D84D89D94D95D96D99Db0Db1Db2Db3Db9DbaDbbDc3Dc4Dc5Dc6DcbDccDcdDd1Dd2Dd3Dd4DddDdeDdfDe3De4De5De6DebDecDedDf0Df1Df2Df3Df9DfaDfbC000C111C222C333C444C555C666C777C888C999D67D78D87C999CaaaCbbbCcccCdddCeeeCfff" {
 	RawImportMikronRTV();
 }
@@ -169,6 +127,719 @@ macro "Raw Import Mikron RTV Action Tool - C000D00D01D02D03D04D05D06D09D0aD0bD0c
 macro "Raw Import Mikron RTV" {
 	RawImportMikronRTV();
 }
+
+macro "Raw Import FLIR SEQ Action Tool - C000D00D01D02D03D04D05D06D0aD0bD0fD10D13D19D1cD1fD20D23D24D25D29D2cD2fD30D31D32D33D35D36D39D3dD3eD3fD54D55D56D59D5aD5bD5cD5dD5eD5fD61D62D63D64D69D6cD6fD70D71D74D76D77D79D7cD7fD81D82D83D84D89D8cD8fD94D95D96D99D9fDb0Db1Db2Db3DbaDbbDbcDbdDbeDc3Dc4Dc5Dc6Dc9DcfDd1Dd2Dd3Dd4Dd9DdeDdfDe3De4De5De6DeaDebDecDedDeeDefDf0Df1Df2Df3DffC000C111C222C333C444C555C666C777C888C999D67D78D87C999CaaaCbbbCcccCdddCeeeCfff" {
+	RawImportFLIRSEQ();
+}
+
+macro "Raw Import FLIR SEQ" {
+	RawImportFLIRSEQ();
+}
+
+macro "-" {} //menu divider
+
+macro "Image Byte Swap Action Tool - C000D12D13D1cD1dD21D24D25D26D27D28D29D2aD2bD2eD31D34D35D36D37D38D39D3aD3bD3eD42D43D4cD4dD82D83D91D92D93D94Da0Da1Da2Da3Da4Da5Db2Db3Dc2Dc3DccDcdDd2Dd3Dd4Dd5Dd6Dd7Dd8Dd9DdaDdbDdeDe2De3De4De5De6De7De8De9DeaDebDeeDfcDfdC000C111C222C333C444C555C666C777C888C999CaaaD1bD4bCaaaD11D14DcbDceDfbDfeCaaaD1eD4eCaaaD41D44CbbbCcccD2dD3dCcccD22DddDedCcccD32CcccD72D73CcccDc4CcccCdddD23D2cD3cDdcDecCdddDb1CdddD33CeeeDb0CeeeD8cD8dDb4DbcDbdCeeeCfffD20D30Df5CfffDc7CfffD17D18D47D48Dc6Dc8Df6Df7Df8CfffD16D19D46D49Dc9Df9CfffDf4CfffDb5CfffDc1"{
+	run("Byte Swapper");
+}
+macro "Image Byte Swap"{
+	run("Byte Swapper");
+}
+
+macro "-" {} //menu divider
+
+macro "Convert FLIR JPG(s)"{
+	ConvertFLIRJPGs();
+}
+
+macro "Import FLIR JPG Action Tool - C000D1eD2eD38D3eD43D48D49D4aD4bD4cD4dD54D65D68D69D6aD6bD6cD6dD6eD70D71D72D73D74D75D76D78D7bD80D81D82D83D84D85D86D88D8bD95D98D99D9aDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DdcDdeDecDedDeeC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff"{
+	ConvertImportFLIRJPG();
+}
+
+macro "Import FLIR JPG"{
+	ConvertImportFLIRJPG();
+}
+
+macro "Import FLIR SEQ Action Tool - C000D19D1aD1eD28D2bD2eD38D3bD3eD43D48D4cD4dD4eD54D65D68D69D6aD6bD6cD6dD6eD70D71D72D73D74D75D76D78D7bD7eD80D81D82D83D84D85D86D88D8bD8eD95D98D9eDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DdeDe9DeaDebDecDedDeeDefDfeDffC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
+	
+	Dialog.create("Import FLIR SEQ File");
+	Dialog.addMessage("Define parameters for Video Import");
+	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
+	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
+	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files\nwill be created for each SEQ frame");
+	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
+	Dialog.addChoice("Video Image Encoding (ignored if choosing file)", newArray("jpegls", "png"), "jpegls");
+	Dialog.show();
+	
+	var outtypechoice=Dialog.getChoice();
+	var encodetypechoice = Dialog.getChoice();
+
+	if(outtypechoice=="avi"){
+		var outtype="avi";
+		var outcodec=encodetypechoice;
+	}
+
+	if(outtypechoice=="png"){
+		var outtype="png";
+		var outcodec="png";
+	}
+
+	if(outtypechoice=="tiff"){
+		var outtype="tiff";
+		var outcodec="tiff";
+	}
+	
+	ConvertFLIRVideo("seq", outtype, outcodec);
+}
+
+macro "Import FLIR SEQ" {
+
+	Dialog.create("Import FLIR SEQ File");
+	Dialog.addMessage("Define parameters for Video Import");
+	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
+	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
+	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files\nwill be created for each SEQ frame");
+	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
+	Dialog.addChoice("Video Image Encoding (ignored if choosing file)", newArray("jpegls", "png"), "jpegls");
+	Dialog.show();
+	
+	var outtypechoice=Dialog.getChoice();
+	var encodetypechoice = Dialog.getChoice();
+
+	if(outtypechoice=="avi"){
+		var outtype="avi";
+		var outcodec=encodetypechoice;
+	}
+
+	if(outtypechoice=="png"){
+		var outtype="png";
+		var outcodec="png";
+	}
+
+	if(outtypechoice=="tiff"){
+		var outtype="tiff";
+		var outcodec="tiff";
+	}
+	
+	ConvertFLIRVideo("seq", outtype, outcodec);
+}
+
+macro "Import FLIR CSQ Action Tool - C000D19D1aD1bD1cD1dD28D2eD38D3eD43D48D4eD54D65D69D6aD6eD70D71D72D73D74D75D76D78D7bD7eD80D81D82D83D84D85D86D88D8bD8eD95D98D9cD9dD9eDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DdeDe9DeaDebDecDedDeeDefDfeDffC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
+	
+	Dialog.create("Import FLIR CSQ File");
+	Dialog.addMessage("Define parameters for Video Import");
+	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
+	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
+	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files\nwill be created for each SEQ frame");
+	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
+	Dialog.addChoice("Video Image Encoding (ignored if choosing file)", newArray("jpegls", "png"), "jpegls");
+	Dialog.show();
+	
+	var outtypechoice=Dialog.getChoice();
+	var encodetypechoice = Dialog.getChoice();
+
+	if(outtypechoice=="avi"){
+		var outtype="avi";
+		var outcodec=encodetypechoice;
+	}
+
+	if(outtypechoice=="png"){
+		var outtype="png";
+		var outcodec="png";
+	}
+
+	if(outtypechoice=="tiff"){
+		var outtype="tiff";
+		var outcodec="tiff";
+	}
+	
+	ConvertFLIRVideo("csq", outtype, outcodec);
+}
+
+macro "Import FLIR CSQ" {
+	
+	Dialog.create("Import FLIR CSQ File");
+	Dialog.addMessage("Define parameters for Video Import");
+	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
+	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
+	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files\nwill be created for each SEQ frame");
+	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
+	Dialog.addChoice("Video Image Encoding (ignored if choosing file)", newArray("jpegls", "png"), "jpegls");
+	Dialog.show();
+	
+	var outtypechoice=Dialog.getChoice();
+	var encodetypechoice = Dialog.getChoice();
+
+	if(outtypechoice=="avi"){
+		var outtype="avi";
+		var outcodec=encodetypechoice;
+	}
+
+	if(outtypechoice=="png"){
+		var outtype="png";
+		var outcodec="png";
+	}
+
+	if(outtypechoice=="tiff"){
+		var outtype="tiff";
+		var outcodec="tiff";
+	}
+	
+	ConvertFLIRVideo("csq", outtype, outcodec);
+	
+}
+
+macro "-" {} //menu divider
+
+macro "FLIR Calibration Values Action Tool - C000D00D01D02D03D04D05D10D16D20D22D23D24D27D2dD2eD30D32D34D36D37D38D39D3aD3bD3cD3fD40D42D44D47D4fD50D52D54D56D57D58D59D5aD5bD5cD5fD60D62D63D64D67D6dD6eD70D76D80D81D82D83D84D85DbbDbcDbdDbeDc1Dc2Dc3Dc4Dc5Dc6Dc7Dc8Dc9DcaDcbDcfDd0DdfDe1De2De3De4De5De6De7De8De9DeaDebDefDf3Df5Df7Df9DfbDfcDfdDfeCfffD06D07D08D09D0aD0bD0cD0dD0eD0fD11D12D13D14D15D17D18D19D1aD1bD1cD1dD1eD1fD21D25D26D28D29D2aD2bD2cD2fD31D33D35D3dD3eD41D43D45D46D48D49D4aD4bD4cD4dD4eD51D53D55D5dD5eD61D65D66D68D69D6aD6bD6cD6fD71D72D73D74D75D77D78D79D7aD7bD7cD7dD7eD7fD86D87D88D89D8aD8bD8cD8dD8eD8fD90D91D92D93D94D95D96D97D98D99D9aD9bD9cD9dD9eD9fDa0Da1Da2Da3Da4Da5Da6Da7Da8Da9DaaDabDacDadDaeDafDb0Db1Db2Db3Db4Db5Db6Db7Db8Db9DbaDbfDc0Dd1Dd2Dd3Dd4De0Df0Df1Df2Df4Df6Df8DfaDffCc10DccDcdDceDd5Dd6Dd7Dd8Dd9DdaDdbDdcDddDdeDecDedDee" {
+	filepath=File.openDialog("Select a FLIR Image or Video File"); 
+	printvalues="Yes";
+	if(File.exists(filepath)){
+		flirvalues(filepath, printvalues);
+	}
+}
+
+macro "FLIR Calibration Values" {
+	filepath=File.openDialog("Select a FLIR Image or Video File"); 
+	printvalues="Yes";
+	if(File.exists(filepath)){
+		flirvalues(filepath, printvalues);
+	}
+}
+
+macro "FLIR Date Stamps Action Tool - C000D08D09D0aD0bD0cD17D1dD26D2eD35D3eD45D4fD55D57D58D59D5aD5fD65D6aD6fD72D73D75D7aD7eD82D86D8aD8eD90D91D92D94D97D9dDa2Da8Da9DaaDabDacDb2Db4Db6Dc2Dc8Dd0Dd1Dd2Dd4Dd6Dd8De2De8Df2Df3Df4Df5Df6Df7Df8C000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccDc1CcccDd7CcccD83CcccD81CcccDe1CcccCdddD56CdddDe7CdddDa1CdddDb3CdddDc7CdddD16CdddD2dCdddD1eD48D4eDb7CdddD69CdddD49D7bCdddCeeeD46Dc4CeeeD6bDc6CeeeD6eCeeeD93Dc3CeeeDe3CeeeDe9CeeeDa3CeeeDd9CeeeDd3CeeeD99Db5CeeeD74CeeeD1bD2fD54D8fCeeeD19D85Dd5CeeeD25D96Db1De4CeeeDa4Db8CeeeDe6CfffD9bDbaCfffD5eD79CfffDe5CfffD8bCfffD68DadCfffD0dCfffD07D64CfffD1aD63D89Da7Dc5CfffD9aCfffD44D5bDb9De0CfffD84Da0DbbCfffD4aD80Da5Dc0Dc9Df1CfffD62D71Df9CfffD47" {
+	filepath=File.openDialog("Select a FLIR Image or Video File"); 
+	printvalues="Yes";
+	if(File.exists(filepath)){
+		flirdate(filepath, printvalues);
+	}
+}
+
+macro "FLIR Date Stamps" {
+	filepath=File.openDialog("Select a FLIR Image or Video File"); 
+	printvalues="Yes";
+	if(File.exists(filepath)){
+		flirdate(filepath, printvalues);
+	}
+	
+}
+
+
+macro "-" {} //menu divider
+
+macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D30D33D35D36D40D41D42D43D46D47D59D63D6aD6cD74D76D7bD7cD85D86D88D8aD8bD8cD94D95D96D98Da8Db8Dc8Dd8De8Df8Ce50DbaDcaCfc0DbdDcdCf80DbbDcbCff7DbfDcfCd17Db9Dc9Cfe2DbeDceCfb0DbcDcc"{
+
+	// Planck Constants after Recalibration and Service with New Lens in November 2018:
+	 var PR1=17998.529;
+	 var PR2=0.015145967;
+	 var PB=1453.1; 
+	 var PF=1;
+	 var PO=-5854;
+	
+	 var E = 0.95;
+	 var OD = 1;
+	 var RTemp = 20.0;
+	 var ATemp = 20.0;
+	 var IRWTemp = 20.0;
+	 var IRT = 1.0;
+	 var RH = 50.0;
+
+	byteorder=newArray("Default", "Swap");
+	defaultbyteorder="Default";
+	
+	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
+	Dialog.create("Verify Camera and Object Parameters");
+	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
+	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
+	Dialog.addMessage("Camera Calibration Constants:");
+	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
+	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
+	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
+	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
+    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+    Dialog.addMessage("Object Parameters:");
+    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
+    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
+    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
+    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
+    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
+    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
+    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
+    Dialog.addChoice("Palette", palettetypes, defaultpalette);
+	Dialog.show();
+
+	var ByteOrder=Dialog.getChoice();
+	var PR1 = Dialog.getNumber();
+	var PR2 = Dialog.getNumber();
+	var PB = Dialog.getNumber();
+	var PF = Dialog.getNumber();
+	var PO = Dialog.getNumber();
+	var E = Dialog.getNumber();
+	var OD = Dialog.getNumber();
+	var RTemp = Dialog.getNumber();
+	var ATemp = Dialog.getNumber();
+	var IRWTemp = Dialog.getNumber();
+	var IRT = Dialog.getNumber();
+	var RH = Dialog.getNumber();
+	var palettetype = Dialog.getChoice();
+	
+	if(ByteOrder == "Swap"){
+		run("Byte Swapper");
+	}
+
+	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
+}
+	
+macro "Raw2Temp Tool"{
+
+	// Planck Constants after Recalibration and Service with New Lens in November 2018:
+	 var PR1=17998.529;
+	 var PR2=0.015145967;
+	 var PB=1453.1; 
+	 var PF=1;
+	 var PO=-5854;
+	
+	 var E = 0.95;
+	 var OD = 1;
+	 var RTemp = 20.0;
+	 var ATemp = 20.0;
+	 var IRWTemp = 20.0;
+	 var IRT = 1.0;
+	 var RH = 50.0;
+
+	byteorder=newArray("Default", "Swap");
+	defaultbyteorder="Default";
+	
+	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
+	Dialog.create("Verify Camera and Object Parameters");
+	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
+	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
+	Dialog.addMessage("Camera Calibration Constants:");
+	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
+	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
+	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
+	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
+    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+    Dialog.addMessage("Object Parameters:");
+    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
+    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
+    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
+    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
+    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
+    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
+    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
+    Dialog.addChoice("Palette", palettetypes, defaultpalette);
+	Dialog.show();
+
+	var ByteOrder=Dialog.getChoice();
+	var PR1 = Dialog.getNumber();
+	var PR2 = Dialog.getNumber();
+	var PB = Dialog.getNumber();
+	var PF = Dialog.getNumber();
+	var PO = Dialog.getNumber();
+	var E = Dialog.getNumber();
+	var OD = Dialog.getNumber();
+	var RTemp = Dialog.getNumber();
+	var ATemp = Dialog.getNumber();
+	var IRWTemp = Dialog.getNumber();
+	var IRT = Dialog.getNumber();
+	var RH = Dialog.getNumber();
+	var palettetype = Dialog.getChoice();
+	
+	if(ByteOrder == "Swap"){
+		run("Byte Swapper");
+	}
+
+	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
+
+}
+
+macro "Raw2Temp SC660" {
+			
+	var PR1=21106.77;
+	var PR2=0.012545258;
+	var PB=1501; 
+	var PF=1;
+	var PO=-7340;
+	var E = 0.95;
+	var OD = 1.0;
+	var RTemp = 20.0;
+	var ATemp = 20.0;
+	var IRWTemp = 20.0;
+	var IRT = 1.0;
+	var RH = 50.0;
+	
+	byteorder=newArray("Default", "Swap");
+	defaultbyteorder="Default";
+	
+	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
+	Dialog.create("Verify Camera and Object Parameters");
+	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
+	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
+	Dialog.addMessage("Camera Calibration Constants:");
+	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
+	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
+	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
+	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
+    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+    Dialog.addMessage("Object Parameters:");
+    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
+    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
+    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
+    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
+    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
+    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
+    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
+    Dialog.addChoice("Palette", palettetypes, defaultpalette);
+	Dialog.show();
+
+	var ByteOrder=Dialog.getChoice();
+	var PR1 = Dialog.getNumber();
+	var PR2 = Dialog.getNumber();
+	var PB = Dialog.getNumber();
+	var PF = Dialog.getNumber();
+	var PO = Dialog.getNumber();
+	var E = Dialog.getNumber();
+	var OD = Dialog.getNumber();
+	var RTemp = Dialog.getNumber();
+	var ATemp = Dialog.getNumber();
+	var IRWTemp = Dialog.getNumber();
+	var IRT = Dialog.getNumber();
+	var RH = Dialog.getNumber();
+	var palettetype = Dialog.getChoice();
+	
+	if(ByteOrder == "Swap"){
+		run("Byte Swapper");
+	}
+
+	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
+	
+}
+
+macro "Raw2Temp T1030" {
+
+	// Initial Planck Constants from Purchase Date in 2017 to Re-calibration in Nov 2018:		
+	var PR1=21546.203;
+	var PR2=0.016229488;
+	var PB=1507.2; 
+	var PF=1;
+	var PO=-6331;
+
+	// Planck Constants after Recalibration and Service with New Lens in November 2018:
+	var PR1=17998.529;
+	var PR2=0.015145967;
+	var PB=1453.1; 
+	var PF=1;
+	var PO=-5854;
+	
+	var E = 0.95;
+	var OD = 1.5;
+	var RTemp = 30.0;
+	var ATemp = 30.0;
+	var IRWTemp = 30.0;
+	var IRT = 1.0;
+	var RH = 80.0;
+
+	byteorder=newArray("Default", "Swap");
+	defaultbyteorder="Default";
+	
+	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
+	Dialog.create("Verify Camera and Object Parameters");
+	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
+	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
+	Dialog.addMessage("Camera Calibration Constants:");
+	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
+	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
+	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
+	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
+    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+    Dialog.addMessage("Object Parameters:");
+    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
+    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
+    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
+    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
+    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
+    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
+    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
+    Dialog.addChoice("Palette", palettetypes, defaultpalette);
+	Dialog.show();
+
+	var ByteOrder=Dialog.getChoice();
+	var PR1 = Dialog.getNumber();
+	var PR2 = Dialog.getNumber();
+	var PB = Dialog.getNumber();
+	var PF = Dialog.getNumber();
+	var PO = Dialog.getNumber();
+	var E = Dialog.getNumber();
+	var OD = Dialog.getNumber();
+	var RTemp = Dialog.getNumber();
+	var ATemp = Dialog.getNumber();
+	var IRWTemp = Dialog.getNumber();
+	var IRT = Dialog.getNumber();
+	var RH = Dialog.getNumber();
+	var palettetype = Dialog.getChoice();
+	
+	if(ByteOrder == "Swap"){
+		run("Byte Swapper");
+	}
+
+	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
+	
+}
+
+macro "Raw2Temp FlirVueProR" {
+	
+	// Written for a FlirVueProR 		
+	var PR1=17096.453;
+	var PR2=0.04351538;
+	var PB=1428; 
+	var PF=1;
+	var PO=-55;
+	var E = 0.95;
+	var OD = 1.5;
+	var RTemp = 20.0;
+	var ATemp = 20.0;
+	var IRWTemp = 20.0;
+	var IRT = 1.0;
+	var RH = 50.0;
+	
+	byteorder=newArray("Default", "Swap");
+	defaultbyteorder="Default";
+	
+	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
+	Dialog.create("Verify Camera and Object Parameters");
+	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
+	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
+	Dialog.addMessage("Camera Calibration Constants:");
+	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
+	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
+	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
+	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
+    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+    Dialog.addMessage("Object Parameters:");
+    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
+    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
+    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
+    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
+    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
+    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
+    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
+    Dialog.addChoice("Palette", palettetypes, defaultpalette);
+	Dialog.show();
+
+	var ByteOrder=Dialog.getChoice();
+	var PR1 = Dialog.getNumber();
+	var PR2 = Dialog.getNumber();
+	var PB = Dialog.getNumber();
+	var PF = Dialog.getNumber();
+	var PO = Dialog.getNumber();
+	var E = Dialog.getNumber();
+	var OD = Dialog.getNumber();
+	var RTemp = Dialog.getNumber();
+	var ATemp = Dialog.getNumber();
+	var IRWTemp = Dialog.getNumber();
+	var IRT = Dialog.getNumber();
+	var RH = Dialog.getNumber();
+	var palettetype = Dialog.getChoice();
+	
+	if(ByteOrder == "Swap"){
+		run("Byte Swapper");
+	}
+
+	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
+		
+}
+
+
+macro "Raw2Temp E40" {
+			
+	var PR1=15759.339;
+	var PR2=0.011213507;
+	var PB=1413.2; 
+	var PF=1;
+	var PO=-6030;
+	var E = 0.95;
+	var OD = 1;
+	var RTemp = 20.0;
+	var ATemp = 20.0;
+	var IRWTemp = 20.0;
+	var IRT = 1.0;
+	var RH = 50.0;
+	
+	byteorder=newArray("Default", "Swap");
+	defaultbyteorder="Default";
+	
+	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
+	Dialog.create("Verify Camera and Object Parameters");
+	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
+	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
+	Dialog.addMessage("Camera Calibration Constants:");
+	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
+	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
+	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
+	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
+    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+    Dialog.addMessage("Object Parameters:");
+    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
+    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
+    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
+    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
+    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
+    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
+    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
+    Dialog.addChoice("Palette", palettetypes, defaultpalette);
+	Dialog.show();
+
+	var ByteOrder=Dialog.getChoice();
+	var PR1 = Dialog.getNumber();
+	var PR2 = Dialog.getNumber();
+	var PB = Dialog.getNumber();
+	var PF = Dialog.getNumber();
+	var PO = Dialog.getNumber();
+	var E = Dialog.getNumber();
+	var OD = Dialog.getNumber();
+	var RTemp = Dialog.getNumber();
+	var ATemp = Dialog.getNumber();
+	var IRWTemp = Dialog.getNumber();
+	var IRT = Dialog.getNumber();
+	var RH = Dialog.getNumber();
+	var palettetype = Dialog.getChoice();
+	
+	if(ByteOrder == "Swap"){
+		run("Byte Swapper");
+	}
+
+	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
+	
+	//a = newArray(65536); 
+	//templookup=newArray(65536);
+	//for (i=1; i<65536; i++) {
+	//	a[i]=i; 	
+	//	templookup[i] = 1500/log(21000/(0.012*(a[i]/0.9-100-7300))+1)-273.15;
+		//templookup = PB/log(PR1/(PR2*(a[i]/rawdivisor-rawsubtract+PO))+PF)-273.15;
+	//}
+	
+}
+
+
+
+macro "-" {} //menu divider
+
+macro "ROI 1 Results [1]" { // 
+	
+	getStatistics(area, mean, min, max, std, histogram);
+	
+	type = selectionType(); 
+	if(type==-1) exit("No ROI selection specified");
+	
+	updateResults();
+
+	rownum=getSliceNumber()-1;
+	
+	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
+	for (i=0; i<getSliceNumber(); i++) { 	
+		setResult("Blank", i, "");
+	}
+	
+	setResult("Slice Label", rownum, getMetadata("label"));
+	setResult("Slice", rownum, getSliceNumber());
+	setResult("ROI 1 Mean", rownum, mean);
+	setResult("ROI 1 Min", rownum, min);
+	setResult("ROI 1 Max", rownum, max);
+	setResult("ROI 1 SD", rownum, std);
+	setResult("ROI 1 Area", rownum, area);
+	
+	updateResults();
+	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
+}
+
+macro "ROI 2 Results [2]" {
+	
+	getStatistics(area, mean, min, max, std, histogram);
+	
+	type = selectionType(); 
+	if(type==-1) exit("No ROI selection specified");
+
+	updateResults();
+	rownum=getSliceNumber()-1;
+	
+	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
+	for (i=0; i<getSliceNumber(); i++) { 	
+		setResult("Blank", i, "");
+	}
+
+	setResult("Slice Label", rownum, getMetadata("label"));
+	setResult("Slice", rownum, getSliceNumber());
+	setResult("ROI 2 Mean", rownum, mean);
+	setResult("ROI 2 Min", rownum, min);
+	setResult("ROI 2 Max", rownum, max);
+	setResult("ROI 2 SD", rownum, std);
+	setResult("ROI 2 Area", rownum, area);
+	
+	updateResults();
+	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
+}
+
+
+macro "ROI 3 Results [3]" { // 
+	
+	getStatistics(area, mean, min, max, std, histogram);
+	
+	type = selectionType(); 
+	if(type==-1) exit("No ROI selection specified");
+	
+	updateResults();
+
+	rownum=getSliceNumber()-1;
+	
+	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
+	for (i=0; i<getSliceNumber(); i++) { 	
+		setResult("Blank", i, "");
+	}
+
+	setResult("Slice Label", rownum, getMetadata("label"));
+	setResult("Slice", rownum, getSliceNumber());
+	setResult("ROI 3 Mean", rownum, mean);
+	setResult("ROI 3 Min", rownum, min);
+	setResult("ROI 3 Max", rownum, max);
+	setResult("ROI 3 SD", rownum, std);
+	setResult("ROI 3 Area", rownum, area);
+	
+	updateResults();
+	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
+}
+
+
+macro "ROI 4 Results [4]" { // 
+	
+	getStatistics(area, mean, min, max, std, histogram);
+	
+	type = selectionType(); 
+	if(type==-1) exit("No ROI selection specified");
+	
+	updateResults();
+
+	rownum=getSliceNumber()-1;
+	
+	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
+	for (i=0; i<getSliceNumber(); i++) { 	
+		setResult("Blank", i, "");
+	}
+
+	setResult("Slice Label", rownum, getMetadata("label"));
+	setResult("Slice", rownum, getSliceNumber());
+	setResult("ROI 4 Mean", rownum, mean);
+	setResult("ROI 4 Min", rownum, min);
+	setResult("ROI 4 Max", rownum, max);
+	setResult("ROI 4 SD", rownum, std);
+	setResult("ROI 4 Area", rownum, area);
+	
+	updateResults();
+	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
+}
+
+
+//////////////////////////////////////// Functions ///////////////////////////////////////////////
+
 
 function RawImportMikronRTV() {
 	
@@ -236,13 +907,6 @@ function RawImportMikronRTV() {
 	//run("Calibration Bar...", "location=[Upper Right] fill=White label=Black number=5 decimal=1 font=10 zoom=0.5 bold overlay");
 }
 
-macro "Raw Import FLIR SEQ Action Tool - C000D00D01D02D03D04D05D06D0aD0bD0fD10D13D19D1cD1fD20D23D24D25D29D2cD2fD30D31D32D33D35D36D39D3dD3eD3fD54D55D56D59D5aD5bD5cD5dD5eD5fD61D62D63D64D69D6cD6fD70D71D74D76D77D79D7cD7fD81D82D83D84D89D8cD8fD94D95D96D99D9fDb0Db1Db2Db3DbaDbbDbcDbdDbeDc3Dc4Dc5Dc6Dc9DcfDd1Dd2Dd3Dd4Dd9DdeDdfDe3De4De5De6DeaDebDecDedDeeDefDf0Df1Df2Df3DffC000C111C222C333C444C555C666C777C888C999D67D78D87C999CaaaCbbbCcccCdddCeeeCfff" {
-	RawImportFLIRSEQ();
-}
-
-macro "Raw Import FLIR SEQ" {
-	RawImportFLIRSEQ();
-}
 
 function RawImportFLIRSEQ() {
 	
@@ -355,35 +1019,8 @@ function RawImportFLIRSEQ() {
 }
 
 
-macro "-" {} //menu divider
-
-
-macro "Image Byte Swap Action Tool - C000D12D13D1cD1dD21D24D25D26D27D28D29D2aD2bD2eD31D34D35D36D37D38D39D3aD3bD3eD42D43D4cD4dD82D83D91D92D93D94Da0Da1Da2Da3Da4Da5Db2Db3Dc2Dc3DccDcdDd2Dd3Dd4Dd5Dd6Dd7Dd8Dd9DdaDdbDdeDe2De3De4De5De6De7De8De9DeaDebDeeDfcDfdC000C111C222C333C444C555C666C777C888C999CaaaD1bD4bCaaaD11D14DcbDceDfbDfeCaaaD1eD4eCaaaD41D44CbbbCcccD2dD3dCcccD22DddDedCcccD32CcccD72D73CcccDc4CcccCdddD23D2cD3cDdcDecCdddDb1CdddD33CeeeDb0CeeeD8cD8dDb4DbcDbdCeeeCfffD20D30Df5CfffDc7CfffD17D18D47D48Dc6Dc8Df6Df7Df8CfffD16D19D46D49Dc9Df9CfffDf4CfffDb5CfffDc1"{
-	run("Byte Swapper");
-}
-
-macro "Image Byte Swap"{
-	run("Byte Swapper");
-}
-
-macro "-" {} //menu divider
-
-macro "Convert FLIR JPG(s)"{
-	ConvertFLIRJPGs();
-}
-
-macro "Import FLIR JPG Action Tool - C000D1eD2eD38D3eD43D48D49D4aD4bD4cD4dD54D65D68D69D6aD6bD6cD6dD6eD70D71D72D73D74D75D76D78D7bD80D81D82D83D84D85D86D88D8bD95D98D99D9aDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DdcDdeDecDedDeeC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff"{
-	ConvertImportFLIRJPG();
-}
-
-macro "Import FLIR JPG"{
-	ConvertImportFLIRJPG();
-}
-
 
 function ConvertImportFLIRJPG() {
-
-	// Define where the perl executable is installed
 	
 	if(OS=="Mac OS X"){
 		var perlpath=perlpathOSX;
@@ -688,142 +1325,12 @@ function ConvertFLIRJPGs() {
 
 
 
-
-macro "Import FLIR SEQ Action Tool - C000D19D1aD1eD28D2bD2eD38D3bD3eD43D48D4cD4dD4eD54D65D68D69D6aD6bD6cD6dD6eD70D71D72D73D74D75D76D78D7bD7eD80D81D82D83D84D85D86D88D8bD8eD95D98D9eDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DdeDe9DeaDebDecDedDeeDefDfeDffC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
-	
-	Dialog.create("Import FLIR SEQ File");
-	Dialog.addMessage("Define parameters for Video Import");
-	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
-	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
-	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files\nwill be created for each SEQ frame");
-	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
-	Dialog.addChoice("Video Image Encoding (ignored if choosing file)", newArray("jpegls", "png"), "jpegls");
-	Dialog.show();
-	
-	var outtypechoice=Dialog.getChoice();
-	var encodetypechoice = Dialog.getChoice();
-
-	if(outtypechoice=="avi"){
-		var outtype="avi";
-		var outcodec=encodetypechoice;
-	}
-
-	if(outtypechoice=="png"){
-		var outtype="png";
-		var outcodec="png";
-	}
-
-	if(outtypechoice=="tiff"){
-		var outtype="tiff";
-		var outcodec="tiff";
-	}
-	
-	ConvertFLIRVideo("seq", outtype, outcodec);
-}
-
-macro "Import FLIR SEQ" {
-
-	Dialog.create("Import FLIR SEQ File");
-	Dialog.addMessage("Define parameters for Video Import");
-	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
-	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
-	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files\nwill be created for each SEQ frame");
-	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
-	Dialog.addChoice("Video Image Encoding (ignored if choosing file)", newArray("jpegls", "png"), "jpegls");
-	Dialog.show();
-	
-	var outtypechoice=Dialog.getChoice();
-	var encodetypechoice = Dialog.getChoice();
-
-	if(outtypechoice=="avi"){
-		var outtype="avi";
-		var outcodec=encodetypechoice;
-	}
-
-	if(outtypechoice=="png"){
-		var outtype="png";
-		var outcodec="png";
-	}
-
-	if(outtypechoice=="tiff"){
-		var outtype="tiff";
-		var outcodec="tiff";
-	}
-	
-	ConvertFLIRVideo("seq", outtype, outcodec);
-}
-
-macro "Import FLIR CSQ Action Tool - C000D19D1aD1bD1cD1dD28D2eD38D3eD43D48D4eD54D65D69D6aD6eD70D71D72D73D74D75D76D78D7bD7eD80D81D82D83D84D85D86D88D8bD8eD95D98D9cD9dD9eDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DdeDe9DeaDebDecDedDeeDefDfeDffC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
-	
-	Dialog.create("Import FLIR CSQ File");
-	Dialog.addMessage("Define parameters for Video Import");
-	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
-	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
-	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files\nwill be created for each SEQ frame");
-	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
-	Dialog.addChoice("Video Image Encoding (ignored if choosing file)", newArray("jpegls", "png"), "jpegls");
-	Dialog.show();
-	
-	var outtypechoice=Dialog.getChoice();
-	var encodetypechoice = Dialog.getChoice();
-
-	if(outtypechoice=="avi"){
-		var outtype="avi";
-		var outcodec=encodetypechoice;
-	}
-
-	if(outtypechoice=="png"){
-		var outtype="png";
-		var outcodec="png";
-	}
-
-	if(outtypechoice=="tiff"){
-		var outtype="tiff";
-		var outcodec="tiff";
-	}
-	
-	ConvertFLIRVideo("csq", outtype, outcodec);
-}
-
-macro "Import FLIR CSQ" {
-	
-	Dialog.create("Import FLIR CSQ File");
-	Dialog.addMessage("Define parameters for Video Import");
-	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
-	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
-	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files\nwill be created for each SEQ frame");
-	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
-	Dialog.addChoice("Video Image Encoding (ignored if choosing file)", newArray("jpegls", "png"), "jpegls");
-	Dialog.show();
-	
-	var outtypechoice=Dialog.getChoice();
-	var encodetypechoice = Dialog.getChoice();
-
-	if(outtypechoice=="avi"){
-		var outtype="avi";
-		var outcodec=encodetypechoice;
-	}
-
-	if(outtypechoice=="png"){
-		var outtype="png";
-		var outcodec="png";
-	}
-
-	if(outtypechoice=="tiff"){
-		var outtype="tiff";
-		var outcodec="tiff";
-	}
-	
-	ConvertFLIRVideo("csq", outtype, outcodec);
-	
-}
-
 function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 	// vidtype should be seq or csq
 	// outtype should be avi, png, or tiff (this will be the file extension for the final file)
 	// outcodec is the type of file compression needed for avi files - usually jpegls, but png or tiff will work on some OS.
-	// Using command line tools: perl, a perl split.pl script, exiftool and ffmpeg, this macro will convert a SEQ file into an 16-bit avi file in png format
-	// to subsquently be imported using import-ffmpeg
+	// Using command line tools: perl, a perl split.pl script, exiftool and ffmpeg, this macro will convert a SEQ file into
+	// a 16-bit avi file in png format to subsquently be imported using import-ffmpeg
 	
 	print("\n");
 	
@@ -1064,438 +1571,50 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec) {
 	
 }
 
-macro "-" {} //menu divider
+// Based on the LUTFileTool by Gabriel Landini
+function cycleLUTs(inc) {
+       if (lut==-1)
+           createLutList();
+       if (nImages==0) {
+          call("ij.gui.ImageWindow.centerNextImage");
+          newImage("LUT", "8-bit ramp", 256, 32, 1);
+       }
+       if (bitDepth==24)
+           exit("RGB images do not have LUTs");
+       if (isKeyDown("alt"))
+           lut = 0;
+       else
+          lut += inc;
+      if (lut<0) lut = list.length-1;
+      if (lut>list.length-1) lut = 0;
+      name = list[lut];
+      run("LUT... ", "open=["+lutdir+name+"]");
+      name = substring(name, 0, lengthOf(name)-4);
+      if (getWidth==256 && getHeight==32)
+            rename(name);
+      showStatus((lut+1) + ". " + name);
+  }
 
-macro "FLIR Calibration Values Action Tool - C000D00D01D02D03D04D05D10D16D20D22D23D24D27D2dD2eD30D32D34D36D37D38D39D3aD3bD3cD3fD40D42D44D47D4fD50D52D54D56D57D58D59D5aD5bD5cD5fD60D62D63D64D67D6dD6eD70D76D80D81D82D83D84D85DbbDbcDbdDbeDc1Dc2Dc3Dc4Dc5Dc6Dc7Dc8Dc9DcaDcbDcfDd0DdfDe1De2De3De4De5De6De7De8De9DeaDebDefDf3Df5Df7Df9DfbDfcDfdDfeCfffD06D07D08D09D0aD0bD0cD0dD0eD0fD11D12D13D14D15D17D18D19D1aD1bD1cD1dD1eD1fD21D25D26D28D29D2aD2bD2cD2fD31D33D35D3dD3eD41D43D45D46D48D49D4aD4bD4cD4dD4eD51D53D55D5dD5eD61D65D66D68D69D6aD6bD6cD6fD71D72D73D74D75D77D78D79D7aD7bD7cD7dD7eD7fD86D87D88D89D8aD8bD8cD8dD8eD8fD90D91D92D93D94D95D96D97D98D99D9aD9bD9cD9dD9eD9fDa0Da1Da2Da3Da4Da5Da6Da7Da8Da9DaaDabDacDadDaeDafDb0Db1Db2Db3Db4Db5Db6Db7Db8Db9DbaDbfDc0Dd1Dd2Dd3Dd4De0Df0Df1Df2Df4Df6Df8DfaDffCc10DccDcdDceDd5Dd6Dd7Dd8Dd9DdaDdbDdcDddDdeDecDedDee" {
-	filepath=File.openDialog("Select a FLIR Image or Video File"); 
-	printvalues="Yes";
-	if(File.exists(filepath)){
-		flirvalues(filepath, printvalues);
-	}
-}
-
-macro "FLIR Calibration Values" {
-	filepath=File.openDialog("Select a FLIR Image or Video File"); 
-	printvalues="Yes";
-	if(File.exists(filepath)){
-		flirvalues(filepath, printvalues);
-	}
-}
-
-macro "FLIR Date Stamps Action Tool - C000D08D09D0aD0bD0cD17D1dD26D2eD35D3eD45D4fD55D57D58D59D5aD5fD65D6aD6fD72D73D75D7aD7eD82D86D8aD8eD90D91D92D94D97D9dDa2Da8Da9DaaDabDacDb2Db4Db6Dc2Dc8Dd0Dd1Dd2Dd4Dd6Dd8De2De8Df2Df3Df4Df5Df6Df7Df8C000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccDc1CcccDd7CcccD83CcccD81CcccDe1CcccCdddD56CdddDe7CdddDa1CdddDb3CdddDc7CdddD16CdddD2dCdddD1eD48D4eDb7CdddD69CdddD49D7bCdddCeeeD46Dc4CeeeD6bDc6CeeeD6eCeeeD93Dc3CeeeDe3CeeeDe9CeeeDa3CeeeDd9CeeeDd3CeeeD99Db5CeeeD74CeeeD1bD2fD54D8fCeeeD19D85Dd5CeeeD25D96Db1De4CeeeDa4Db8CeeeDe6CfffD9bDbaCfffD5eD79CfffDe5CfffD8bCfffD68DadCfffD0dCfffD07D64CfffD1aD63D89Da7Dc5CfffD9aCfffD44D5bDb9De0CfffD84Da0DbbCfffD4aD80Da5Dc0Dc9Df1CfffD62D71Df9CfffD47" {
-	filepath=File.openDialog("Select a FLIR Image or Video File"); 
-	printvalues="Yes";
-	if(File.exists(filepath)){
-		flirdate(filepath, printvalues);
-	}
-}
-
-macro "FLIR Date Stamps" {
-	filepath=File.openDialog("Select a FLIR Image or Video File"); 
-	printvalues="Yes";
-	if(File.exists(filepath)){
-		flirdate(filepath, printvalues);
-	}
-	
-}
-
-
-macro "-" {} //menu divider
-
-macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D30D33D35D36D40D41D42D43D46D47D59D63D6aD6cD74D76D7bD7cD85D86D88D8aD8bD8cD94D95D96D98Da8Db8Dc8Dd8De8Df8Ce50DbaDcaCfc0DbdDcdCf80DbbDcbCff7DbfDcfCd17Db9Dc9Cfe2DbeDceCfb0DbcDcc"{
-
-	// Planck Constants after Recalibration and Service with New Lens in November 2018:
-	 var PR1=17998.529;
-	 var PR2=0.015145967;
-	 var PB=1453.1; 
-	 var PF=1;
-	 var PO=-5854;
-	
-	 var E = 0.95;
-	 var OD = 1;
-	 var RTemp = 20.0;
-	 var ATemp = 20.0;
-	 var IRWTemp = 20.0;
-	 var IRT = 1.0;
-	 var RH = 50.0;
-
-	byteorder=newArray("Default", "Swap");
-	defaultbyteorder="Default";
-	
-	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Verify Camera and Object Parameters");
-	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
-	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
-	Dialog.addMessage("Camera Calibration Constants:");
-	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
-	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
-	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
-	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
-    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
-    Dialog.addMessage("Object Parameters:");
-    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
-    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
-    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
-    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
-    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
-    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
-    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, defaultpalette);
-	Dialog.show();
-
-	var ByteOrder=Dialog.getChoice();
-	var PR1 = Dialog.getNumber();
-	var PR2 = Dialog.getNumber();
-	var PB = Dialog.getNumber();
-	var PF = Dialog.getNumber();
-	var PO = Dialog.getNumber();
-	var E = Dialog.getNumber();
-	var OD = Dialog.getNumber();
-	var RTemp = Dialog.getNumber();
-	var ATemp = Dialog.getNumber();
-	var IRWTemp = Dialog.getNumber();
-	var IRT = Dialog.getNumber();
-	var RH = Dialog.getNumber();
-	var palettetype = Dialog.getChoice();
-	
-	if(ByteOrder == "Swap"){
-		run("Byte Swapper");
-	}
-
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
-
-}
-	
-
-macro "Raw2Temp Tool"{
-
-	// Planck Constants after Recalibration and Service with New Lens in November 2018:
-	 var PR1=17998.529;
-	 var PR2=0.015145967;
-	 var PB=1453.1; 
-	 var PF=1;
-	 var PO=-5854;
-	
-	 var E = 0.95;
-	 var OD = 1;
-	 var RTemp = 20.0;
-	 var ATemp = 20.0;
-	 var IRWTemp = 20.0;
-	 var IRT = 1.0;
-	 var RH = 50.0;
-
-	byteorder=newArray("Default", "Swap");
-	defaultbyteorder="Default";
-	
-	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Verify Camera and Object Parameters");
-	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
-	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
-	Dialog.addMessage("Camera Calibration Constants:");
-	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
-	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
-	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
-	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
-    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
-    Dialog.addMessage("Object Parameters:");
-    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
-    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
-    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
-    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
-    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
-    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
-    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, defaultpalette);
-	Dialog.show();
-
-	var ByteOrder=Dialog.getChoice();
-	var PR1 = Dialog.getNumber();
-	var PR2 = Dialog.getNumber();
-	var PB = Dialog.getNumber();
-	var PF = Dialog.getNumber();
-	var PO = Dialog.getNumber();
-	var E = Dialog.getNumber();
-	var OD = Dialog.getNumber();
-	var RTemp = Dialog.getNumber();
-	var ATemp = Dialog.getNumber();
-	var IRWTemp = Dialog.getNumber();
-	var IRT = Dialog.getNumber();
-	var RH = Dialog.getNumber();
-	var palettetype = Dialog.getChoice();
-	
-	if(ByteOrder == "Swap"){
-		run("Byte Swapper");
-	}
-
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
-
-}
-
-macro "Raw2Temp SC660" {
-			
-	var PR1=21106.77;
-	var PR2=0.012545258;
-	var PB=1501; 
-	var PF=1;
-	var PO=-7340;
-	var E = 0.95;
-	var OD = 1.0;
-	var RTemp = 20.0;
-	var ATemp = 20.0;
-	var IRWTemp = 20.0;
-	var IRT = 1.0;
-	var RH = 50.0;
-	
-	byteorder=newArray("Default", "Swap");
-	defaultbyteorder="Default";
-	
-	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Verify Camera and Object Parameters");
-	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
-	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
-	Dialog.addMessage("Camera Calibration Constants:");
-	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
-	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
-	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
-	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
-    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
-    Dialog.addMessage("Object Parameters:");
-    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
-    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
-    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
-    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
-    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
-    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
-    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, defaultpalette);
-	Dialog.show();
-
-	var ByteOrder=Dialog.getChoice();
-	var PR1 = Dialog.getNumber();
-	var PR2 = Dialog.getNumber();
-	var PB = Dialog.getNumber();
-	var PF = Dialog.getNumber();
-	var PO = Dialog.getNumber();
-	var E = Dialog.getNumber();
-	var OD = Dialog.getNumber();
-	var RTemp = Dialog.getNumber();
-	var ATemp = Dialog.getNumber();
-	var IRWTemp = Dialog.getNumber();
-	var IRT = Dialog.getNumber();
-	var RH = Dialog.getNumber();
-	var palettetype = Dialog.getChoice();
-	
-	if(ByteOrder == "Swap"){
-		run("Byte Swapper");
-	}
-
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
-	
-}
-
-macro "Raw2Temp T1030" {
-
-	// Initial Planck Constants from Purchase Date in 2017 to Re-calibration in Nov 2018:		
-	var PR1=21546.203;
-	var PR2=0.016229488;
-	var PB=1507.2; 
-	var PF=1;
-	var PO=-6331;
-
-	// Planck Constants after Recalibration and Service with New Lens in November 2018:
-	var PR1=17998.529;
-	var PR2=0.015145967;
-	var PB=1453.1; 
-	var PF=1;
-	var PO=-5854;
-	
-	var E = 0.95;
-	var OD = 1.5;
-	var RTemp = 30.0;
-	var ATemp = 30.0;
-	var IRWTemp = 30.0;
-	var IRT = 1.0;
-	var RH = 80.0;
-
-	byteorder=newArray("Default", "Swap");
-	defaultbyteorder="Default";
-	
-	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Verify Camera and Object Parameters");
-	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
-	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
-	Dialog.addMessage("Camera Calibration Constants:");
-	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
-	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
-	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
-	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
-    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
-    Dialog.addMessage("Object Parameters:");
-    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
-    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
-    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
-    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
-    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
-    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
-    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, defaultpalette);
-	Dialog.show();
-
-	var ByteOrder=Dialog.getChoice();
-	var PR1 = Dialog.getNumber();
-	var PR2 = Dialog.getNumber();
-	var PB = Dialog.getNumber();
-	var PF = Dialog.getNumber();
-	var PO = Dialog.getNumber();
-	var E = Dialog.getNumber();
-	var OD = Dialog.getNumber();
-	var RTemp = Dialog.getNumber();
-	var ATemp = Dialog.getNumber();
-	var IRWTemp = Dialog.getNumber();
-	var IRT = Dialog.getNumber();
-	var RH = Dialog.getNumber();
-	var palettetype = Dialog.getChoice();
-	
-	if(ByteOrder == "Swap"){
-		run("Byte Swapper");
-	}
-
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
-	
-}
-
-macro "Raw2Temp FlirVueProR" {
-			
-	var PR1=17096.453;
-	var PR2=0.04351538;
-	var PB=1428; 
-	var PF=1;
-	var PO=-55;
-	var E = 0.95;
-	var OD = 1.5;
-	var RTemp = 20.0;
-	var ATemp = 20.0;
-	var IRWTemp = 20.0;
-	var IRT = 1.0;
-	var RH = 50.0;
-	
-	byteorder=newArray("Default", "Swap");
-	defaultbyteorder="Default";
-	
-	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Verify Camera and Object Parameters");
-	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
-	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
-	Dialog.addMessage("Camera Calibration Constants:");
-	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
-	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
-	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
-	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
-    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
-    Dialog.addMessage("Object Parameters:");
-    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
-    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
-    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
-    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
-    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
-    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
-    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, defaultpalette);
-	Dialog.show();
-
-	var ByteOrder=Dialog.getChoice();
-	var PR1 = Dialog.getNumber();
-	var PR2 = Dialog.getNumber();
-	var PB = Dialog.getNumber();
-	var PF = Dialog.getNumber();
-	var PO = Dialog.getNumber();
-	var E = Dialog.getNumber();
-	var OD = Dialog.getNumber();
-	var RTemp = Dialog.getNumber();
-	var ATemp = Dialog.getNumber();
-	var IRWTemp = Dialog.getNumber();
-	var IRT = Dialog.getNumber();
-	var RH = Dialog.getNumber();
-	var palettetype = Dialog.getChoice();
-	
-	if(ByteOrder == "Swap"){
-		run("Byte Swapper");
-	}
-
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
-		
-}
-
-
-macro "Raw2Temp E40" {
-			
-	var PR1=15759.339;
-	var PR2=0.011213507;
-	var PB=1413.2; 
-	var PF=1;
-	var PO=-6030;
-	var E = 0.95;
-	var OD = 1;
-	var RTemp = 20.0;
-	var ATemp = 20.0;
-	var IRWTemp = 20.0;
-	var IRT = 1.0;
-	var RH = 50.0;
-	
-	byteorder=newArray("Default", "Swap");
-	defaultbyteorder="Default";
-	
-	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Verify Camera and Object Parameters");
-	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
-	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder); 
-	Dialog.addMessage("Camera Calibration Constants:");
-	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
-	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
-	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
-	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
-    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
-    Dialog.addMessage("Object Parameters:");
-    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
-    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
-    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
-    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
-    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
-    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
-    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, defaultpalette);
-	Dialog.show();
-
-	var ByteOrder=Dialog.getChoice();
-	var PR1 = Dialog.getNumber();
-	var PR2 = Dialog.getNumber();
-	var PB = Dialog.getNumber();
-	var PF = Dialog.getNumber();
-	var PO = Dialog.getNumber();
-	var E = Dialog.getNumber();
-	var OD = Dialog.getNumber();
-	var RTemp = Dialog.getNumber();
-	var ATemp = Dialog.getNumber();
-	var IRWTemp = Dialog.getNumber();
-	var IRT = Dialog.getNumber();
-	var RH = Dialog.getNumber();
-	var palettetype = Dialog.getChoice();
-	
-	if(ByteOrder == "Swap"){
-		run("Byte Swapper");
-	}
-
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
-	
-	//a = newArray(65536); 
-	//templookup=newArray(65536);
-	//for (i=1; i<65536; i++) {
-	//	a[i]=i; 	
-	//	templookup[i] = 1500/log(21000/(0.012*(a[i]/0.9-100-7300))+1)-273.15;
-		//templookup = PB/log(PR1/(PR2*(a[i]/rawdivisor-rawsubtract+PO))+PF)-273.15;
-	//}
-	
-}
+function createLutList() {
+      err = "No LUTs in the '/ImageJ/luts' folder";
+      if (!File.exists(lutdir))
+           exit(err);
+      rawlist = getFileList(lutdir);
+      if (rawlist.length==0)
+          exit(err);
+      count = 0;
+      for (i=0; i< rawlist.length; i++) {
+          if (endsWith(rawlist[i], ".lut")) count++;
+      }
+      if (count==0)
+          exit(err);
+      list = newArray(count);
+      index = 0;
+      for (i=0; i< rawlist.length; i++) {
+          if (endsWith(rawlist[i], ".lut"))
+              list[index++] = rawlist[i];
+      }
+  }
 
 
 function getLutMenu() {
@@ -1809,7 +1928,6 @@ function flirdate(filepath, printvalues){
 }
 
 
-
 // function to add leading zeros to a string (usually a number)
 function leadzero(val, digits){
 	newval=val;
@@ -1828,6 +1946,7 @@ function swap(val){
 	newval=substring(val, 2, 4) + substring(val, 0,2);
 	return newval;
 }
+
 
 
 
