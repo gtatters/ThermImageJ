@@ -3,18 +3,20 @@ LICENSE
 
 ### ThermImageJ Functions and Macros
 
-All ThermImageJ material is made available under the Creative Commons Attribution license (<https://creativecommons.org/licenses/by/4.0/>). You are free:
+All ThermImageJ material is made available under the Creative Commons Attribution license (<https://creativecommons.org/licenses/by/4.0/>).
+
+You are free:
 
 -   to **Share**---to copy, distribute and transmit the work
 -   to **Adapt**---to remix, transform, and build upon the material for any purpose
 
 Under the following conditions:
 
--   **Attribution**---You must attribute the work using "Copyright (c) ThermImageJ" (but not in any way that suggests that we endorse you or your use of the work), give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.
+-   **Attribution**---You must attribute the work using "Copyright (c) ThermImageJ" (but not in a way that suggests that we endorse you or your use of the work), give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.
 
 -   **No additional restrictions**--—You may not apply legal terms or technological measures that legally restrict others from doing anything the license permits.
 
-Where practical, you must also include a hyperlink to <https://github.com/gtatters/ThermImageJ>.
+Where practical, you must also include a citation or hyperlink to <https://github.com/gtatters/ThermImageJ>.
 
 With the understanding that:
 
