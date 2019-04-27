@@ -1,4 +1,4 @@
-ThermImageJ - Functions and Macros for ImageJ
+ThermImageJ - Thermal Image Functions and Macros for ImageJ
 ================
 
 ThermImageJ is a collection of ImageJ functions and macros to allow for import and conversion of thermal image files and to assist in extracting raw data from infrared thermal images and converting these to temperatures using standard equations in thermography.
@@ -15,10 +15,12 @@ Compatibility
 How to Cite
 -----------
 
--   In progress...
+-   Glenn J. Tattersall. (2019). ThermImageJ: Thermal Image Functions and Macros for ImageJ .doi: 10.5281/zenodo.2652896 (URL: <http://doi.org/zenodo.2652896>). [![DOI](https://zenodo.org/badge/2652896.svg)](https://zenodo.org/badge/latestdoi/2652896)
 
 Requirements
 ------------
+
+DOI: 10.5281/zenodo.2652896
 
 -   FIJI is Just ImageJ. Download instructions: <https://imagej.net/Fiji/Downloads>
 -   Exiftool. Installation instructions: <http://www.sno.phy.queensu.ca/~phil/exiftool/install.html>
