@@ -17,7 +17,8 @@ How to Cite
 
 -   Glenn J. Tattersall. (2019). ThermImageJ: Thermal Image Functions and Macros for ImageJ. <doi:10.5281/zenodo.2652896>. [![DOI](https://zenodo.org/badge/182273995.svg)](https://zenodo.org/badge/latestdoi/182273995)
 
-<https://zenodo.org/badge/182273995.svg> \#\# Requirements
+Requirements
+------------
 
 DOI: 10.5281/zenodo.2652896
 
