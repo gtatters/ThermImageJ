@@ -19,6 +19,9 @@ Compatibility
 
 -   ThermImageJ was developed on OSX, and tested using ImageJ v1.52n. Many features require installation of command line tools that may present future challenges on different operating systems. Testing and troubleshooting is ongoing. Please report issues here: <https://github.com/gtatters/ThermImageJ/issues>
 
+How to Cite
+-----------
+
 Requirements
 ------------
 
@@ -280,3 +283,8 @@ ImageJ Macro Development occurred in association with:
 Command Line Development and Automation occurred in assocation with:
 
 -   Ruger Porter (<https://www.ohio.edu/medicine/about/directory/profiles.cfm?profile=porterw1>)
+
+Suggestions/Issues
+------------------
+
+-   Suggestions for improvements and additions, as well as bugs or issues can be filed here: <https://github.com/gtatters/ThermImageJ/issues>
