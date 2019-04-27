@@ -165,7 +165,7 @@ Main Functions and Features
     -   setting the min and max values of the pseudocolour scale
     -   set min equal to the lowest temperature desired on the lookup table scale
     -   set max equal to the highest temperature deisred on the lookup table scale
--   Add Calibration bar <img src='./images/Calbar.png'>
+-   Add Calibration bar <img src='./images/CalBar.png'>
     -   makes use of the built-in Analyze-Tools-Calibration Bar
     -   use this after temperature conversion of image
 
