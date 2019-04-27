@@ -241,7 +241,7 @@ Main Functions and Features
     -   macros coded to short-cut keys, 1,2,3, and 4 by adding \[\#\] to the name of the macro in the ThermImageJ.ijm file
     -   extracts mean, min, max, sd, and area of the given ROI and saves to results window as well as to a ROI\_Results.csv file to user's desktop
     -   location of ROI\_Results.csv file can be changed by user by editting the variable desktopdir at the top of the ThermImageJ.ijm file
-    -   Sample results file: <https://github.com/gtatters/ThermImageJ/blob/master/ROI_Results.csv>
+    -   sample results file: <https://github.com/gtatters/ThermImageJ/blob/master/ROI_Results.csv>
     -   edit the ThermImageJ.ijm to change the nature of the results to extract
     -   addition ROIs can be added to the toolset file
     -   designed to work with single images or image stacks
@@ -249,18 +249,26 @@ Main Functions and Features
 
 <img src='./images/ROI_Results.csv.png'>
 
-Typical Workflow
-----------------
+Workflow
+--------
+
+### Converted JPG to raw 16-bit PNG or TIFF Workflow
 
 -   Determine your FLIR camera's calibration constants (i.e. use the Calibration Values Tool)
 -   Convert Image to a 16-bit Grayscale File (i.e. Convert FLIR JPG)
--   Import to ImageJ
+-   Import converted file to ImageJ using normal ImageJ file recognition. File-&gt;Open or File-&gt;Import Image Sequence can work on PNG and TIFF files.
 -   Run Raw2Temp or one of the custom Raw2Temp macros for your particular camera
 -   Choose your palette (LUT in ImageJ)
 -   Use ImageJ ROI tools and Measurement tools
 
-Video Workflow
---------------
+### Single JPG Workflow
+
+-   Use the Import JPG tool which will scan the file for calibration constants, extract the raw thermal imaage, convert this to a PNG or TIFF file, and automatically open it.
+-   Inspect the opened image, calibration constants, and object parameters to ensure that these values are appropriate to your application.
+-   Choose your palette (LUT in ImageJ)
+-   Use ImageJ ROI tools and Measurement tools
+
+### Video Workflow
 
 -   Use the Import SEQ or Import CSQ functions that scan the file to determine calibration constants before import
 -   Select the video import option and jpegls as the codec (i.e. the defaults) This will keep file size as small as possible and preserves compatibility with the ImageJ FFMPEG implementation
@@ -292,7 +300,7 @@ Performance, Speed, and File Size Limits
 References
 ----------
 
-The following open source programs and programmers were crucial to the development of ThermImageJ.
+The following open source programs were crucial to the development of ThermImageJ.
 
 -   Thermimage: <https://github.com/gtatters/Thermimage>
 
@@ -311,7 +319,7 @@ ImageJ Macro Development occurred in association with:
 
 -   Joshua Robertson (<https://github.com/joshuakrobertson>)
 
-Command Line Development and Automation occurred in assocation with:
+Command Line Development occurred in assocation with:
 
 -   Ruger Porter (<https://www.ohio.edu/medicine/about/directory/profiles.cfm?profile=porterw1>)
 
@@ -319,3 +327,4 @@ Suggestions/Issues
 ------------------
 
 -   Suggestions for improvements and additions, as well as bugs or issues can be filed here: <https://github.com/gtatters/ThermImageJ/issues>
+-   Please include a sample image to help with solving issues
