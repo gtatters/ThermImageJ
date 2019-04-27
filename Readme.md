@@ -1,13 +1,11 @@
 ThermImageJ - Functions and Macros for ImageJ
 ================
 
-ThermImageJ is a collection of ImageJ macros to allow for import and conversion of thermal image files to assist in extracting raw data from infrared thermal images and converting them to temperatures using standard equations in thermography.
-
-ThermImageJ provides an open source tool for assisting with infrared thermographic analysis.
+ThermImageJ is a collection of ImageJ functions and macros to allow for import and conversion of thermal image files and to assist in extracting raw data from infrared thermal images and converting these to temperatures using standard equations in thermography.
 
 These macros will allow you to import most FLIR jpgs and videos and process the images in ImageJ.
 
-ThermImageJ emerged from Thermimage (<https://github.com/gtatters/Thermimage>), the latter an R package with more emphasis on biological heat transfer analysis.
+ThermImageJ emerged from Thermimage (<https://github.com/gtatters/Thermimage>), the latter an R package with similar tools but more emphasis on biological heat transfer analysis.
 
 Version History
 ---------------
@@ -17,7 +15,7 @@ Version History
 Compatibility
 -------------
 
--   ThermImageJ was developed on OSX, and tested using ImageJ v1.52n. Many features require installation of command line tools that may present future challenges on different operating systems. Testing and troubleshooting is ongoing, especially in Windows. Please report issues here: <https://github.com/gtatters/ThermImageJ/issues>, or consider converting to Mac or Linux.
+-   ThermImageJ was developed on OSX, and tested using ImageJ v1.52o. Many features require installation of command line tools that may present future challenges on different operating systems. Testing and troubleshooting is ongoing, especially in Windows. Please report issues here: <https://github.com/gtatters/ThermImageJ/issues>, or consider converting to Mac or Linux.
 
 How to Cite
 -----------
@@ -267,13 +265,13 @@ Sample files to test:
 
 <https://github.com/gtatters/ThermImageJ/blob/master/SampleFiles.zip>
 
-Performance, Speed, and File Size
----------------------------------
+Performance, Speed, and File Size Limits
+----------------------------------------
 
--   The maximum number of video frames (i.e. stacks) will limited by the CPU and RAM.
--   Due to performance limitations, memory allocation, and file size of videos, users are recommended to delay converting their loaded video files to temperature, until files have been otherwise processed, as the memory required to is double that required to work with the 16-bit grayscale images.
+-   The maximum number of video frames (i.e. stacks) will limited by the CPU and RAM, but success with videos and image stacks of up to ~1000 frames has been tested.
+-   Due to memory allocation limits, users are recommended to delay converting their larger video files to temperature, until otherwise processed, as the memory required to is double that required to work with the 16-bit grayscale images.
 -   Consider cropping videos, re-sampling fewer stacks if you have oversampled videos, or performing ROI analyses on the 16-bit raw data and then calculate temperature using the raw2temp function also available in an R package (Thermimage)
--   Finally, users are advised to verify that the values obtained with these macros are similar to the ones obtained using official thermal imaging software. See <https://github.com/gtatters/ThermimageCalibration> for details on performance accuracy.
+-   Finally, verify that the values obtained with these macros are similar to the ones obtained using official thermal imaging software. See <https://github.com/gtatters/ThermimageCalibration> for details on performance accuracy.
 
 References
 ----------
