@@ -15,10 +15,9 @@ Compatibility
 How to Cite
 -----------
 
--   Glenn J. Tattersall. (2019). ThermImageJ: Thermal Image Functions and Macros for ImageJ .doi: 10.5281/zenodo.2652896 (URL: <http://doi.org/zenodo.2652896>). [![DOI](https://zenodo.org/badge/2652896.svg)](https://zenodo.org/badge/latestdoi/2652896)
+-   Glenn J. Tattersall. (2019). ThermImageJ: Thermal Image Functions and Macros for ImageJ. doi: 10.5281/zenodo.2652896. [![DOI](https://zenodo.org/badge/182273995.svg)](https://zenodo.org/badge/latestdoi/182273995)
 
-Requirements
-------------
+<https://zenodo.org/badge/182273995.svg> \#\# Requirements
 
 DOI: 10.5281/zenodo.2652896
 
