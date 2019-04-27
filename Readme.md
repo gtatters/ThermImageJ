@@ -150,7 +150,7 @@ Main Functions and Features
 
 ### Lookup tables and adjusting colour ranges
 
-<img src='images/PaletteChoice.gif' align="right" height="300">
+<img src='./images/PaletteChoices.gif' align="right" height="300">
 
 -   LUT (Thermal Palette Look Up Table) menu
     -   for rapidly accessing different pseudocolour palettes
