@@ -24,17 +24,19 @@ Requirements
 -   Exiftool. Installation instructions: <http://www.sno.phy.queensu.ca/~phil/exiftool/install.html>
 -   FFMPEG command line utility (static version). Download instructions: <https://ffmpeg.org/download.html>
 -   Perl. Installation instructions: <https://www.perl.org/get.html>
--   A custom perl script, provided on this github repository, which can be downloaded and placed in a scripts folder with ImageJ. Link here: <https://github.com/gtatters/ThermImageJ/tree/master/scripts/split.pl/>
--   ThermImageJ macro toolset. A text file (.ijm) containing all the macros and functions: <https://github.com/gtatters/ThermImageJ/tree/master/toolsets/ThermImageJ.ijm/>
--   Additional Look Up Tables (LUTS), popularly used in thermal imaging, available on this github repository: <https://github.com/gtatters/ThermImageJ/tree/master/luts/>
 -   Byte swapper plugin. Download instructions: <https://imagej.nih.gov/ij/plugins/swapper.html>
+-   A custom perl script (split.pl), provided on this github repository, which can be downloaded and placed in a scripts folder with ImageJ: <https://github.com/gtatters/ThermImageJ/tree/master/scripts/split.pl>
+-   ThermImageJ macro toolset. A text file (.ijm) containing all the macros and functions: <https://github.com/gtatters/ThermImageJ/tree/master/toolsets/ThermImageJ.ijm>
+-   Additional Look Up Tables (LUTS), popularly used in thermal imaging, available on this github repository: <https://github.com/gtatters/ThermImageJ/tree/master/luts>
+
+Note: the ThermImageJ files can be easily downloaded as a ZIP file by clicking on the green **Clone or Download** button and then selecting **Download ZIP**. Unzip this folder on your computer for access to the toolset, luts, and the split.pl files located in their appropriate subfolders.
 
 Installation Instructions
 -------------------------
 
--   Install FIJI, exiftool, and perl according to the website instructions above.
--   Launch FIJI and follow any update instructions.
--   Launch FIJI--&gt;Help--&gt;Update, allow it to update any plug-ins, then while the update window is open, select **Manage update websites**, and ensure that the FFMPEG box is ticked. Select **ok**, then click the **Apply** option, and restart FIJI. This FFMPEG is required for importing avi files created during the conversion process, although it might require that you have FFMPEG installed .
+-   Install **FIJI**, **exiftool**, **perl**, and **ffmpeg** according to the website instructions above.
+-   Launch **FIJI** and follow any update instructions.
+-   Launch FIJI--&gt;Help--&gt;Update, allow it to update any plug-ins, then while the update window is open, select **Manage update websites**, and ensure that the FFMPEG box is ticked. Select **ok**, then click the **Apply** option, and restart FIJI. This FFMPEG plugin is required for importing avi files created during the conversion process, although it might require that you have FFMPEG installed at the command line.
 -   Navigate to where FIJI is installed to find all the subfolders. On a Mac, you may need to right-click and click **Show Package Contents** to open up FIJI as a folder to reveal the various folders (macros, plugins, jars, etc..)
 -   Download the **ThermImageJ.ijm** file from this site and copy into the FIJI/macros/toolsets folder.
 -   Open the **ThermImageJ.ijm** file in any text editor, and verify the paths are properly set for your respective operating system. See the comments with the text file for guidance.
@@ -127,6 +129,8 @@ Setting and verifying paths to command line tools
 
 Once you have installed everything above, and verified no errors, you can check or change the directory paths in FIJI/ImageJ.
 
+ThermImageJ is set up to detect whether you are using Mac OSX, Linux or Windows and attempts to define the appropriate file paths automatically. Thus, you should not need to change parameters, but it is useful to check and become familiar with the process.
+
 Navigate to the ThermImageJ.ijm toolset file and open it using a text editor or the built-in ImageJ macro editor:
 
 <img src="./images/ToolsetHeader.png" width="100%" />
@@ -135,7 +139,9 @@ Depending on your operating system or how system files are installed you may nee
 
 <img src="./images/UserPathCustomise.png" width="50%" />
 
-This also applies to the location of the split.pl file that should be placed in the scripts folder inside the Fiji folder:
+This also applies to the location of the split.pl file that should be placed in the scripts folder inside the Fiji folder.
+
+ThermImageJ assumes you have placed the split.pl file into a scripts subfolder where Fiji is installed, so hopefully you will not need to change this:
 
 <img src="./images/UserSplitPathCustomise.png" width="100%" />
 
@@ -159,6 +165,15 @@ Once installed, the toolbar menu populates with new icons corresponding to the p
 Once installed, the toolset should also populate the **Plugin Dropdown Menu** with the same, and some additional macros used less often:
 
 <img src="./images/plugin-macro.png" width="50%" />
+
+Customising the Toolset
+-----------------------
+
+Feel free to edit your version of ThermImageJ.ijm and if you break it, you can always download a new one.
+
+You can edit it with any text editor or with the built-in ImageJ text editor by selecting Plugins--&gt;Macros--&gt;Edit and navigating to the Fiji/macros/toolset folder and selecting the ThermImageJ file. Or from within ImageJ/Fiji, holding the shift key down, select the **&gt;&gt;** "More Tools" link and still hold the shift key down, click on **ThermImageJ** to open the file up within the built-in text editor.
+
+If you do make changes and save them, you will either need to restart Fiji, or restore the toolset bar by clicking on the **&gt;&gt;** "More Tools" link, selecting **Restore Start-Up Tools** then clicking on the **&gt;&gt;** "More Tools" link and selecting **ThermImageJ** again.
 
 Main Functions and Features
 ---------------------------
@@ -195,7 +210,7 @@ Main Functions and Features
     -   custom macro to import FLIR SEQ using the Import-Raw command
     -   use only if you know the precise offset byte start and the number of bytes between frames.
     -   only works for certain SEQ files, and only formats where tiff format underlies the video
--   see SampleFiles.zip for sample data
+    -   see SampleFiles.zip for sample data
 
 ### Bits and Bytes
 
@@ -203,19 +218,23 @@ Main Functions and Features
     -   simple call to the Byte Swapper plugin.
     -   since FLIR files are sometimes saved using little endian order (tiff) and big endian order (png), a short-cut to a pixel byte swap is a fast way to repair files that have byte order mixed up
 
-### Imports that use Command Line Conversions
+### Import (and Conversion) that use Command Line Programs
 
--   Convert FLIR JPG
+-   Convert FLIR JPG (from the Plugins-&gt;Macros Menu only)
     -   select a candidate JPG or folder of JPGs, and a call to the command line tool, exiftool, is performed to extract the raw-binary 16 bit pixel data, save this to a gray scale tif or png, placed into a 'converted' subfolder.
     -   subsequently the user can import these 16-bit grayscale images and apply custom transformations or custom Raw2Temp conversions.
     -   some images may be converted in reverse byte order due to FLIR conventions. These can be fixed with the Byte Swapper plugin after import.
 -   Import FLIR JPG <img src='./images/ImportJPG.png'>
     -   select a candidate JPG, and a call to the command line tool, exiftool, is performed to extract the raw-binary 16 bit pixel data, temporarily save this to a gray scale tif or png, import that file, and calls the Raw2Temp function using the calibration constants derived from the FLIR JPG file.
--   Import FLIR SEQ <img src='./images/ConvertSEQ.png'>
-    -   select a candidate SEQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg is performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
-    -   this may work FCF file types as well but has not been thoroughly tested
--   Import FLIR CSQ <img src='./images/ConvertCSQ.png'>
-    -   select a candidate CSQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg is performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
+-   Import/Convert FLIR SEQ <img src='./images/ConvertSEQ.png'>
+    -   *Import*: select a candidate SEQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg is performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
+    -   jpegls as the output video codec is advised for its high compression, lossless quality, and compatibility between different OS versions of FFMPEG.
+    -   this function may also work on FCF file types but has not been thoroughly tested
+    -   *Convert*: this function may also be used to convert the video into a folder of png or tiff files by selecting png or tiff as the output filetype, instead of avi. File codec is ignore if you choose this approach. The folder will be automatically named according ot the video file without extension. Thus, SampleVid.seq will be converted to files in the folder called SampleVid.
+-   Import/Convert FLIR CSQ <img src='./images/ConvertCSQ.png'>
+    -   *Import*: select a candidate CSQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg is performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
+    -   jpegls as the output video codec is advised for its high compression, lossless quality, and compatibility between different OS versions of FFMPEG.
+    -   *Convert*: this function may also be used to convert the video into a folder of png or tiff files by selecting png or tiff as the output filetype, instead of avi. File codec is ignore if you choose this approach. The folder will be automatically named according ot the video file without extension. Thus, SampleVid.csq will be converted to files in the folder called SampleVid.
 
 ### Utilities
 
@@ -234,7 +253,7 @@ Main Functions and Features
 
 ### ROI (Region of Interest) Tools
 
--   ROI 1 to ROI 4
+-   ROI 1 to ROI 4 (from the Plugins-&gt;Macros menu)
     -   macros coded to short-cut keys, 1,2,3, and 4 by adding \[\#\] to the name of the macro in the ThermImageJ.ijm file
     -   extracts mean, min, max, sd, and area of the given ROI and saves to results window as well as to a ROI\_Results.csv file to user's desktop
     -   location of ROI\_Results.csv file can be changed by user by editting the variable desktopdir at the top of the ThermImageJ.ijm file
@@ -260,7 +279,7 @@ Workflow
 
 ### Single JPG Workflow
 
--   Use the Import JPG tool which will scan the file for calibration constants, extract the raw thermal imaage, convert this to a PNG or TIFF file, and automatically open it.
+-   Use the Import JPG tool which will scan the file for calibration constants, extract the raw thermal image, convert this to a PNG or TIFF file, and automatically open it.
 -   Inspect the opened image, calibration constants, and object parameters to ensure that these values are appropriate to your application.
 -   Choose your palette (LUT in ImageJ)
 -   Use ImageJ ROI tools and Measurement tools
@@ -285,6 +304,11 @@ Sample files to test:
 ---------------------
 
 <https://github.com/gtatters/ThermImageJ/blob/master/SampleFiles.zip>
+
+Demonstration
+-------------
+
+See this screen capture demonstrating basic functions here: <https://www.youtube.com/watch?v=5XYZw0kqX64&list=PLKTF21r744mvLvRdF05UloE7g1dxCUvSD&index=3>
 
 Performance, Speed, and File Size Limits
 ----------------------------------------

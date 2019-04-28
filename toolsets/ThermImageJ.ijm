@@ -25,7 +25,7 @@ var defaultpalette="Grays";
 ////                                                                                               ////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// The following will set the perl script path to the location of your image folder's scripts subfolder
+// The following will set the perl script path to the location of your ImageJ folder's scripts subfolder
 var perlscriptpath=getDirectory("imageJ") + "scripts/";   			// <- VERIFY THIS
 
 // ROI commands will automatically save a ROI_Results file to user's desktop folder 
@@ -159,9 +159,9 @@ macro "Import FLIR JPG"{
 	ConvertImportFLIRJPG();
 }
 
-macro "Import FLIR SEQ Action Tool - C000D19D1aD1eD28D2bD2eD38D3bD3eD43D48D4cD4dD4eD54D65D68D69D6aD6bD6cD6dD6eD70D71D72D73D74D75D76D78D7bD7eD80D81D82D83D84D85D86D88D8bD8eD95D98D9eDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DdeDe9DeaDebDecDedDeeDefDfeDffC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
+macro "Import/Convert FLIR SEQ Action Tool - C000D19D1aD1eD28D2bD2eD38D3bD3eD43D48D4cD4dD4eD54D65D68D69D6aD6bD6cD6dD6eD70D71D72D73D74D75D76D78D7bD7eD80D81D82D83D84D85D86D88D8bD8eD95D98D9eDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DdeDe9DeaDebDecDedDeeDefDfeDffC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
 	
-	Dialog.create("Import FLIR SEQ File");
+	Dialog.create("Select a FLIR SEQ File");
 	Dialog.addMessage("Define parameters for Video Import");
 	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
 	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
@@ -191,9 +191,9 @@ macro "Import FLIR SEQ Action Tool - C000D19D1aD1eD28D2bD2eD38D3bD3eD43D48D4cD4d
 	ConvertFLIRVideo("seq", outtype, outcodec);
 }
 
-macro "Import FLIR SEQ" {
+macro "Import/Convert FLIR SEQ" {
 
-	Dialog.create("Import FLIR SEQ File");
+	Dialog.create("Select a FLIR SEQ File");
 	Dialog.addMessage("Define parameters for Video Import");
 	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
 	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
@@ -223,9 +223,9 @@ macro "Import FLIR SEQ" {
 	ConvertFLIRVideo("seq", outtype, outcodec);
 }
 
-macro "Import FLIR CSQ Action Tool - C000D19D1aD1bD1cD1dD28D2eD38D3eD43D48D4eD54D65D69D6aD6eD70D71D72D73D74D75D76D78D7bD7eD80D81D82D83D84D85D86D88D8bD8eD95D98D9cD9dD9eDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DdeDe9DeaDebDecDedDeeDefDfeDffC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
+macro "Import/Convert FLIR CSQ Action Tool - C000D19D1aD1bD1cD1dD28D2eD38D3eD43D48D4eD54D65D69D6aD6eD70D71D72D73D74D75D76D78D7bD7eD80D81D82D83D84D85D86D88D8bD8eD95D98D9cD9dD9eDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DdeDe9DeaDebDecDedDeeDefDfeDffC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
 	
-	Dialog.create("Import FLIR CSQ File");
+	Dialog.create("Select a CSQ File");
 	Dialog.addMessage("Define parameters for Video Import");
 	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
 	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
@@ -255,9 +255,9 @@ macro "Import FLIR CSQ Action Tool - C000D19D1aD1bD1cD1dD28D2eD38D3eD43D48D4eD54
 	ConvertFLIRVideo("csq", outtype, outcodec);
 }
 
-macro "Import FLIR CSQ" {
+macro "Import/Convert FLIR CSQ" {
 	
-	Dialog.create("Import FLIR CSQ File");
+	Dialog.create("Select a CSQ File");
 	Dialog.addMessage("Define parameters for Video Import");
 	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
 	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
