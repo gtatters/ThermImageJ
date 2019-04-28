@@ -344,6 +344,10 @@ Command Line Development occurred in assocation with:
 
 -   Ruger Porter (<https://www.ohio.edu/medicine/about/directory/profiles.cfm?profile=porterw1>)
 
+Raw2Temp development occurred in association with:
+
+-   Ray Danner (<https://github.com/raydanner>)
+
 Suggestions/Issues
 ------------------
 
