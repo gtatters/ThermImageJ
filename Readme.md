@@ -310,13 +310,14 @@ Demonstration
 
 See this screen capture demonstrating basic functions here: <https://www.youtube.com/watch?v=5XYZw0kqX64&list=PLKTF21r744mvLvRdF05UloE7g1dxCUvSD&index=3>
 
-Performance, Speed, and File Size Limits
-----------------------------------------
+Performance, Speed, File Size Limits, and Caveats
+-------------------------------------------------
 
 -   The maximum number of video frames (i.e. stacks) will limited by the CPU and RAM, but success with videos and image stacks of up to ~1000 frames has been tested.
--   Due to memory allocation limits, users are recommended to delay converting their larger video files to temperature, until otherwise processed, as the memory required to is double that required to work with the 16-bit grayscale images.
--   Consider cropping videos, re-sampling fewer stacks if you have oversampled videos, or performing ROI analyses on the 16-bit raw data and then calculate temperature using the raw2temp function also available in an R package (Thermimage)
--   Finally, verify that the values obtained with these macros are similar to the ones obtained using official thermal imaging software. See <https://github.com/gtatters/ThermimageCalibration> for details on performance accuracy.
+-   Due to memory allocation limits, users are recommended to delay converting their larger video files to temperature, until the files have been otherwise processed. The memory required to work with converted files (32-Bit) is double that required to work with the 16-bit grayscale images.
+-   Consider cropping videos, re-sampling fewer stacks if you have oversampled videos, or performing ROI analyses on the 16-bit raw data and then calculate temperature using the raw2temp function also available in an R package (Thermimage).
+-   If you have large video files (&gt;2000 frames and high resolution), it is advisable to convert these videos to folders of png files, and use Import-&gt;Image Sequence tool to skip files during import as a way of down-sampling.
+-   Finally, verify that the temperature values obtained with these macros are similar to the ones obtained using official thermal imaging software. See <https://github.com/gtatters/ThermimageCalibration> for details on performance accuracy (±0.04C), but a healthy skepticism is advised. Please post in the issues if you do suspect the Raw2Temp conversions are not consistent with expectations.
 
 References
 ----------
@@ -352,4 +353,5 @@ Suggestions/Issues
 ------------------
 
 -   Suggestions for improvements and additions, as well as bugs or issues can be filed here: <https://github.com/gtatters/ThermImageJ/issues>
+
 -   Please include a sample image to help with solving issues
