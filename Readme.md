@@ -1,6 +1,8 @@
 ThermImageJ - Thermal Image Functions and Macros for ImageJ
 ================
 
+<img src = './images/ThermImageJSticker1.png' align="right" height="138.5">
+
 ThermImageJ is a collection of ImageJ functions and macros to allow for import and conversion of thermal image files and to assist in extracting raw data from infrared thermal images and converting these to temperatures using standard equations in thermography.
 
 These macros will allow you to import most FLIR jpgs and videos and process the images in ImageJ.
