@@ -321,6 +321,12 @@ Performance, Speed, File Size Limits, and Caveats
 -   If you have large video files (&gt;2000 frames and high resolution), it is advisable to convert these videos to folders of png files, and use Import-&gt;Image Sequence tool to skip files during import as a way of down-sampling.
 -   Finally, verify that the temperature values obtained with these macros are similar to the ones obtained using official thermal imaging software. See <https://github.com/gtatters/ThermimageCalibration> for details on performance accuracy (±0.04C), but a healthy skepticism is advised. Please post in the issues if you do suspect the Raw2Temp conversions are not consistent with expectations.
 
+File types
+----------
+
+-   The radiometric file types at present supported are mainly those from FLIR, however certain file types that can be imported into ImageJ could be used in the future, depending on information from users. Deciphering the radiometric data storage approaches takes time and sample files.
+-   For a discussion about the Babylonian nature of thermal image file types and strategies employed by thermal camera manufacturers see <https://www.irinfo.org/04-01-2006-colbert/>
+
 References
 ----------
 
