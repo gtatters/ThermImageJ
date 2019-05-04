@@ -22,11 +22,16 @@ How to Cite
 Requirements
 ------------
 
+### External Software Downloads
+
 -   FIJI is Just ImageJ. Download instructions: <https://imagej.net/Fiji/Downloads>
 -   Exiftool. Installation instructions: <http://www.sno.phy.queensu.ca/~phil/exiftool/install.html>
 -   FFMPEG command line utility (static version). Download instructions: <https://ffmpeg.org/download.html>
 -   Perl. Installation instructions: <https://www.perl.org/get.html>
 -   Byte swapper plugin. Download instructions: <https://imagej.nih.gov/ij/plugins/swapper.html>
+
+### ThermImageJ Downloads from this Github site
+
 -   A custom perl script (split.pl), provided on this github repository, which can be downloaded and placed in a scripts folder with ImageJ: <https://github.com/gtatters/ThermImageJ/tree/master/scripts/split.pl>
 -   ThermImageJ macro toolset. A text file (.ijm) containing all the macros and functions: <https://github.com/gtatters/ThermImageJ/tree/master/toolsets/ThermImageJ.ijm>
 -   Additional Look Up Tables (LUTS), popularly used in thermal imaging, available on this github repository: <https://github.com/gtatters/ThermImageJ/tree/master/luts>
@@ -37,9 +42,10 @@ Installation Instructions
 -------------------------
 
 -   Install **FIJI**, **exiftool**, **perl**, and **ffmpeg** according to the website instructions above.
+-   Troubleshoot or perform installation checks (see next section).
 -   Launch **FIJI** and follow any update instructions.
 -   Launch FIJI--&gt;Help--&gt;Update, allow it to update any plug-ins, then while the update window is open, select **Manage update websites**, and ensure that the FFMPEG box is ticked. Select **ok**, then click the **Apply** option, and restart FIJI. This FFMPEG plugin is required for importing avi files created during the conversion process, although it might require that you have FFMPEG installed at the command line.
--   Navigate to where FIJI is installed to find all the subfolders. On a Mac, you may need to right-click and click **Show Package Contents** to open up FIJI as a folder to reveal the various folders (macros, plugins, jars, etc..)
+-   Navigate to where FIJI is installed to find all the subfolders. On a Mac, you may need to right-click on FIJI and click **Show Package Contents** to open up FIJI as a folder to reveal the various folders (macros, plugins, jars, etc..)
 -   Download the **ThermImageJ.ijm** file from this site and copy into the FIJI/macros/toolsets folder.
 -   Open the **ThermImageJ.ijm** file in any text editor, and verify the paths are properly set for your respective operating system. See the comments with the text file for guidance.
 -   Download the additional **luts** files from this site and copy into your FIJI/luts folder. These are palettes that are commonly used in thermal imaging.
@@ -87,7 +93,7 @@ which perl
 
 Verify no errors on your system to ensure perl is installed correctly.
 
-Check that the perl script is accessible by (be sure to provide the proper path to the split.pl file on your system):
+Check that the perl script is accessible by perl (be sure to provide the proper path to the split.pl file on your system):
 
 ``` bash
 perl /Applications/Fiji.app/scripts/split.pl
@@ -97,7 +103,7 @@ You should see the following warning message:
 
 *"Error: Please specify input file, output folder, the output filename base, pattern to split, and output file extension."*
 
-This verifies that the perl script is installed where your machine can access it.
+This is a good error, and verifies that the perl script is installed where your machine can access it!
 
 If you see:
 
@@ -131,7 +137,7 @@ Setting and verifying paths to command line tools
 
 Once you have installed everything above, and verified no errors, you can check or change the directory paths in FIJI/ImageJ.
 
-ThermImageJ is set up to detect whether you are using Mac OSX, Linux or Windows and attempts to define the appropriate file paths automatically. Thus, you should not need to change parameters, but it is useful to check and become familiar with the process.
+The ThermImageJ.ijm toolset file will detect whether you are using Mac OSX, Linux or Windows and attempts to define the appropriate file paths automatically. Thus, you should not need to change parameters, but it is useful to check and become familiar with the process or do any customisation necessary for your FIJI installation.
 
 Navigate to the ThermImageJ.ijm toolset file and open it using a text editor or the built-in ImageJ macro editor:
 
