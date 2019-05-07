@@ -25,9 +25,9 @@ Requirements
 ### External Software Downloads
 
 -   FIJI is Just ImageJ. Download instructions: <https://imagej.net/Fiji/Downloads>
--   Exiftool. Installation instructions: <http://www.sno.phy.queensu.ca/~phil/exiftool/install.html>
+-   Exiftool. (The standalone executable file is suggested). Installation instructions: <http://www.sno.phy.queensu.ca/~phil/exiftool/install.html>
 -   FFMPEG command line utility (static version). Download instructions: <https://ffmpeg.org/download.html>
--   Perl. Installation instructions: <https://www.perl.org/get.html>
+-   Perl. (Activeperl binary is suggested) Installation instructions: <https://www.perl.org/get.html>
 -   Byte swapper plugin. Download instructions: <https://imagej.nih.gov/ij/plugins/swapper.html>
 
 ### ThermImageJ Downloads from this Github site
