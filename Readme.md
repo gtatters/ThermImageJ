@@ -202,7 +202,7 @@ Main Functions and Features
 -   Brightness/Contrast <img src='./images/BrightContrast.png'>
     -   setting the min and max values of the pseudocolour scale
     -   set min equal to the lowest temperature desired on the lookup table scale
-    -   set max equal to the highest temperature deisred on the lookup table scale
+    -   set max equal to the highest temperature desired on the lookup table scale
 -   Add Calibration bar <img src='./images/CalBar.png'>
     -   short-cut to ImageJ's built-in Analyze-&gt;Tools-&gt;Calibration Bar
     -   creates a duplicate image first
@@ -246,11 +246,12 @@ Main Functions and Features
 
 ### Utilities
 
+-   FLIR Dates <img src='./images/DateTime.png'>
+    -   user selects a candidate FLIR file (jpg, seq, csq) to have the Date/Time Original returned. Use this to quickly scan a file for capture times.
 -   FLIR Calibration Values <img src='./images/FLIRSettings.png'>
     -   select a candidate FLIR file (jpg, seq, csq) to display the calibration constants and built-in object parameters stored at image capture. Typically, the user would then use the Planck constants and Object Paramters in the Raw2Temp macro.
     -   use this function on the original FLIR file if you have a 16-bit grayscale image of the raw data in a separate file and need to convert to temperature under specified conditions.
--   FLIR Dates <img src='./images/DateTime.png'>
-    -   user selects a candidate FLIR file (jpg, seq, csq) to have the Date/Time Original returned. Use this to quickly scan a file for capture times.
+    -   the calibration constants and object parameters are stored in memory for subsequent use of the Raw2Temp function
 
 ### Temperature Conversion
 
@@ -272,6 +273,10 @@ Main Functions and Features
     -   slice label and number are recorded to the results table as:
 
 <img src='./images/ROI_Results.csv.png'>
+
+-   Add ROI Measurement
+    -   adds the result of the ROI parameter to the image as an overlay.
+    -   will work on stacks or single images.
 
 Workflow
 --------
