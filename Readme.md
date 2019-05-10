@@ -36,7 +36,7 @@ Requirements
 -   ThermImageJ macro toolset. A text file (.ijm) containing all the macros and functions: <https://github.com/gtatters/ThermImageJ/tree/master/toolsets/ThermImageJ.ijm>
 -   Additional Look Up Tables (LUTS), popularly used in thermal imaging, available on this github repository: <https://github.com/gtatters/ThermImageJ/tree/master/luts>
 
-Note: the ThermImageJ files can be easily downloaded as a ZIP file by clicking on the green **Clone or Download** button and then selecting **Download ZIP**. Unzip this folder on your computer for access to the toolset, luts, and the split.pl files located in their appropriate subfolders.
+Note: ThermImageJ files can be easily downloaded as a ZIP file by clicking on the green **Clone or Download** button and then selecting **Download ZIP** (<https://github.com/gtatters/ThermImageJ/archive/master.zip>), or by going to the **Recent Releases** (<https://github.com/gtatters/ThermImageJ/releases>) and selecting the **Source Code** link for the most recent release. Unzip this folder on your computer for access to the toolset, luts, and the split.pl files located in their appropriate subfolders.
 
 Installation Instructions
 -------------------------
