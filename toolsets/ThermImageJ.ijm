@@ -75,7 +75,6 @@ var ffmpegpathWindows="c:/FFmpeg/bin/";
 	
 //////////////////////////////////////// Functions ///////////////////////////////////////////////
 
-
 // Based on the LUTFileTool by Gabriel Landini
 function cycleLUTs(inc) {
        if (lut==-1)
