@@ -10,14 +10,14 @@
 
 var luts = getLutMenu();
 var lCmds = newMenu("LUT Menu Tool", luts);
-var thermlCmds = newMenu("Thermal LUT Menu Tool", newArray("Grays", "Ironbow", "Rainbow", "Spectrum", "Thermal", "Yellow", "Yellow Hot", "Green Fire Blue", "Red/Green", "5 Ramps", "6 Shades"));
+var palettetypes=newArray("Grays", "Ironbow", "Rainbow", "Spectrum", "Thermal", "Yellow", "Yellow Hot", "Green Fire Blue", "Red/Green", "5 Ramps", "6 Shades");
+var defaultpalette="Grays";
+var thermlCmds = newMenu("Thermal LUT Menu Tool", palettetypes);
 var lut = -1;
 var lutdir = getDirectory("luts");
 var list;
 var color = 0;
 var colors = newArray("Red", "Green", "Blue", "Cyan", "Magenta", "Yellow");
-var palettetypes=newArray("Grays", "Ironbow", "Rainbow");
-var defaultpalette="Grays";
 
 // the following persistent variable are updated on the user's ImageJ once Raw2Temp is performed on a file
 var PR1 = parseFloat(call("ij.Prefs.get", "PR1.persistent","17998.529")); 
@@ -72,7 +72,7 @@ var exiftoolpathWindows="c:/windows/";
 var exiftoolWindows="exiftool.exe";
 var ffmpegpathWindows="c:/FFmpeg/bin/";
 
-
+	
 //////////////////////////////////////// Functions ///////////////////////////////////////////////
 
 
@@ -82,8 +82,11 @@ function cycleLUTs(inc) {
            createLutList();
        if (nImages==0) {
           call("ij.gui.ImageWindow.centerNextImage");
-          newImage("LUT", "8-bit ramp", 1024, 64, 1);
+          newImage("LUT", "8-bit ramp", 480, 64, 1);
           run("Rotate 90 Degrees Left");
+          setColor(0);
+          setLineWidth(2);
+          drawRect(0, 0, 64, 480);
        }
        if (bitDepth==24)
            exit("RGB images do not have LUTs");
@@ -96,8 +99,13 @@ function cycleLUTs(inc) {
       name = list[lut];
       run("LUT... ", "open=["+lutdir+name+"]");
       name = substring(name, 0, lengthOf(name)-4);
-      if (getWidth==256 && getHeight==32)
-            rename(name);
+      if (getWidth==64 && getHeight==480){
+      	 setColor(0);
+         setLineWidth(2);
+         drawRect(0, 0, 64, 480);
+      	 rename(name);
+      }
+           
       showStatus((lut+1) + ". " + name);
   }
 
@@ -227,6 +235,8 @@ function Pearson(ArrayX, ArrayY){
 
 // function to import an rtv file using imageJ raw import option
 function RawImportMikronRTV() {
+
+	print("Running RawImportRTV function");
 	
 	var offsetbyte = 42; 
 	// offsetbyte is 1540528 for SEQ files recorded to a FLIR SC660
@@ -269,8 +279,8 @@ function RawImportMikronRTV() {
 	
 	filepath=File.openDialog("Select a File"); 
 	file=File.openAsString(filepath); 
-	//print("Loading: ", filepath);
-	//print("\n");
+	print("Loading: ", filepath);
+	print("\n");
 
 	run("Raw...", "open=filepath image=[16-bit Unsigned] width=imagewidth height=imageheight offset=offsetbyte number=nframes gap=gapbytes little-endian use=usevirtual");
 
@@ -289,11 +299,15 @@ function RawImportMikronRTV() {
 		var maxpix=max;
 		setMinAndMax(minpix, maxpix);
 	
-	//run("Calibration Bar...", "location=[Upper Right] fill=White label=Black number=5 decimal=1 font=10 zoom=0.5 bold overlay");
+	print("Done");
+	print("\n");
+	
 }
 
 
 function RawImportFLIRSEQ() {
+	
+	print("Running RawImporFLIRSEQ function");
 	
 	var offsetbyte = 1372; 
 	// offsetbyte is 1540528 for SEQ files recorded to a FLIR SC660
@@ -400,12 +414,16 @@ function RawImportFLIRSEQ() {
 		run("Raw2Temp SC660");
 	}
 
+		print("Done");
+		print("\n");
 
 }
 
 
 
 function ConvertImportFLIRJPG() {
+	
+	print("Running ConvertImportFLIRJPG function");
 	
 	if(OS=="Mac OS X"){
 		var perlpath=perlpathOSX;
@@ -592,14 +610,17 @@ function ConvertImportFLIRJPG() {
 	if(filedelete_success + folderdelete_success==2){
 		print("Temporary file and folder deleted.");
 	}
-		Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");	
+		Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No");
+	
+	print("Done");
+	print("\n");
 }
 
 
 
 function ConvertFLIRJPGs() {
-
-	var OS=getInfo("os.name");
+	
+	print("Running ConvertFLIRJPGs function");
 	
 	if(OS=="Mac OS X"){
 		var perlpath=perlpathOSX;
@@ -611,7 +632,7 @@ function ConvertFLIRJPGs() {
 	if(OS=="Linux"){
 		var perlpath=perlpathLinux;
 		var exiftoolpath=exiftoolpathLinux;
-		var exiftool=exiftoolOSX;
+		var exiftool=exiftoolLinux;
 		var ffmpegpath=ffmpegpathLinux;
 	}
 	
@@ -621,7 +642,7 @@ function ConvertFLIRJPGs() {
 		var exiftool=exiftoolWindows;
 		var ffmpegpath=ffmpegpathWindows;
 	}
-
+	
 	Dialog.create("Convert FLIR JPGs");
 	Dialog.addMessage("This macro will convert FLIR JPGs into TIFF or PNG files");
 	Dialog.addMessage("Depending on the particular FLIR camera storage method.");
@@ -647,6 +668,8 @@ function ConvertFLIRJPGs() {
 	File.makeDirectory(convertfolder);
 
 	for (i = 0; i < filelist.length; i++){
+		
+		showProgress(i/filelist.length);
 		
 		filepath=dirpath + filelist[i];
 		
@@ -702,11 +725,17 @@ function ConvertFLIRJPGs() {
 	
 	print("FLIR JPG files converted into " + RawThermalType + " format.  Import these and convert to temperature using the Raw2Temp macro.");
 	print("All files saved to: " + convertfolder);
-	print("Note: Some images may require that the pixel byte order be swapped.  Use the Byte Swapper plugin after importing if necessaary");
+	print("Use the File->Import->Image Sequence function to load in images");
+	print("Some images may require that the pixel byte order be swapped.  Use the Byte Swapper plugin after importing if necessaary");
+	print("Done");
+	print("\n");
 	
 }
 
 function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usevirtual) {
+
+	print("Running ConvertFLIRVideo function");
+	
 	// vidtype should be seq or csq
 	// outtype should be avi, png, or tiff (this will be the file extension for the final file)
 	// outcodec is the type of file compression needed for avi files - usually jpegls, but png or tiff will work on some OS.
@@ -715,7 +744,6 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	// converttotemperature = 1 will run the Raw2Temp function upon import
 	// usevirtual = 1 will import the avi as a virtual stack
 	
-	print("\n");
 	
 	if(vidtype=="seq"){
 		RawThermalType="tiff";		
@@ -893,7 +921,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	// Combine fff files into thermalvid.raw using exiftool raw binary extraction function
 	// Difficulty getting the piping (> or |) to work with the default exec command. 
 	// See: http://imagej.1557.x6.nabble.com/macro-Redirection-in-exec-UNIX-binary-td3687463.html
-	// Execute the combine command using the "/bin/sh" way (still need to confirm if this will work in Windows)
+	
 	rawcombinecmd = exiftoolpath + exiftool +  " -b -RawThermalImage " + tempfolder + File.separator + "*.fff > " + filedir + File.separator + "thermalvid.raw";
 	print("Combine the fff files into a thermalvid.raw file with: ");
 	print(rawcombinecmd);
@@ -924,6 +952,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	}
 
 	// Execute the ffmpeg command to assimilate all the tiff files into one avi file
+	print("Combining the " + RawThermalType + " files into " + outcodec + " files ready for import with: ");
 	tiffcombinecmd = ffmpeg + " -f" + " image2" + " -vcodec" + " " + RawThermalType + " -r" + " 30" + " -i " + tempfolder + File.separator + "frame%05d." + RawThermalType + " -pix_fmt" + " gray16be" + " -vcodec " + outcodec + " " + filedir + File.separator + fileout + " -y";   
     print(tiffcombinecmd);    
     
@@ -938,20 +967,24 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	tempfolderdelete_success=File.delete(filedir + File.separator + "temp" + File.separator );
 		
 	if(tempfilesdelete_success + tempfolderdelete_success + thermalviddelete_success==3){
-		print("Temporary files and folder deleted.");
+		print("Temporary files and folder deleted");
 	}
 
+
 	if(outtype=="png"){
+		print("Importing Image Sequence of PNG files");
 		pngsequenceimportarguments="open=" + outputfolder + " sort";
 		run("Image Sequence...", pngsequenceimportarguments);
 	}
 
 	if(outtype=="tiff"){
+		print("Importing Image Sequence of TIFF files");
 		tiffsequenceimportarguments="open=" + outputfolder + " sort";
 		run("Image Sequence...", tiffsequenceimportarguments);
 	}
 
 	if(outtype=="avi"){
+		print("Importing AVI file");
 		ffmpegimportarguments = "choose=" + filedir + File.separator + fileout + " first_frame=0 last_frame=-1";
 		
 		if(usevirtual==1){
@@ -961,6 +994,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 		run("Movie (FFMPEG)...", ffmpegimportarguments);
 	}
 
+	print("Adding file time origin as slice label");
 	for (i=1; i<=nSlices; i++) { 
 		setSlice(i);
 		run("Set Label...", "label=" + timeoriginal[i]);
@@ -968,14 +1002,20 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	
 	//run("Raw2Temp Tool");
 	if(converttotemperature==1){
+		print("Converting file to temperature");
+		print("\n");
 		Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, defaultpalette, "Yes");		
 	}
+	
+	print("Done");
+	print("\n");
 	
 }
 
 
 function Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, dialogprompt) {
-	
+
+	print("Running Raw2Temp function");
 	
 	if(is("Virtual Stack")==true){
 		run("Duplicate...", "duplicate");
@@ -1089,10 +1129,9 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, p
 }
 
 
-
 function flirvalues(filepath, printvalues){
 
-	// OS=getInfo("os.name");
+	print("Running flirvalues function");
 	
 	if(OS=="Mac OS X"){
 		var perlpath=perlpathOSX;
@@ -1201,6 +1240,8 @@ function flirvalues(filepath, printvalues){
 
 
 function flirdate(filepath, printvalues){
+
+	print("Running flirdate function");
 	
 	if(OS=="Mac OS X"){
 		var perlpath=perlpathOSX;
@@ -1254,6 +1295,9 @@ function flirdate(filepath, printvalues){
 
 
 function addMeasurementLabel(type, units, decimals, colour, addROI, drawx, drawy) {
+
+	print("Running addMeasurementLabel function");
+	
 	// type should be one of: Mean StdDev Min Max Mode Median Skew or Kurt
 	// but will be converted to: mean min standard modal median skewness kurtosis
 	
@@ -1303,15 +1347,13 @@ function addMeasurementLabel(type, units, decimals, colour, addROI, drawx, drawy
   			setFont("SansSerif", 14);
          	drawString(label, drawx, drawy);
      	 }
+     	 
 	if(addROI==1){
 		 Roi.setStrokeColor(colour, colour, colour);
      	 Overlay.addSelection;     	 
 	}
      	
 }
-
-
-
 
 
 /////////////////////////////////////////////// Macros //////////////////////////////////////////////////////
@@ -1324,7 +1366,7 @@ macro "Thermal LUT Menu Tool - C037T0b11LT6b09UTcb09T" {
 
 macro "Grayscale LUT" {
         run("Grays");
-        if (getWidth==256 && getHeight==32)
+        if (getWidth==64 && getHeight==480)
             rename("Grayscale");
 }
 
