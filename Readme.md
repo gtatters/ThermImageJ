@@ -45,7 +45,7 @@ Installation Instructions
 -   Troubleshoot or perform installation checks (see next section).
 -   Launch **FIJI** and follow any update instructions.
 -   Launch FIJI--&gt;Help--&gt;Update, allow it to update any plug-ins, then while the update window is open, select **Manage update websites**, and ensure that the FFMPEG box is ticked. Select **ok**, then click the **Apply** option, and restart FIJI. This FFMPEG plugin is required for importing avi files created during the conversion process, although it might require that you have FFMPEG installed at the command line.
--   Navigate to where FIJI is installed to find all the subfolders. On a Mac, you may need to right-click on FIJI and click **Show Package Contents** to open up FIJI as a folder to reveal the various folders (macros, plugins, jars, etc..)
+-   Navigate to where FIJI is installed to find all the subfolders.
 -   Download the **ThermImageJ.ijm** file from this site and copy into the FIJI/macros/toolsets folder.
 -   Open the **ThermImageJ.ijm** file in any text editor, and verify the paths are properly set for your respective operating system. See the comments with the text file for guidance.
 -   Download the additional **luts** files from this site and copy into your FIJI/luts folder. These are palettes that are commonly used in thermal imaging.
