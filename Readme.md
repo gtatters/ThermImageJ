@@ -145,7 +145,7 @@ Navigate to the ThermImageJ.ijm toolset file and open it using a text editor or 
 
 Depending on your operating system or how system files are installed you may need to edit the specific path locations for your respective system:
 
-<img src="./images/UserPathCustomise.png" width="50%" />
+<img src="./images/UserPathCustomise1.png" width="50%" />
 
 This also applies to the location of the split.pl file that should be placed in the scripts folder inside the Fiji folder.
 
