@@ -34,6 +34,8 @@ var IRT = parseFloat(call("ij.Prefs.get", "IRT.persistent","1"));
 var RH = parseFloat(call("ij.Prefs.get", "RH.persistent","50.0")); 
 var imagewidth=parseInt(call("ij.Prefs.get", "imagewidth.persistent","640"));
 var imageheight=parseInt(call("ij.Prefs.get", "imageheight.persistent","480")); 
+var magicbyte=call("ij.Prefs.get", "magicbyte.persistent","02008002e001");
+var frameinterval=parseFloat(call("ij.Prefs.get", "frameinterval.persistent", "0.03333333333"));
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 ////                                                                                               ////
@@ -55,7 +57,7 @@ var perlsplit=perlscriptpath + "split.pl";
 var OS=getInfo("os.name");
 
 // OSX Users verify these settings:									 // <- VERIFY THIS
-var perlpathOSX="/usr/local/bin/";
+var perlpathOSX="/usr/bin/";    	 // or var perlpathOSX="/usr/local/bin"
 var exiftoolpathOSX="/usr/local/bin/";
 var exiftoolOSX="exiftool";
 var ffmpegpathOSX="/usr/local/bin/";
@@ -231,6 +233,49 @@ function Pearson(ArrayX, ArrayY){
 	r = (n*SumXY(ArrayX, ArrayY) - Sum(ArrayX)*Sum(ArrayY)) / sqrt((n*SumX2(ArrayX) - pow(Sum(ArrayX),2)) * (n*SumY2(ArrayY) - pow(Sum(ArrayY),2)));	
 	return r;
 }
+
+// Returns the regression slope of y on x
+function Slope(ArrayX, ArrayY){
+	Array.getStatistics(ArrayX, mean, min, max, std);
+	meanx=mean;
+	sx=std;
+	Array.getStatistics(ArrayY, mean, min, max, std);
+	meany=mean;
+	sy=std;
+	slp=Pearson(ArrayX, ArrayY)*sy/sx;
+	return slp;
+}
+
+// Returns the regression intercept of y on x
+function Intercept(ArrayX, ArrayY){
+	Array.getStatistics(ArrayX, mean, min, max, std);
+	meanx=mean;
+	Array.getStatistics(ArrayY, mean, min, max, std);
+	meany=mean;
+	slp=Slope(ArrayX, ArrayY);
+	b=meany - slp * meanx;
+	return b;
+}
+
+// create a random sequence of numbers.  assume gaussian.  provide mean and sd
+function randomseq(n, mean, sd){
+	rn=newArray(n);
+	for (i=0; i<n; i++) 
+       rn[i] = random("gaussian") * sd + mean;
+    return rn; 
+}
+
+// calculate a cumulative sum array
+function cumsum(ArrayX){
+	n=ArrayX.length;
+	csum=newArray(n);
+	csum[0]=ArrayX[0];
+	for(i=1; i<n; i++){
+		csum[i] = csum[i-1] + ArrayX[i];
+	}
+	return csum;
+}
+
 
 // function to import an rtv file using imageJ raw import option
 function RawImportMikronRTV() {
@@ -999,10 +1044,12 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 		run("Set Label...", "label=" + timeoriginal[i]);
 	}
 	
+	// Set frame interval to stack
+	Stack.setFrameInterval(meanframediff); // sets the frame rate
+	
 	//run("Raw2Temp Tool");
 	if(converttotemperature==1){
 		print("Converting file to temperature");
-		print("\n");
 		Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, defaultpalette, "Yes");		
 	}
 	
@@ -1096,13 +1143,24 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, p
 	
 	//a = newArray(65536); 
 	//templookup=newArray(65536);
-	//for (i=1; i<65536; i++) {
+	//for (i=0; i<65536; i++) {
 	//	a[i]=i; 	
 	//	templookup[i] = 1500/log(21000/(0.012*(a[i]/0.9-100-7300))+1)-273.15;
-		//templookup = PB/log(PR1/(PR2*(a[i]/rawdivisor-rawsubtract+PO))+PF)-273.15;
+	//	templookup[i] = PB/log(PR1/(PR2*(a[i]/rawdivisor-rawsubtract+PO))+PF)-273.15;
+   //	}
+	//v=newArray(imagewidth*imageheight);
+	//t=newArray(imagewidth*imageheight);
+	//l=0;
+	//for(w=0; w<imagewidth; w++){
+	//	for(h=0; h<imageheight; h++){
+	//		v[l]=getPixel(w,h);
+	//		t[l]=templookup[v[l]];
+	//		l++;
+	//	}
 	//}
 	
-	
+	setBatchMode(false);
+	t1=getTime();
 	if(nSlices()>1){
 		run("32-bit", "stack");
 		run("Macro...", "code=v=" +PB+ "/log(" +PR1+ "/(" +PR2+ "*(v/" +rawdivisor+ "-" +rawsubtract+ "+" +PO+ "))+" +PF+ ")-273.15 stack");
@@ -1118,6 +1176,9 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, p
 		mintemp=min;
 		maxtemp=max;
 	}
+	t2=getTime();
+	deltat=t2-t1;
+	print(deltat);
 	
 	//setBatchMode(false);
 	//mintemp=PB/log(PR1/(PR2*(minpix/rawdivisor-rawsubtract+PO))+PF)-273.15;
@@ -1355,6 +1416,142 @@ function addMeasurementLabel(type, units, decimals, colour, addROI, drawx, drawy
 }
 
 
+
+function StackCumulativeDiffSummation(interval, dataType, windowType, detrend, removemean){
+	
+	run("Duplicate...", "duplicate");
+	run("8-bit");
+	run("Stack Difference", "gap=1"); // default provides absolute difference, no negative numbers
+	run("Enhance Contrast", "saturated=0.35");
+	
+	ns=nSlices();
+	
+	// create arrays for mean and standard deviations
+	mn=newArray(ns);
+	sd=newArray(ns);
+
+	// obtain the mean and sd of the difference image.  each frame's values are summarised
+	for(i=0; i<ns; i++){
+		setSlice(i+1);
+		getRawStatistics(area, mean, min, max, std);
+		mn[i]=mean;
+		sd[i]=std;
+	}
+	
+	// create cumulative summation of the mn and sd arrays.
+	cummn=cumsum(mn);
+	cumsd=cumsum(sd);
+
+	// calculate smoothing slopes (derivatives) over 3 frame intervals
+	cummnslp=newArray(ns);
+	cumsdslp=newArray(ns);
+	cummnslp[0]=0;
+	cummnslp[1]=0;
+	cumsdslp[0]=0;
+	cumsdslp[1]=0;
+	for(i=2; i<ns; i++){
+		y=newArray(cummn[i-2], cummn[i-1], cummn[i]);
+		x=newArray(0,1,2); 
+		cummnslp[i]=Slope(x,y);
+		y=newArray(cumsd[i-2], cumsd[i-1], cumsd[i]);
+		cumsdslp[i]=Slope(x,y);
+	}
+	
+	//Array.print(cummnslp);
+	
+	t=Array.getSequence(ns); 
+	Plot.create("Inter Frame Difference", "Slice", "Slope of Cumulative\nMean or SD of |Frame Difference|");
+	Plot.setColor("black");
+	Plot.add("lines", t, cummnslp);
+	Plot.setColor("blue");
+	Plot.add("lines", t, cumsdslp);
+	Plot.setLimitsToFit();
+	Plot.setLegend("Mean\tSD", "top-left");
+	Plot.show();
+
+	// Put values into the Results Window
+	run("Clear Results");
+	  
+	    for (i=0; i<ns; i++) {
+	    	setResult("Slice", i, i+1);
+            setResult("Mean", i, mn[i]);
+            setResult("Cumulative Mean", i, cummn[i]);
+            setResult("Slope Cumul Mean", i, cummnslp[i]);
+            setResult("SD", i, sd[i]);
+            setResult("Cumulative SD", i, cumsd[i]);
+            setResult("Slope Cumul SD", i, cumsdslp[i]);            
+          }
+    if(dataType=="sd"){
+    	data=cumsd; 
+    	dataname="Cumulative SD";   
+    }
+    
+    if(dataType=="mean"){
+    	data=cummn; 
+    	dataname="Cumulative Mean"; 
+    }
+
+	//Array.print(data);
+
+	spectralanalysis(data, dataname, windowType, dt, detrend, removemean);
+}
+
+function spectralanalysis(data, dataname, windowType, dt, detrend, removemean){
+
+	// data is the array of data sampled at interval, dt
+	// dt is the sample interval typically in seconds: 0.033333 seconds
+	// windowType can be:  None, Hamming, Hann or Flattop
+	
+	len=data.length;
+	t=Array.getSequence(len);
+	for(i=0; i<t.length; i++){
+		t[i]=t[i]*dt; 
+	}
+ 	frequ=dt*len; // cycles per array length   
+	
+	X=newArray(t[0], t[t.length-1]);
+	Y=newArray(data[0], data[data.length-1]);
+	m=Slope(X,Y);
+	b=Intercept(X,Y);
+
+	// remove linear trend
+	if(detrend==1){
+		Array.getStatistics(data, min, max, mean);
+		meandata=mean;
+		for(i=0; i<data.length; i++){
+			data[i]=data[i]-(m*t[i]+b);
+		}
+	}
+	
+	// remove mean
+	if(removemean==1){
+		Array.getStatistics(data, min, max, mean);
+		meandata=mean;
+		for(i=0; i<data.length; i++){
+			data[i]=data[i]-meandata;
+		}
+	}
+		
+	y = Array.fourier(data, windowType);
+  	f = newArray(lengthOf(y));
+  	
+ 		 for (i=0; i<lengthOf(y); i++){
+ 		 	f[i] = i/(2*lengthOf(y)*dt);
+ 		 }
+    		
+	Plot.create(dataname, "Time (s)", "Data", t, data);
+    Plot.show();
+  	Plot.create("Fourier amplitudes of " + dataname + " with window: " + windowType, "Frequency (Hz)", "Amplitude (RMS)", f, y);
+  	Plot.show();
+
+	fhtSize = 2*lengthOf(y);
+  	peakF = frequ/len*fhtSize; // i.e., frequ/len = peakF/fhtSize
+   
+}
+
+
+
+
 /////////////////////////////////////////////// Macros //////////////////////////////////////////////////////
 
 // This will call a subset of LUTs that are more appropriate for thermal imaging.
@@ -1436,12 +1633,194 @@ macro "Raw Import FLIR SEQ" {
 	RawImportFLIRSEQ();
 }
 
+
+macro "Frame Start Byte"{
+	
+	//var imagewidth=640;
+	//var imageheight=480;
+	
+	Dialog.create("Magicbyte scan for pixel byte offset in FLIR SEQ Videos"); 
+	Dialog.addMessage("This macro will scan a FLIR video file (SEQ) for the offset byte\nposition '0200wwwwhhhh'\nwhere wwww and hhhh are the image width and height\nin 16-bit little endian hexadecimal.");
+	Dialog.addMessage("For example, magicbyte for a 640x480 camera: 02008002e001");
+	Dialog.addMessage("Last magicbyte used: " + magicbyte);
+	Dialog.addString("Custom magicbyte (leave blank if unknown):", "");
+	Dialog.addMessage("The function returns estimates for the offset and gap bytes\nnecessary for use with the Raw Import FLIR SEQ macro");
+	Dialog.addNumber("Image Width:", imagewidth, 0, 6, "pixels");
+	Dialog.addNumber("Image Height:", imageheight, 0, 6, "pixels");
+	Dialog.addMessage("Note: If running Windows, please install Powershell Core 6 from github:");
+	Dialog.addMessage("https://github.com/powershell/powershell"); 
+    Dialog.show();
+
+	custommagicbyte=Dialog.getString();
+	imagewidth=Dialog.getNumber();
+	imageheight=Dialog.getNumber();
+	width=leadzero(toString(toHex(imagewidth)), 4);
+	height=leadzero(toString(toHex(imageheight)), 4);
+	
+	if(lengthOf(custommagicbyte)>0){
+		magicbyte=custommagicbyte;
+	}
+	
+	if(lengthOf(custommagicbyte)==0){
+		magicbyte = "0200" + swap(width) + swap(height);	
+	}
+
+	call("ij.Prefs.set", "magicbyte.persistent", toString(magicbyte));
+	
+	filepath=File.openDialog("Select a File"); 
+	print("Magicbyte search");
+	print("Scanning: ", filepath, "for ", magicbyte);
+
+	// create a search byte length that is at least 2 frames in length
+	searchlength=imagewidth*imageheight*2*2;
+	
+	// command="xxd -p -l " + searchlength + " " + filepath + " | grep -aob " + magicbyte + " | head -n10";
+	command="xxd -g 1 -ps -l " + searchlength + " -aob " + filepath;
+	// use the bash xxd to hexdump "searchlength" amount of the begining of file and store this as a string variable
+	
+	if(OS=="Mac OS X"){
+		print("Detected Operating System: " + OS);
+		print("Using the following bash command: ");
+		print(command);
+		res=exec("/bin/sh", "-c", command);
+		print("Cleaning up hex output");
+		res=replace(res, "\n", "");
+	}
+
+	if(OS=="Linux"){
+		print("Detected Operating System: " + OS);
+		print("Using the following bash command: ");
+		print(command);
+		res=exec("/bin/sh", "-c", command);
+		print("Cleaning up hex output");
+		res=replace(res, "\n", "");
+	}
+
+	// Windows does not have xxd installed, so need an alternative - 
+	// Need to install powershell open source frmo github:
+	// https://github.com/powershell/powershell 
+	
+	if(substring(OS, 0, 5)=="Windo"){
+		
+		checkpwsh=exec("where pwsh.exe");
+		if(lengthOf(checkpwsh)==0){
+			exit("Powershell Core 6 (pwsh.exe) not found.\nPlease install from github.com/powershell and try again.");
+		}
+	
+		command="Format-Hex -Path " + filepath + " " + "-Count " + searchlength;
+		
+		print("Detected Operating System: " + OS);
+		print("Using the following powershell command: ");
+		print(command);
+		
+		res=exec("pwsh", "-c", command);
+		//print(res);
+		resarray=split(res, "\n");
+		resarray=Array.deleteIndex(resarray, 0); resarray=Array.deleteIndex(resarray, 0);		
+		resarray=Array.deleteIndex(resarray, 0); resarray=Array.deleteIndex(resarray, 0);		
+		resarray=Array.deleteIndex(resarray, 0);
+		
+		print("Cleaning up hex output");
+		res="";
+		start=20; // removes the first 20 char of the byte line
+		end=70;   // removes the unicode conversion at the end of each line
+		String.resetBuffer;
+		for(i=0; i<resarray.length; i++){
+			showProgress(i/resarray.length);
+			len=lengthOf(resarray[i]);
+			
+			if(len<end){
+				resarray=Array.deleteIndex(resarray, i);
+				i=resarray.length+1;
+			}
+			else {
+				resarray[i]=toLowerCase(substring(resarray[i], start, end));
+				String.append(resarray[i]); // working with string buffer much faster than concatenating text
+				//res = res + resarray[i];
+			}
+		}
+		res=String.buffer;
+		res=replace(res, " ", ""); 
+		print(res);
+		
+		//command="Get-Content " + filepath + " " + "-ReadCount " + "200000 " + "-Encoding " + "byte " + "-TotalCount " + imagewidth*imageheight*2*2;
+	}
+		
+	ind=newArray(100); // ind will be the index of byte positions where magicbyte is found
+	newres=res;
+	j=0; // counter index for use in next loop. each j refers to index of magic byte detection
+	
+	for(i=0; i<10; i++){
+		position=indexOf(newres, magicbyte);
+		//print(position);
+		l=lengthOf(newres);
+		
+		if(position==-1) {
+			i=1000; // break out of loop if position does not exist
+		}
+		
+		else {
+			
+		  ind[j] = position/2;
+		  
+		  if(j>0){
+		  	ind[j]=ind[j] + ind[j-1] + lengthOf(magicbyte)/2;
+		  	// add the previous index value so that ind reflects position in string
+		  }
+		  
+		  j++;  
+		  newres=substring(newres, position + lengthOf(magicbyte), l);
+		}
+	}
+	
+	//Array.print(ind);
+	ind=Array.deleteValue(ind, 0); // remove 0s from the array
+	
+	if(ind.length<2){
+		Array.print(ind);
+		print("Number of magicbyte positions detected: " + ind.length);
+		print("\n");
+		exit("Too few magicbyte positions detected. Please try a different magicbyte or use a Hex editor to search manually.");
+	}
+	
+	for(j=0; j<ind.length; j++){
+		ind[j]=ind[j]+32; 
+		// add 32 bytes to each ind entry, since the first pixel in tiff style video files
+		// starts 32 bytes after the beginning of the magicbyte start		
+	}
+	
+	startbyte=ind[1];
+	gapbyte=ind[3]-(startbyte+imagewidth*imageheight*2);
+	
+	print("Image data usually begins 32 bytes after magicbyte offsets.");
+	print("Possible pixel start byte positions detected at the following magicbyte (+32) byte offsets: ");
+	Array.print(ind);
+	print("Usually the second startbyte position reflects the start of the first frame's image pixel data"); 
+	print("Suggested offset start to use in the Import-Raw function is: ",  startbyte);
+	print("Suggested gap byte to use in the Import-Raw function is:", gapbyte);
+	print("\n");
+	
+	if(startbyte<0 || gapbyte<0){
+		exit("Magicbyte position unsuccessful.  Possibly too many magicbyte positions detected.  Please try a different magicbyte or use a Hex editor to search manually.");
+	}
+}
+
+
 macro "-" {} //menu divider
 
 macro "Image Byte Swap Action Tool - C000D12D13D1cD1dD21D24D25D26D27D28D29D2aD2bD2eD31D34D35D36D37D38D39D3aD3bD3eD42D43D4cD4dD82D83D91D92D93D94Da0Da1Da2Da3Da4Da5Db2Db3Dc2Dc3DccDcdDd2Dd3Dd4Dd5Dd6Dd7Dd8Dd9DdaDdbDdeDe2De3De4De5De6De7De8De9DeaDebDeeDfcDfdC000C111C222C333C444C555C666C777C888C999CaaaD1bD4bCaaaD11D14DcbDceDfbDfeCaaaD1eD4eCaaaD41D44CbbbCcccD2dD3dCcccD22DddDedCcccD32CcccD72D73CcccDc4CcccCdddD23D2cD3cDdcDecCdddDb1CdddD33CeeeDb0CeeeD8cD8dDb4DbcDbdCeeeCfffD20D30Df5CfffDc7CfffD17D18D47D48Dc6Dc8Df6Df7Df8CfffD16D19D46D49Dc9Df9CfffDf4CfffDb5CfffDc1"{
+	ByteSwapperFileLocation=getDirectory("plugins") + "Byte_Swapper.class";
+	if(File.exists(ByteSwapperFileLocation)==0){
+		exit("Please install Byte Swapper to your plugins folder\nSee: https://imagej.nih.gov/ij/plugins/swapper.html");
+	}
 	run("Byte Swapper");
 }
+
 macro "Image Byte Swap"{
+	ByteSwapperFileLocation=getDirectory("plugins") + "Byte_Swapper.class";
+	if(File.exists(ByteSwapperFileLocation)==0){
+		exit("Please install Byte Swapper to your plugins folder\nSee: https://imagej.nih.gov/ij/plugins/swapper.html");
+	}
 	run("Byte Swapper");
 }
 
@@ -1647,7 +2026,7 @@ macro "FLIR Date Stamps" {
 	
 }
 
-macro "FLIR Calibration Values Action Tool - C000D00D01D02D03D04D05D10D16D20D22D23D24D27D2dD2eD30D32D34D36D37D38D39D3aD3bD3cD3fD40D42D44D47D4fD50D52D54D56D57D58D59D5aD5bD5cD5fD60D62D63D64D67D6dD6eD70D76D80D81D82D83D84D85DbbDbcDbdDbeDc1Dc2Dc3Dc4Dc5Dc6Dc7Dc8Dc9DcaDcbDcfDd0DdfDe1De2De3De4De5De6De7De8De9DeaDebDefDf3Df5Df7Df9DfbDfcDfdDfeCfffD06D07D08D09D0aD0bD0cD0dD0eD0fD11D12D13D14D15D17D18D19D1aD1bD1cD1dD1eD1fD21D25D26D28D29D2aD2bD2cD2fD31D33D35D3dD3eD41D43D45D46D48D49D4aD4bD4cD4dD4eD51D53D55D5dD5eD61D65D66D68D69D6aD6bD6cD6fD71D72D73D74D75D77D78D79D7aD7bD7cD7dD7eD7fD86D87D88D89D8aD8bD8cD8dD8eD8fD90D91D92D93D94D95D96D97D98D99D9aD9bD9cD9dD9eD9fDa0Da1Da2Da3Da4Da5Da6Da7Da8Da9DaaDabDacDadDaeDafDb0Db1Db2Db3Db4Db5Db6Db7Db8Db9DbaDbfDc0Dd1Dd2Dd3Dd4De0Df0Df1Df2Df4Df6Df8DfaDffCc10DccDcdDceDd5Dd6Dd7Dd8Dd9DdaDdbDdcDddDdeDecDedDee" {
+macro "FLIR Calibration Values Action Tool - C000D00D01D02D03D04D05D10D16D20D22D23D24D27D2dD2eD30D32D34D36D37D38D39D3aD3bD3cD3fD40D42D44D47D4fD50D52D54D56D57D58D59D5aD5bD5cD5fD60D62D63D64D67D6dD6eD70D76D80D81D82D83D84D85DbbDbcDbdDbeDc1Dc2Dc3Dc4Dc5Dc6Dc7Dc8Dc9DcaDcbDcfDd0DdfDe1De2De3De4De5De6De7De8De9DeaDebDefDf3Df5Df7Df9DfbDfcDfdDfeCc10DccDcdDceDd5Dd6Dd7Dd8Dd9DdaDdbDdcDddDdeDecDedDee" {
 	filepath=File.openDialog("Select a FLIR Image or Video File"); 
 	printvalues="Yes";
 	if(File.exists(filepath)){
@@ -1666,7 +2045,7 @@ macro "FLIR Calibration Values" {
 
 macro "-" {} //menu divider
 
-macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D30D33D35D36D40D41D42D43D46D47D59D63D6aD6cD74D76D7bD7cD85D86D88D8aD8bD8cD94D95D96D98Da8Db8Dc8Dd8De8Df8Ce50DbaDcaCfc0DbdDcdCf80DbbDcbCff7DbfDcfCd17Db9Dc9Cfe2DbeDceCfb0DbcDcc"{
+macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D30D33D35D36D40D41D42D43D46D47D57D75D7dD85D8dD93D94D95D9bD9cD9dDa8Db8Dc8Dd8De8Df8C666D62D6aD73D7bD84D8cCf80DcbDdbCe50DcaDdaCfe2DceDdeCfc0DcdDddCd17Dc9Dd9Cff7DcfDdfCfb0DccDdc"{
 
 	// Planck Constants after Recalibration and Service with New Lens in November 2018:
 	 //var PR1=17998.529;
@@ -2152,7 +2531,7 @@ macro "ROI 4 Results [4]" { //
 }
 
 
-macro "Add ROI Measurement" {
+macro "Add ROI Measurement to Image" {
 	w=getWidth();
 	h=getHeight();
 	leftx=0;
@@ -2187,6 +2566,136 @@ macro "Add ROI Measurement" {
 	
 	addMeasurementLabel(type, units, decimals, colour, addROI, drawx, drawy);
 }
+
+macro "-" {} //menu divider
+
+macro "ROI on Entire Stack [5]" {
+
+	close("Results");
+ 	close("ROI*");
+ 	close("Fourier amplitudes of*");
+ 	close("Histo*");
+	close("Raw data*");
+
+	dt=Stack.getFrameInterval();
+	if(dt==0){
+		dt=frameinterval;
+	}
+	items=newArray("Mean", "StdDev", "Min", "Max", "Mode", "Median", "Skewness", "Kurtosis");
+	Dialog.create("ROI Analysis on Stack");
+	Dialog.addMessage("This function works on stacks.  Provide an ROI and preferred summary statistic.");
+	Dialog.addMessage("This ROI value is then detrended and normalised\nto remove mean value prior to a discrete fourier analysis to return freuquency components.");
+	Dialog.addMessage("The user should provide time interval in seconds for the image stack if the value below is blank or incorrect.");
+	Dialog.addNumber("Seconds between video frames: ", dt);
+	Dialog.addChoice("Perform spectral analysis on: ", items);
+	Dialog.addChoice("Window Type for Spectral Analysis: ", newArray("None", "Hamming", "Hann", "Flattop"));
+	Dialog.addCheckbox("Detrend data before Spectral Analysis: ", 1);
+	Dialog.addCheckbox("Remove mean from data before Spectral Analysis: ", 1);
+	Dialog.show();
+
+	dt=Dialog.getNumber();
+	dataType=Dialog.getChoice();
+	windowType=Dialog.getChoice();
+	detrend=Dialog.getCheckbox();
+	removemean=Dialog.getCheckbox();
+
+	frameinterval=dt;
+	Stack.setFrameInterval(frameinterval);
+	call("ij.Prefs.set", "frameinterval.persistent", toString(frameinterval)); 
+	
+	run("Clear Results");
+	run("Set Measurements...", "mean standard modal min median skewness kurtosis display redirect=None decimal=9");
+	run("ROI Manager...");
+	roiManager("reset");
+	roiManager("Add");
+	roiManager("Show All");
+	roiManager("Multi Measure");
+
+	data=newArray(nSlices);
+	for(n=0; n<nSlices; n++){
+		if(dataType=="Mean"){
+			data[n]=getResult("Mean1", n);
+			dataname="ROI Mean";
+		}
+		if(dataType=="StdDev"){
+			data[n]=getResult("StdDev1", n);
+			dataname="ROI StdDev";
+		}
+		if(dataType=="Min"){
+			data[n]=getResult("Min1", n);
+			dataname="ROI Min";
+		}
+		if(dataType=="Max"){
+			data[n]=getResult("Max1", n);
+			dataname="ROI Max";
+		}
+		if(dataType=="Mode"){
+			data[n]=getResult("Mode1", n);
+			dataname="ROI Mode";
+		}
+		if(dataType=="Median"){
+			data[n]=getResult("Median1", n);
+			dataname="ROI Median";
+		}
+		if(dataType=="Skewness"){
+			data[n]=getResult("Skew1", n);
+			dataname="ROI Skewness";
+		}
+		if(dataType=="Kurtosis"){
+			data[n]=getResult("Kurt1", n);
+			dataname="ROI Kurtosis";
+		}		
+	}
+	
+	spectralanalysis(data, dataname, windowType, dt, detrend, removemean);
+	
+	saveAs("Results", desktopdir + File.separator + "ROI_Stack_Results.csv");
+}
+
+
+macro "Cumulative Difference Sum on Stack [6]"{
+	
+	close("Results");
+ 	close("ROI*");
+ 	close("Cumulative*");
+ 	close("Inter Frame Differenc*");
+ 	close("Difference Image");
+ 	close("Fourier amplitudes of*");
+ 	close("Histo*");
+	close("Raw data*");
+	
+	dt=Stack.getFrameInterval();
+	if(dt==0){
+		dt=frameinterval;
+	}
+	Dialog.create("Cumulative Difference Sum Analysis");
+	Dialog.addMessage("This function works on stacks first by subtracting the difference in pixel values between frames,\ncreating an absolute value difference stack n-1 frames in length.");
+	Dialog.addMessage("Then all pixels from each frame are examined for the mean and standard deviation per frame,\nstored to the results window, after which a cumulative value is calculated.");
+	Dialog.addMessage("This cumulative absolute difference value is then detrended and normalised\nto remove mean value prior to a discrete fourier analysis to return freuquency components.");
+	Dialog.addMessage("The user should provide time interval in seconds for the image stack if value below is blank or incorrect.");
+	Dialog.addNumber("Seconds between video frames: ", dt);
+	Dialog.addChoice("Perform spectral analysis on mean or sd: ", newArray("sd", "mean"));
+	Dialog.addChoice("Window Type for Spectral Analysis: ", newArray("None", "Hamming", "Hann", "Flattop"));
+	Dialog.addCheckbox("Detrend data before Spectral Analysis: ", 1);
+	Dialog.addCheckbox("Remove mean from data before Spectral Analysis: ", 1);
+	Dialog.show();
+
+	dt=Dialog.getNumber();
+	dataType=Dialog.getChoice();
+	windowType=Dialog.getChoice();
+	detrend=Dialog.getCheckbox();
+	removemean=Dialog.getCheckbox();
+
+	frameinterval=dt;
+	Stack.setFrameInterval(frameinterval);
+	call("ij.Prefs.set", "frameinterval.persistent", toString(frameinterval)); 
+	
+	StackCumulativeDiffSummation(dt, dataType, windowType, detrend, removemean);
+	
+	saveAs("Results", desktopdir + File.separator + "C_Diff_Stack_Results.csv");
+}
+
+
 
 
 macro "-" {} //menu divider

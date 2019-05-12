@@ -216,12 +216,18 @@ Main Functions and Features
     -   see SampleFiles.zip for sample data
 -   Raw Import SEQ <img src='./images/ImportSEQ.png'>
     -   custom macro to import FLIR SEQ using the Import-Raw command
-    -   use only if you know the precise offset byte start and the number of bytes between frames.
-    -   only works for certain SEQ files, and only formats where tiff format underlies the video
+    -   use only if you know the precise offset byte start and the number of bytes between frames (see Frame Start Byte Macro below).s
+    -   this only works for certain SEQ files (usually those captured to computer), and only formats where tiff format underlies the video.
     -   see SampleFiles.zip for sample data
 
 ### Bits and Bytes
 
+-   Frame Start Byte
+    -   This macro will scan a FLIR video file (SEQ) for the offset byte position '0200wwwwhhhh' where wwww and hhhh are the image width and height in 16-bit little endian hexadecimal.
+    -   For example, the magicbyte for a 640x480 camera: 02008002e001", "8002" corresponds to 640 and "e001" corresponds to 480.
+    -   The user can provide a custom magicbyte, but should leave this blank otherwise.
+    -   The function returns best estimates for the offset and gap bytes necessary for use with the Raw Import FLIR SEQ macro, although is not guaranteed to be correct due to variances in SEQ file saving convention.
+    -   Note: on unix based OS, this macro calls the **xxd** executable and runs quickly. For Windows OS, Powershell Core 6 needs to be installed with the updated **Format-Hex** function, and runs slowly.
 -   Image Byte swap <img src='./images/ByteSwap.png'>
     -   simple call to the Byte Swapper plugin.
     -   since FLIR files are sometimes saved using little endian order (tiff) and big endian order (png), a short-cut to a pixel byte swap is a fast way to repair files that have byte order mixed up
@@ -277,6 +283,18 @@ Main Functions and Features
 -   Add ROI Measurement
     -   adds the result of the ROI parameter to the image as an overlay.
     -   will work on stacks or single images.
+
+### Math on Stacks
+
+-   ROI on Entire Stack
+    -   performs an ROI analysis across the entire stack.
+    -   min, max, mean, median, mode, skewness, kurtosis for every slice are exported to the results window and to file to desktop
+    -   select what summary statistic to perform discrete fourier analysis to extract dominant frequency components.
+-   Cumulative Difference Sum on Stack (in progress)
+    -   This function works on stacks, first by subtracting the difference in pixel values between frames, creating an absolute value difference stack n-1 frames in length.
+    -   Then all pixels from each frame are examined for the mean and standard deviation per frame, stored to the results window, after which a cumulative value is calculated.
+    -   This cumulative absolute difference value is then detrended and zeroed to remove mean value offset prior to a discrete fourier analysis to return freuquency components.
+    -   The user should provide time interval in seconds for the image stack.
 
 Workflow
 --------
