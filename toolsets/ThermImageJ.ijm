@@ -1159,8 +1159,7 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, p
 	//	}
 	//}
 	
-	setBatchMode(false);
-	t1=getTime();
+
 	if(nSlices()>1){
 		run("32-bit", "stack");
 		run("Macro...", "code=v=" +PB+ "/log(" +PR1+ "/(" +PR2+ "*(v/" +rawdivisor+ "-" +rawsubtract+ "+" +PO+ "))+" +PF+ ")-273.15 stack");
@@ -1176,9 +1175,7 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, p
 		mintemp=min;
 		maxtemp=max;
 	}
-	t2=getTime();
-	deltat=t2-t1;
-	print(deltat);
+
 	
 	//setBatchMode(false);
 	//mintemp=PB/log(PR1/(PR2*(minpix/rawdivisor-rawsubtract+PO))+PF)-273.15;
