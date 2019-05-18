@@ -1044,7 +1044,6 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	for (i=1; i<=nSlices; i++) { 
 		setSlice(i);
 		slicelabel= dateoriginal + "_" + timeoriginal[i] + tz;
-		print(slicelabel);
 		run("Set Label...", "label=" + slicelabel);
 	}
 	
