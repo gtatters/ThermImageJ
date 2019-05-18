@@ -930,8 +930,10 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	// Time is character 11 through 23
 	
 	dateoriginal=replace(substring(flirvals, 0, 10), ":", "-");
-
+	tz=substring(flirvals, 23, 29);
+	
 	for(i = 1; i <=nframes; i++){
+		
 		timeoriginal[i]=substring(flirvals, 11+(i-1)*30, 23+(i-1)*30);
 	}
 
@@ -1041,7 +1043,9 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	print("Adding file time origin as slice label");
 	for (i=1; i<=nSlices; i++) { 
 		setSlice(i);
-		run("Set Label...", "label=" + timeoriginal[i]);
+		slicelabel= dateoriginal + "_" + timeoriginal[i] + tz;
+		print(slicelabel);
+		run("Set Label...", "label=" + slicelabel);
 	}
 	
 	// Set frame interval to stack
@@ -1326,7 +1330,7 @@ function flirdate(filepath, printvalues){
     datetimeoriginal=substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Original"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Original")) );
     dateoriginal=substring(datetimeoriginal, 1, 11);
     dateoriginal=replace(dateoriginal, ":", "-");
-    timeoriginal=substring(datetimeoriginal, 12,24);
+    timeoriginal=substring(datetimeoriginal, 12,30);
   
 		if(printvalues == "Yes"){
 			Dialog.create("Date/Time Information:");
