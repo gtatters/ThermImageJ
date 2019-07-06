@@ -8,7 +8,7 @@
 #use warnings;
 use Getopt::Std;
 
-our($opt_i, $opt_o, $opt_b, $opt_p, $opt_x, $opt_v);
+our($opt_i, $opt_o, $opt_b, $opt_p, $opt_x, $opt_s, $opt_v);
 
 my $n=0;
 my $folder = "temp";
@@ -25,18 +25,20 @@ my $pattiff = "II\\*\0";
 my $patjpg = "\xff\xd8\xff\xe1"; # split out jpg headers
 my $outext = "fff";
 my $file = "";
+my $skip = "n";
 
 my (%opt)=();
-getopts("h:i:o:b:p:x:v:",\%opt);
+getopts("h:i:o:b:p:x:s:v:",\%opt);
 if ($opt{h}){
 print qq(
-    Usage: perl split -i filename -o outputfoldername -b basename -p splitpattern -x outputfileextension -v verbose
+    Usage: perl split -i filename -o outputfoldername -b basename -p splitpattern -x outputfileextension -s skip -v verbose
     options:
     -i input filename
     -o output folder
     -b base output name
     -p split pattern (fff, fcf, seq, csq, jpegls, tiff) 
     -x output extension (fff, jpegls, tiff)
+    -s skip first part of split content
     -v verbose (y=yes, leave blank for no feedback on success) \n.);
     exit  
 }
@@ -54,6 +56,7 @@ $folder = $opt{o};
 $infilename = $opt{i};
 $outfilebase = $opt{b};
 $outext = ".$opt{x}";
+$skip = $opt{s};
 
 if ($opt{p} eq "fff"){
         $pat = $patfff;
@@ -90,15 +93,42 @@ open F, '<:raw', $infilename;
 $file = do { local $/; <F> };
 close F;  
 
+# If skip=y, then we will operate the split function, but discard the first portion of the split, 
+# and only save the rawdata following and including the pattern
+# Only real application is for splitting fff files into fffheader + jpeglsrawdata
+# This code should allow for a more generic skipping of every other split result
 
-# Split infilename based on $pat
-for my $content (split(/(?=$pat)/, $file)) {
+if ($skip eq "y"){
+        my @content = split /(?=$pat)/, $file;
+        my $len = ($#content + 1)/2;
+        my @ind = (1); # skip the first index
+
+        # create an index of numbers that should be odd (1,3,5,7...up to the # of images)
+        for (my $i = 1; $i<$len; $i++) {
+            @ind[$i] =  @$ind[($i-1)]+ 2;
+        }
+        # then save 
+        for (my $i = 0; $i<$len; $i++) {
+            $outfilename = ">$folder/$outfilebase" . sprintf("%05d",++$n) . $outext;
+            open(OUT, $outfilename);
+            binmode(OUT, ":raw");
+            print OUT $content[$ind[$i]];
+            close(OUT);
+        }    
+    } 
+
+    # this is the default split functioning;
+    else {
+  
+    # Split infilename based on $pat
+    for my $content (split(/(?=$pat)/, $file)) {
         $outfilename = ">$folder/$outfilebase" . sprintf("%05d",++$n) . $outext;
         open(OUT, $outfilename);
         binmode(OUT, ":raw");
         print OUT $content;
         close(OUT);
-}
+        } 
+    }
 
 # If verbose=y, then print the following update:
 if ($opt{v} eq "y"){
