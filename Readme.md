@@ -1,7 +1,7 @@
 ThermImageJ - Thermal Image Functions and Macros for ImageJ
 ================
 
-<img src = './images/ThermImageJSticker1.png' align="right" height="138.5">
+<img src = './images/ThermImageJSticker1.png' align="right" height="165">
 
 ThermImageJ is a collection of ImageJ functions and macros to allow for import and conversion of thermal image files and to assist in extracting raw data from infrared thermal images and converting these to temperatures using standard equations in thermography.
 
@@ -216,7 +216,7 @@ Main Functions and Features
     -   see SampleFiles.zip for sample data
 -   Raw Import SEQ <img src='./images/ImportSEQ.png'>
     -   custom macro to import FLIR SEQ using the Import-Raw command
-    -   use only if you know the precise offset byte start and the number of bytes between frames (see Frame Start Byte Macro below).s
+    -   use only if you know the precise offset byte start and the number of bytes between frames (see Frame Start Byte Macro below).
     -   this only works for certain SEQ files (usually those captured to computer), and only formats where tiff format underlies the video.
     -   see SampleFiles.zip for sample data
 
@@ -226,6 +226,7 @@ Main Functions and Features
     -   This macro will scan a FLIR video file (SEQ) for the offset byte position '0200wwwwhhhh' where wwww and hhhh are the image width and height in 16-bit little endian hexadecimal.
     -   For example, the magicbyte for a 640x480 camera: 02008002e001", "8002" corresponds to 640 and "e001" corresponds to 480.
     -   The user can provide a custom magicbyte, but should leave this blank otherwise.
+    -   The function is only used in conjunction with the Raw Import FLIR SEQ macro.
     -   The function returns best estimates for the offset and gap bytes necessary for use with the Raw Import FLIR SEQ macro, although is not guaranteed to be correct due to variances in SEQ file saving convention.
     -   Note: on unix based OS, this macro calls the **xxd** executable and runs quickly. For Windows OS, Powershell Core 6 needs to be installed with the updated **Format-Hex** function, and runs slowly.
 -   Image Byte swap <img src='./images/ByteSwap.png'>
