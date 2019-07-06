@@ -27,7 +27,7 @@ Requirements
 -   FIJI is Just ImageJ. Download instructions: <https://imagej.net/Fiji/Downloads>
 -   Exiftool. (The standalone executable file is suggested). Installation instructions: <http://www.sno.phy.queensu.ca/~phil/exiftool/install.html>
 -   FFMPEG command line utility (static version). Download instructions: <https://ffmpeg.org/download.html>
--   Perl. (Activeperl binary is suggested) Installation instructions: <https://www.perl.org/get.html>
+-   Perl. (Activeperl binary is suggested, although perl may already be built into your operating system). Installation instructions: <https://www.perl.org/get.html>
 -   Byte swapper plugin. Download instructions: <https://imagej.nih.gov/ij/plugins/swapper.html>
 
 ### ThermImageJ Downloads from this Github site
@@ -77,7 +77,7 @@ which perl
 ```
 
     ## 
-    ## This is perl 5, version 18, subversion 2 (v5.18.2) built for darwin-thread-multi-2level
+    ## This is perl 5, version 18, subversion 4 (v5.18.4) built for darwin-thread-multi-2level
     ## (with 2 registered patches, see perl -V for more detail)
     ## 
     ## Copyright 1987-2013, Larry Wall
@@ -392,3 +392,5 @@ Suggestions/Issues
 -   Suggestions for improvements and additions, as well as bugs or issues can be filed here: <https://github.com/gtatters/ThermImageJ/issues>
 
 -   Please include a sample image to help with solving issues
+
+-   Please star or follow this github site to keep up to date on new releases as I fix errors following further testing.
