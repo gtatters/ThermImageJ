@@ -4,7 +4,7 @@
 ////        Main Features: import, conversion, and transformation of thermal images.               ////
 ////                           Requires: exiftool, ffmpeg, perl                                    ////
 ////                                Glenn J. Tattersall                                            ////
-////                             April, 2019 - Version 1.4                                         ////
+////                             July, 2019 - Version 1.5                                         ////
 ////                                                                                               ////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2071,66 +2071,6 @@ macro "Import Menu Tool - C037T0b11FT6b09IT9b09LTeb09E" {
             run(cmd);
 }
 
-// This will call a subset of LUTs that are more appropriate for thermal imaging.
-macro "Thermal LUT Menu Tool - C037T0b11LT6b09UTcb09T" {
-      cmd = getArgument();
-          run(cmd);
-}
-
-
-macro "Previous LUT Action Tool - C037T4d14<" {
-        cycleLUTs(-1);
-}
-
-macro "Previous LUT" {
-        cycleLUTs(-1);
-}
-
-macro "Next LUT Action Tool - C037T4d14>" {
-        cycleLUTs(1);
-}
-
-macro "Next LUT" {
-        cycleLUTs(1);
-}
-
-macro "Invert LUT Action Tool - C037R12ccL12cc" {
-        run("Invert LUT");
-}
-
-macro "Invert LUT" {
-        run("Invert LUT");
-}
-
-
-macro "Adjust Brightness and Contrast Action Tool - C037D04D05D06D07D08D09D0aD0bD0cD14D18D1cD24D28D2cD34D38D3cD45D46D47D49D4aD4bD6bD6cD76D77D78D79D7aD84D85Da6Da7Da8Da9DaaDb5DbbDc4DccDd4DdcDe5DebDf6Dfa" {
-        //run("Enhance Contrast", "saturated=0.35");
-        run("Brightness/Contrast...");
-}
-
-macro "Add Calibration Bar Action Tool - C000D10D11D12D13D14D15D16D17D18D19D1aD1bD1cD1dD1eD1fD20D2dD2eD2fD30D3dD3eD3fD40D4dD4eD4fD50D5dD5eD5fD60D61D62D63D64D65D66D67D68D69D6aD6bD6cD6dD6eD6fD70D72D74D76D78D7aD7cD7eD80D82D84D86D88D8aD8cD8eDa4Da5Da6Da9DaaDabDacDadDb3Db7Db9DbbDc3Dc7Dc9DcbDd4Dd6Dd9C001C002C003C004C005C006C007C107C108C208C308C309C409D2bD2cD3bD3cD4bD4cD5bD5cC409C509C609C709C809C909Ca09D29D2aD39D3aD49D4aD59D5aCa09Cb09Cc09Cc08Cc18Cc17Cd17Cd26D27D28D37D38D47D48D57D58Cd26Cd25Cd34Cd33Ce33Ce32Ce41Ce40Ce50Ce60D25D26D35D36D45D46D55D56Ce60Cf60Cf70Cf80Cf90Cfa0D23D24D33D34D43D44D53D54Cfa0Cfb0Cfc0Cfd0Cfd1D21D22D31D32D41D42D51D52Cfd1Cfe2Cfe3Cfe4Cfe5Cfe6Cff6Cff7Cff8Cff9CffaCffbCffcCffdCffeCfff"{
-	//run("32-bit");
-	//run("Calibrate...", "function=None");
-	run("Calibration Bar...", "location=[At Selection] fill=None label=White number=5 decimal=1 font=10 zoom=1 overlay");
-	//run("Calibration Bar...", "location=[At Selection] fill=None label=White number=5 decimal=1 font=10 zoom=1 overlay show");
-
-}
-
-macro "Add Calibration Bar"{
-	//w=getWidth();
-	//h=getHeight();
-	//getMinAndMax(min, max);
-	//range=max-min;
-	
-	//   	newImage("LUT", "16-bit ramp", 480, 32, 1);
-	//newwidth=w+69;
-	//run("Canvas Size...", "width=" + newwidth + " height=" + h + " position=Center-Left");
-	//run("32-bit");
-	//	run("Calibrate...", "function=None");
-	run("Calibration Bar...", "location=[Upper Right] fill=None label=White number=5 decimal=1 font=10 zoom=2 overlay");
-}
-
-macro "-" {} //menu divider
 
 //macro "Raw Import Mikron RTV Action Tool - C000D00D01D02D03D04D05D06D09D0aD0bD0cD0dD0eD0fD10D13D19D1cD20D23D24D25D29D2cD2dD2eD30D31D32D33D35D36D39D3aD3bD3cD3eD3fD54D55D56D59D61D62D63D64D69D70D71D74D76D77D79D7aD7bD7cD7dD7eD7fD81D82D83D84D89D94D95D96D99Db0Db1Db2Db3Db9DbaDbbDc3Dc4Dc5Dc6DcbDccDcdDd1Dd2Dd3Dd4DddDdeDdfDe3De4De5De6DebDecDedDf0Df1Df2Df3Df9DfaDfbC000C111C222C333C444C555C666C777C888C999D67D78D87C999CaaaCbbbCcccCdddCeeeCfff" {
 //	RawImportMikronRTV();
@@ -2319,25 +2259,6 @@ macro "Frame Start Byte"{
 	}
 }
 
-
-macro "-" {} //menu divider
-
-macro "Image Byte Swap Action Tool - C000D12D13D1cD1dD21D24D25D26D27D28D29D2aD2bD2eD31D34D35D36D37D38D39D3aD3bD3eD42D43D4cD4dD82D83D91D92D93D94Da0Da1Da2Da3Da4Da5Db2Db3Dc2Dc3DccDcdDd2Dd3Dd4Dd5Dd6Dd7Dd8Dd9DdaDdbDdeDe2De3De4De5De6De7De8De9DeaDebDeeDfcDfdC000C111C222C333C444C555C666C777C888C999CaaaD1bD4bCaaaD11D14DcbDceDfbDfeCaaaD1eD4eCaaaD41D44CbbbCcccD2dD3dCcccD22DddDedCcccD32CcccD72D73CcccDc4CcccCdddD23D2cD3cDdcDecCdddDb1CdddD33CeeeDb0CeeeD8cD8dDb4DbcDbdCeeeCfffD20D30Df5CfffDc7CfffD17D18D47D48Dc6Dc8Df6Df7Df8CfffD16D19D46D49Dc9Df9CfffDf4CfffDb5CfffDc1"{
-	ByteSwapperFileLocation=getDirectory("plugins") + "Byte_Swapper.class";
-	if(File.exists(ByteSwapperFileLocation)==0){
-		exit("Please install Byte Swapper to your plugins folder\nSee: https://imagej.nih.gov/ij/plugins/swapper.html");
-	}
-	run("Byte Swapper");
-}
-
-macro "Image Byte Swap"{
-	ByteSwapperFileLocation=getDirectory("plugins") + "Byte_Swapper.class";
-	if(File.exists(ByteSwapperFileLocation)==0){
-		exit("Please install Byte Swapper to your plugins folder\nSee: https://imagej.nih.gov/ij/plugins/swapper.html");
-	}
-	run("Byte Swapper");
-}
-
 macro "-" {} //menu divider
 
 macro "Convert FLIR JPG(s)"{
@@ -2366,11 +2287,104 @@ macro "Import/Convert FLIR CSQ" {
 }
 
 
-macro "Import FFmpeg AVI [7]" {
+macro "Import FFmpeg AVI [i]" {
 	ImportFFmpegAVI();
 }
 
 macro "-" {} //menu divider
+
+// This will call a subset of LUTs that are more appropriate for thermal imaging.
+macro "Thermal LUT Menu Tool - C037T0b11LT6b09UTcb09T" {
+      cmd = getArgument();
+          run(cmd);
+}
+
+
+macro "Previous LUT Action Tool - C037T4d14<" {
+        cycleLUTs(-1);
+}
+
+macro "Previous LUT" {
+        cycleLUTs(-1);
+}
+
+macro "Next LUT Action Tool - C037T4d14>" {
+        cycleLUTs(1);
+}
+
+macro "Next LUT" {
+        cycleLUTs(1);
+}
+
+macro "Invert LUT Action Tool - C037R12ccL12cc" {
+        run("Invert LUT");
+}
+
+macro "Invert LUT" {
+        run("Invert LUT");
+}
+
+
+macro "Adjust Brightness and Contrast Action Tool - C037D04D05D06D07D08D09D0aD0bD0cD14D18D1cD24D28D2cD34D38D3cD45D46D47D49D4aD4bD6bD6cD76D77D78D79D7aD84D85Da6Da7Da8Da9DaaDb5DbbDc4DccDd4DdcDe5DebDf6Dfa" {
+        //run("Enhance Contrast", "saturated=0.35");
+        run("Brightness/Contrast...");
+}
+
+macro "-" {} //menu divider
+
+macro "Add Calibration Bar Action Tool - C000D10D11D12D13D14D15D16D17D18D19D1aD1bD1cD1dD1eD1fD20D2dD2eD2fD30D3dD3eD3fD40D4dD4eD4fD50D5dD5eD5fD60D61D62D63D64D65D66D67D68D69D6aD6bD6cD6dD6eD6fD70D72D74D76D78D7aD7cD7eD80D82D84D86D88D8aD8cD8eDa4Da5Da6Da9DaaDabDacDadDb3Db7Db9DbbDc3Dc7Dc9DcbDd4Dd6Dd9C001C002C003C004C005C006C007C107C108C208C308C309C409D2bD2cD3bD3cD4bD4cD5bD5cC409C509C609C709C809C909Ca09D29D2aD39D3aD49D4aD59D5aCa09Cb09Cc09Cc08Cc18Cc17Cd17Cd26D27D28D37D38D47D48D57D58Cd26Cd25Cd34Cd33Ce33Ce32Ce41Ce40Ce50Ce60D25D26D35D36D45D46D55D56Ce60Cf60Cf70Cf80Cf90Cfa0D23D24D33D34D43D44D53D54Cfa0Cfb0Cfc0Cfd0Cfd1D21D22D31D32D41D42D51D52Cfd1Cfe2Cfe3Cfe4Cfe5Cfe6Cff6Cff7Cff8Cff9CffaCffbCffcCffdCffeCfff"{
+	w=getWidth();
+	h=getHeight();
+	barheight=148; // at zoom level 1 this is the height of the box that defines the calibration bar (with background bounding box)
+	zoomlevel=0.5*h/barheight;
+	calbaroptions="location=[At Selection] fill=None label=White number=5 decimal=1 font=10 zoom=" + zoomlevel + " overlay";
+	run("Calibration Bar...", calbaroptions);
+
+}
+
+macro "Add Calibration Bar"{
+	w=getWidth();
+	h=getHeight();
+	barheight=148; // at zoom level 1 this is the height of the box that defines the calibration bar (with background bounding box)
+	zoomlevel=0.5*h/barheight;
+	calbaroptions="location=[Upper Right] fill=None label=White number=5 decimal=1 font=10 zoom=" + zoomlevel + " overlay";
+	
+	//getMinAndMax(min, max);
+	//range=max-min;
+	
+	//   	newImage("LUT", "16-bit ramp", 480, 32, 1);
+	//newwidth=w+69;
+	//run("Canvas Size...", "width=" + newwidth + " height=" + h + " position=Center-Left");
+	//run("32-bit");
+	//	run("Calibrate...", "function=None");
+
+	
+	run("Calibration Bar...", calbaroptions);
+}
+
+
+macro "-" {} //menu divider
+
+macro "Image Byte Swap Action Tool - C000D12D13D1cD1dD21D24D25D26D27D28D29D2aD2bD2eD31D34D35D36D37D38D39D3aD3bD3eD42D43D4cD4dD82D83D91D92D93D94Da0Da1Da2Da3Da4Da5Db2Db3Dc2Dc3DccDcdDd2Dd3Dd4Dd5Dd6Dd7Dd8Dd9DdaDdbDdeDe2De3De4De5De6De7De8De9DeaDebDeeDfcDfdC000C111C222C333C444C555C666C777C888C999CaaaD1bD4bCaaaD11D14DcbDceDfbDfeCaaaD1eD4eCaaaD41D44CbbbCcccD2dD3dCcccD22DddDedCcccD32CcccD72D73CcccDc4CcccCdddD23D2cD3cDdcDecCdddDb1CdddD33CeeeDb0CeeeD8cD8dDb4DbcDbdCeeeCfffD20D30Df5CfffDc7CfffD17D18D47D48Dc6Dc8Df6Df7Df8CfffD16D19D46D49Dc9Df9CfffDf4CfffDb5CfffDc1"{
+	ByteSwapperFileLocation=getDirectory("plugins") + "Byte_Swapper.class";
+	if(File.exists(ByteSwapperFileLocation)==0){
+		exit("Please install Byte Swapper to your plugins folder\nSee: https://imagej.nih.gov/ij/plugins/swapper.html");
+	}
+	run("Byte Swapper");
+}
+
+macro "Image Byte Swap"{
+	ByteSwapperFileLocation=getDirectory("plugins") + "Byte_Swapper.class";
+	if(File.exists(ByteSwapperFileLocation)==0){
+		exit("Please install Byte Swapper to your plugins folder\nSee: https://imagej.nih.gov/ij/plugins/swapper.html");
+	}
+	run("Byte Swapper");
+}
+
+
+
+macro "-" {} //menu divider
+
 
 macro "FLIR Date Stamps Action Tool - C000D08D09D0aD0bD0cD17D1dD26D2eD35D3eD45D4fD55D57D58D59D5aD5fD65D6aD6fD72D73D75D7aD7eD82D86D8aD8eD90D91D92D94D97D9dDa2Da8Da9DaaDabDacDb2Db4Db6Dc2Dc8Dd0Dd1Dd2Dd4Dd6Dd8De2De8Df2Df3Df4Df5Df6Df7Df8C000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccDc1CcccDd7CcccD83CcccD81CcccDe1CcccCdddD56CdddDe7CdddDa1CdddDb3CdddDc7CdddD16CdddD2dCdddD1eD48D4eDb7CdddD69CdddD49D7bCdddCeeeD46Dc4CeeeD6bDc6CeeeD6eCeeeD93Dc3CeeeDe3CeeeDe9CeeeDa3CeeeDd9CeeeDd3CeeeD99Db5CeeeD74CeeeD1bD2fD54D8fCeeeD19D85Dd5CeeeD25D96Db1De4CeeeDa4Db8CeeeDe6CfffD9bDbaCfffD5eD79CfffDe5CfffD8bCfffD68DadCfffD0dCfffD07D64CfffD1aD63D89Da7Dc5CfffD9aCfffD44D5bDb9De0CfffD84Da0DbbCfffD4aD80Da5Dc0Dc9Df1CfffD62D71Df9CfffD47" {
 	filepath=File.openDialog("Select a FLIR Image or Video File"); 
@@ -2848,11 +2862,33 @@ macro "Raw2Temp E40" {
 
 
 
+
 macro "-" {} //menu divider
 
-macro "ROI 1 Results [1]" { // 
+macro "ROI 1 Results [d]" { // 
+
+	roilabel="BillDepth";
 	
+	roitype=Roi.getType();
+	
+	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
+	getSelectionCoordinates(xCoordinates, yCoordinates);
+	len=xCoordinates.length;
+		
+	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
+
+	x1=xCoordinates[0];
+	y1=yCoordinates[0];
+	x2=xCoordinates[len-1];
+	y2=yCoordinates[len-1];
+	
+
+	//theta=180/PI*atan2((y2-y1), (x2-x1));
+	hypotenuse=sqrt((wd*wd + ht*ht));
+
 	getStatistics(area, mean, min, max, std, histogram);
+
+	filename=getTitle; 
 	
 	type = selectionType(); 
 	if(type==-1) exit("No ROI selection specified");
@@ -2863,16 +2899,122 @@ macro "ROI 1 Results [1]" { //
 	
 	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
 	for (i=0; i<getSliceNumber(); i++) { 	
-		setResult("Blank", i, "");
+		setResult("Filename", i, "");
 	}
-	
-	setResult("Slice Label", rownum, getMetadata("label"));
+
+	setResult("Filename", rownum, filename);
+	setResult("SliceLabel", rownum, getMetadata("label"));
 	setResult("Slice", rownum, getSliceNumber());
-	setResult("ROI 1 Mean", rownum, mean);
-	setResult("ROI 1 Min", rownum, min);
-	setResult("ROI 1 Max", rownum, max);
-	setResult("ROI 1 SD", rownum, std);
-	setResult("ROI 1 Area", rownum, area);
+	//setResult("ROI 1 X1", rownum, x1);
+	//setResult("ROI 1 Y1", rownum, y1);
+	//setResult("ROI 1 X2", rownum, x2);
+	//setResult("ROI 1 Y2", rownum, y2);
+	setResult(roilabel, rownum, hypotenuse);	
+	
+	updateResults();
+	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
+}
+
+macro "ROI 1 Results [l]" { // 
+	
+	roilabel="BillLength";
+	
+	roitype=Roi.getType();
+	
+	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
+	getSelectionCoordinates(xCoordinates, yCoordinates);
+	len=xCoordinates.length;
+		
+	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
+
+	x1=xCoordinates[0];
+	y1=yCoordinates[0];
+	x2=xCoordinates[len-1];
+	y2=yCoordinates[len-1];
+	
+
+	//theta=180/PI*atan2((y2-y1), (x2-x1));
+	hypotenuse=sqrt((wd*wd + ht*ht));
+
+	getStatistics(area, mean, min, max, std, histogram);
+
+	filename=getTitle; 
+	
+	type = selectionType(); 
+	if(type==-1) exit("No ROI selection specified");
+	
+	updateResults();
+
+	rownum=getSliceNumber()-1;
+	
+	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
+	for (i=0; i<getSliceNumber(); i++) { 	
+		setResult("Filename", i, "");
+	}
+
+	setResult("Filename", rownum, filename);
+	setResult("SliceLabel", rownum, getMetadata("label"));
+	setResult("Slice", rownum, getSliceNumber());
+	//setResult("ROI 1 X1", rownum, x1);
+	//setResult("ROI 1 Y1", rownum, y1);
+	//setResult("ROI 1 X2", rownum, x2);
+	//setResult("ROI 1 Y2", rownum, y2);
+	setResult(roilabel, rownum, hypotenuse);	
+	
+	updateResults();
+	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
+}
+
+macro "ROI 1 Results [1]" { // 
+
+	roilabel="UpperBill";
+	
+	roitype=Roi.getType();
+	
+	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
+	getSelectionCoordinates(xCoordinates, yCoordinates);
+	len=xCoordinates.length;
+		
+	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
+
+	x1=xCoordinates[0];
+	y1=yCoordinates[0];
+	x2=xCoordinates[len-1];
+	y2=yCoordinates[len-1];
+	
+
+	//theta=180/PI*atan2((y2-y1), (x2-x1));
+	hypotenuse=sqrt((wd*wd + ht*ht));
+
+	getStatistics(area, mean, min, max, std, histogram);
+
+	filename=getTitle; 
+	
+	type = selectionType(); 
+	if(type==-1) exit("No ROI selection specified");
+	
+	updateResults();
+
+	rownum=getSliceNumber()-1;
+	
+	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
+	for (i=0; i<getSliceNumber(); i++) { 	
+		setResult("Filename", i, "");
+	}
+
+	setResult("Filename", rownum, filename);
+	setResult("SliceLabel", rownum, getMetadata("label"));
+	setResult("Slice", rownum, getSliceNumber());
+	//setResult("ROI 1 X1", rownum, x1);
+	//setResult("ROI 1 Y1", rownum, y1);
+	//setResult("ROI 1 X2", rownum, x2);
+	//setResult("ROI 1 Y2", rownum, y2);
+	//setResult("ROI 1 Length", rownum, hypotenuse);	
+	setResult(roilabel + "Mean", rownum, mean);
+	setResult(roilabel + "Min", rownum, min);
+	setResult(roilabel + "Max", rownum, max);
+	setResult(roilabel + "SD", rownum, std);
+	setResult(roilabel + "Area", rownum, area);
 	
 	updateResults();
 	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
@@ -2880,26 +3022,54 @@ macro "ROI 1 Results [1]" { //
 
 macro "ROI 2 Results [2]" {
 	
+	roilabel="LowerBill";
+	
+	roitype=Roi.getType();
+	
+	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
+	getSelectionCoordinates(xCoordinates, yCoordinates);
+	len=xCoordinates.length;
+		
+	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
+
+	x1=xCoordinates[0];
+	y1=yCoordinates[0];
+	x2=xCoordinates[len-1];
+	y2=yCoordinates[len-1];
+	
+
+	//theta=180/PI*atan2((y2-y1), (x2-x1));
+	hypotenuse=sqrt((wd*wd + ht*ht));
+
 	getStatistics(area, mean, min, max, std, histogram);
+
+	filename=getTitle; 
 	
 	type = selectionType(); 
 	if(type==-1) exit("No ROI selection specified");
-
+	
 	updateResults();
+
 	rownum=getSliceNumber()-1;
 	
 	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
 	for (i=0; i<getSliceNumber(); i++) { 	
-		setResult("Blank", i, "");
+		setResult("Filename", i, "");
 	}
 
-	setResult("Slice Label", rownum, getMetadata("label"));
+	setResult("Filename", rownum, filename);
+	setResult("SliceLabel", rownum, getMetadata("label"));
 	setResult("Slice", rownum, getSliceNumber());
-	setResult("ROI 2 Mean", rownum, mean);
-	setResult("ROI 2 Min", rownum, min);
-	setResult("ROI 2 Max", rownum, max);
-	setResult("ROI 2 SD", rownum, std);
-	setResult("ROI 2 Area", rownum, area);
+	//setResult("ROI 1 X1", rownum, x1);
+	//setResult("ROI 1 Y1", rownum, y1);
+	//setResult("ROI 1 X2", rownum, x2);
+	//setResult("ROI 1 Y2", rownum, y2);
+	//setResult("ROI 1 Length", rownum, hypotenuse);	
+	setResult(roilabel + "Mean", rownum, mean);
+	setResult(roilabel + "Min", rownum, min);
+	setResult(roilabel + "Max", rownum, max);
+	setResult(roilabel + "SD", rownum, std);
+	setResult(roilabel + "Area", rownum, area);
 	
 	updateResults();
 	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
@@ -2908,7 +3078,28 @@ macro "ROI 2 Results [2]" {
 
 macro "ROI 3 Results [3]" { // 
 	
+	roilabel="Head";
+	
+	roitype=Roi.getType();
+	
+	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
+	getSelectionCoordinates(xCoordinates, yCoordinates);
+	len=xCoordinates.length;
+		
+	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
+
+	x1=xCoordinates[0];
+	y1=yCoordinates[0];
+	x2=xCoordinates[len-1];
+	y2=yCoordinates[len-1];
+	
+
+	//theta=180/PI*atan2((y2-y1), (x2-x1));
+	hypotenuse=sqrt((wd*wd + ht*ht));
+
 	getStatistics(area, mean, min, max, std, histogram);
+
+	filename=getTitle; 
 	
 	type = selectionType(); 
 	if(type==-1) exit("No ROI selection specified");
@@ -2919,25 +3110,109 @@ macro "ROI 3 Results [3]" { //
 	
 	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
 	for (i=0; i<getSliceNumber(); i++) { 	
-		setResult("Blank", i, "");
+		setResult("Filename", i, "");
 	}
 
-	setResult("Slice Label", rownum, getMetadata("label"));
+	setResult("Filename", rownum, filename);
+	setResult("SliceLabel", rownum, getMetadata("label"));
 	setResult("Slice", rownum, getSliceNumber());
-	setResult("ROI 3 Mean", rownum, mean);
-	setResult("ROI 3 Min", rownum, min);
-	setResult("ROI 3 Max", rownum, max);
-	setResult("ROI 3 SD", rownum, std);
-	setResult("ROI 3 Area", rownum, area);
+	//setResult("ROI 1 X1", rownum, x1);
+	//setResult("ROI 1 Y1", rownum, y1);
+	//setResult("ROI 1 X2", rownum, x2);
+	//setResult("ROI 1 Y2", rownum, y2);
+	//setResult("ROI 1 Length", rownum, hypotenuse);	
+	setResult(roilabel + "Mean", rownum, mean);
+	setResult(roilabel + "Min", rownum, min);
+	setResult(roilabel + "Max", rownum, max);
+	setResult(roilabel + "SD", rownum, std);
+	setResult(roilabel + "Area", rownum, area);
+	
+	updateResults();
+	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
+	
+}
+
+
+macro "ROI 4 Results [4]" { // 
+	
+	roilabel="Back";
+	
+	roitype=Roi.getType();
+	
+	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
+	getSelectionCoordinates(xCoordinates, yCoordinates);
+	len=xCoordinates.length;
+		
+	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
+
+	x1=xCoordinates[0];
+	y1=yCoordinates[0];
+	x2=xCoordinates[len-1];
+	y2=yCoordinates[len-1];
+	
+
+	//theta=180/PI*atan2((y2-y1), (x2-x1));
+	hypotenuse=sqrt((wd*wd + ht*ht));
+
+	getStatistics(area, mean, min, max, std, histogram);
+
+	filename=getTitle; 
+	
+	type = selectionType(); 
+	if(type==-1) exit("No ROI selection specified");
+	
+	updateResults();
+
+	rownum=getSliceNumber()-1;
+	
+	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
+	for (i=0; i<getSliceNumber(); i++) { 	
+		setResult("Filename", i, "");
+	}
+
+	setResult("Filename", rownum, filename);
+	setResult("SliceLabel", rownum, getMetadata("label"));
+	setResult("Slice", rownum, getSliceNumber());
+	//setResult("ROI 1 X1", rownum, x1);
+	//setResult("ROI 1 Y1", rownum, y1);
+	//setResult("ROI 1 X2", rownum, x2);
+	//setResult("ROI 1 Y2", rownum, y2);
+	//setResult("ROI 1 Length", rownum, hypotenuse);	
+	setResult(roilabel + "Mean", rownum, mean);
+	setResult(roilabel + "Min", rownum, min);
+	setResult(roilabel + "Max", rownum, max);
+	setResult(roilabel + "SD", rownum, std);
+	setResult(roilabel + "Area", rownum, area);
 	
 	updateResults();
 	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
 }
 
 
-macro "ROI 4 Results [4]" { // 
+macro "ROI 5 Results [5]" { // 
 	
+	roilabel="Belly";
+	
+	roitype=Roi.getType();
+	
+	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
+	getSelectionCoordinates(xCoordinates, yCoordinates);
+	len=xCoordinates.length;
+		
+	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
+
+	x1=xCoordinates[0];
+	y1=yCoordinates[0];
+	x2=xCoordinates[len-1];
+	y2=yCoordinates[len-1];
+	
+
+	//theta=180/PI*atan2((y2-y1), (x2-x1));
+	hypotenuse=sqrt((wd*wd + ht*ht));
+
 	getStatistics(area, mean, min, max, std, histogram);
+
+	filename=getTitle; 
 	
 	type = selectionType(); 
 	if(type==-1) exit("No ROI selection specified");
@@ -2948,19 +3223,104 @@ macro "ROI 4 Results [4]" { //
 	
 	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
 	for (i=0; i<getSliceNumber(); i++) { 	
-		setResult("Blank", i, "");
+		setResult("Filename", i, "");
 	}
 
-	setResult("Slice Label", rownum, getMetadata("label"));
+	setResult("Filename", rownum, filename);
+	setResult("SliceLabel", rownum, getMetadata("label"));
 	setResult("Slice", rownum, getSliceNumber());
-	setResult("ROI 4 Mean", rownum, mean);
-	setResult("ROI 4 Min", rownum, min);
-	setResult("ROI 4 Max", rownum, max);
-	setResult("ROI 4 SD", rownum, std);
-	setResult("ROI 4 Area", rownum, area);
+	//setResult("ROI 1 X1", rownum, x1);
+	//setResult("ROI 1 Y1", rownum, y1);
+	//setResult("ROI 1 X2", rownum, x2);
+	//setResult("ROI 1 Y2", rownum, y2);
+	//setResult("ROI 1 Length", rownum, hypotenuse);	
+	setResult(roilabel + "Mean", rownum, mean);
+	setResult(roilabel + "Min", rownum, min);
+	setResult(roilabel + "Max", rownum, max);
+	setResult(roilabel + "SD", rownum, std);
+	setResult(roilabel + "Area", rownum, area);
 	
 	updateResults();
 	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
+	
+}
+
+
+macro "ROI 6 Results [6]" { // 
+	
+	roilabel="Foot";
+	
+	roitype=Roi.getType();
+	
+	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
+	getSelectionCoordinates(xCoordinates, yCoordinates);
+	len=xCoordinates.length;
+		
+	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
+
+	x1=xCoordinates[0];
+	y1=yCoordinates[0];
+	x2=xCoordinates[len-1];
+	y2=yCoordinates[len-1];
+	
+
+	//theta=180/PI*atan2((y2-y1), (x2-x1));
+	hypotenuse=sqrt((wd*wd + ht*ht));
+
+	getStatistics(area, mean, min, max, std, histogram);
+
+	filename=getTitle; 
+	
+	type = selectionType(); 
+	if(type==-1) exit("No ROI selection specified");
+	
+	updateResults();
+
+	rownum=getSliceNumber()-1;
+	
+	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
+	for (i=0; i<getSliceNumber(); i++) { 	
+		setResult("Filename", i, "");
+	}
+
+	setResult("Filename", rownum, filename);
+	setResult("Slice Label", rownum, getMetadata("label"));
+	setResult("Slice", rownum, getSliceNumber());
+	//setResult("ROI 1 X1", rownum, x1);
+	//setResult("ROI 1 Y1", rownum, y1);
+	//setResult("ROI 1 X2", rownum, x2);
+	//setResult("ROI 1 Y2", rownum, y2);
+	//setResult("ROI 1 Length", rownum, hypotenuse);	
+	setResult(roilabel + "Mean", rownum, mean);
+	setResult(roilabel + "Min", rownum, min);
+	setResult(roilabel + "Max", rownum, max);
+	setResult(roilabel + "SD", rownum, std);
+	setResult(roilabel + "Area", rownum, area);
+	
+	updateResults();
+	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
+	
+}
+
+macro "-" {} //menu divider
+
+macro "Extract ROI Pixel Values [p]"{
+	
+// http://imagej.1557.x6.nabble.com/Extracts-individual-pixel-values-from-a-selection-or-RIO-td5020121.html
+	
+	Roi.getBounds(rx, ry, width, height); 
+	row = 0; 
+
+	for(y=ry; y<ry+height; y++) { 
+    	for(x=rx; x<rx+width; x++) { 
+        	if(Roi.contains(x, y)==1) { 
+            	setResult("X", row, x); 
+            	setResult("Y", row, y); 
+            	setResult("Value", row, getPixel(x, y)); 
+            	row++; 
+        	} 
+    	} 
+	} 
 }
 
 
@@ -3002,7 +3362,7 @@ macro "Add ROI Measurement to Image" {
 
 macro "-" {} //menu divider
 
-macro "ROI on Entire Stack [5]" {
+macro "ROI on Entire Stack [9]" {
 
 	close("Results");
  	close("ROI*");
@@ -3094,7 +3454,7 @@ macro "ROI on Entire Stack [5]" {
 }
 
 
-macro "Cumulative Difference Sum on Stack [6]"{
+macro "Cumulative Difference Sum on Stack [0]"{
 	
 	run("Clear Results");
 	close("Results");
@@ -3137,6 +3497,10 @@ macro "Cumulative Difference Sum on Stack [6]"{
 	
 	saveAs("Results", desktopdir + File.separator + "C_Diff_Stack_Results.csv");
 }
+
+
+
+
 
 
 macro "-" {} //menu divider

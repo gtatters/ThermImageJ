@@ -19,11 +19,6 @@ How to Cite
 
 -   Glenn J. Tattersall. (2019). ThermImageJ: Thermal Image Functions and Macros for ImageJ. <doi:10.5281/zenodo.2652896>. [![DOI](https://zenodo.org/badge/182273995.svg)](https://zenodo.org/badge/latestdoi/182273995)
 
-Note
-----
-
--   This readme needs to be updated to reflect additions in v1.4.0. Some information about functions may be out of date.
-
 Requirements
 ------------
 
@@ -191,6 +186,45 @@ If you do make changes and save them, you will either need to restart Fiji, or r
 Main Functions and Features
 ---------------------------
 
+### File Operations
+
+#### Direct Import of Raw Data
+
+-   Raw Import Mikron RTV <img src='./images/ImportRTV.png'>
+    -   custom macro to import an old Mikron Mikrospec R/T video format
+    -   these files had simple encoding and are not likely in use any longer, except by the author
+    -   see SampleFiles.zip for sample data
+-   Raw Import FLIR SEQ <img src='./images/ImportSEQ.png'>
+    -   custom macro to import FLIR SEQ using the Import-Raw command
+    -   use only if you know the precise offset byte start and the number of bytes between frames (see Frame Start Byte Macro below).
+    -   this only works for certain SEQ files (usually those captured to computer), and only formats where tiff format underlies the video.
+    -   see SampleFiles.zip for sample data
+-   Frame Start Byte
+    -   This macro will scan a FLIR video file (SEQ) for the offset byte position '0200wwwwhhhh' where wwww and hhhh are the image width and height in 16-bit little endian hexadecimal.
+    -   For example, the magicbyte for a 640x480 camera: 02008002e001", "8002" corresponds to 640 and "e001" corresponds to 480.
+    -   The user can provide a custom magicbyte, but should leave this blank otherwise.
+    -   The function is only used in conjunction with the Raw Import FLIR SEQ macro.
+    -   The function returns best estimates for the offset and gap bytes necessary for use with the Raw Import FLIR SEQ macro, although is not guaranteed to be correct due to variances in SEQ file saving convention.
+    -   Note: on unix based OS, this macro calls the **xxd** executable and runs quickly. For Windows OS, Powershell Core 6 needs to be installed with the updated **Format-Hex** function, and runs slowly.
+
+#### Import (and Conversion) using Command-Line Programs
+
+-   Convert FLIR JPG (from the Plugins-&gt;Macros Menu only)
+    -   select a candidate JPG or folder of JPGs, and a call to the command line tool, exiftool, is performed to extract the raw-binary 16 bit pixel data, save this to a gray scale tif or png, placed into a 'converted' subfolder.
+    -   subsequently the user can import these 16-bit grayscale images and apply custom transformations or custom Raw2Temp conversions.
+    -   some images may be converted in reverse byte order due to FLIR conventions. These can be fixed with the Byte Swapper plugin after import.
+-   Import FLIR JPG <img src='./images/ImportJPG.png'>
+    -   select a candidate JPG, and a call to the command line tool, exiftool, is performed to extract the raw-binary 16 bit pixel data, temporarily save this to a gray scale tif or png, import that file, and calls the Raw2Temp function using the calibration constants derived from the FLIR JPG file.
+-   Import/Convert FLIR SEQ <img src='./images/ConvertSEQ.png'>
+    -   *Import*: select a candidate SEQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg is performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
+    -   jpegls as the output video codec is advised for its high compression, lossless quality, and compatibility between different OS versions of FFMPEG.
+    -   this function may also work on FCF file types but has not been thoroughly tested
+    -   *Convert*: this function may also be used to convert the video into a folder of png or tiff files by selecting png or tiff as the output filetype, instead of avi. File codec is ignore if you choose this approach. The folder will be automatically named according ot the video file without extension. Thus, SampleVid.seq will be converted to files in the folder called SampleVid.
+-   Import/Convert FLIR CSQ <img src='./images/ConvertCSQ.png'>
+    -   *Import*: select a candidate CSQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg is performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
+    -   jpegls as the output video codec is advised for its high compression, lossless quality, and compatibility between different OS versions of FFMPEG.
+    -   *Convert*: this function may also be used to convert the video into a folder of png or tiff files by selecting png or tiff as the output filetype, instead of avi. File codec is ignore if you choose this approach. The folder will be automatically named according ot the video file without extension. Thus, SampleVid.csq will be converted to files in the folder called SampleVid.
+
 ### Lookup tables and adjusting colour ranges <img src='./images/PaletteChoices.gif' align="right" height="300">
 
 -   LUT (Thermal Palette Look Up Table) menu <img src='./images/LUT.png'>
@@ -210,51 +244,15 @@ Main Functions and Features
     -   set max equal to the highest temperature desired on the lookup table scale
 -   Add Calibration bar <img src='./images/CalBar.png'>
     -   short-cut to ImageJ's built-in Analyze-&gt;Tools-&gt;Calibration Bar
-    -   creates a duplicate image first
     -   use this after temperature conversion of image
-
-### Direct Import of Raw Data
-
--   Raw Import RTV <img src='./images/ImportRTV.png'>
-    -   custom macro to import an old Mikron Mikrospec R/T video format
-    -   these files had simple encoding and are not likely in use any longer, except by the author
-    -   see SampleFiles.zip for sample data
--   Raw Import SEQ <img src='./images/ImportSEQ.png'>
-    -   custom macro to import FLIR SEQ using the Import-Raw command
-    -   use only if you know the precise offset byte start and the number of bytes between frames (see Frame Start Byte Macro below).
-    -   this only works for certain SEQ files (usually those captured to computer), and only formats where tiff format underlies the video.
-    -   see SampleFiles.zip for sample data
+    -   the tool attempts to choose an appropriate sized calibration bar by auto-adjusting the zoom factor
+    -   to save this permanently on an image you need to duplicate and/or convert your image to RGB format (Image--&gt;Type-&gt;RGB Color), then flatten the overlay (Image--&gt;Overlay--&gt;Flatten), then save as a tiff or png. Note: the resolution of the text on the calibration bar depends on your image size and be be unsatisfactory with small images. If I find a fix for this, I will implement it.
 
 ### Bits and Bytes
 
--   Frame Start Byte
-    -   This macro will scan a FLIR video file (SEQ) for the offset byte position '0200wwwwhhhh' where wwww and hhhh are the image width and height in 16-bit little endian hexadecimal.
-    -   For example, the magicbyte for a 640x480 camera: 02008002e001", "8002" corresponds to 640 and "e001" corresponds to 480.
-    -   The user can provide a custom magicbyte, but should leave this blank otherwise.
-    -   The function is only used in conjunction with the Raw Import FLIR SEQ macro.
-    -   The function returns best estimates for the offset and gap bytes necessary for use with the Raw Import FLIR SEQ macro, although is not guaranteed to be correct due to variances in SEQ file saving convention.
-    -   Note: on unix based OS, this macro calls the **xxd** executable and runs quickly. For Windows OS, Powershell Core 6 needs to be installed with the updated **Format-Hex** function, and runs slowly.
 -   Image Byte swap <img src='./images/ByteSwap.png'>
-    -   simple call to the Byte Swapper plugin.
-    -   since FLIR files are sometimes saved using little endian order (tiff) and big endian order (png), a short-cut to a pixel byte swap is a fast way to repair files that have byte order mixed up
-
-### Import (and Conversion) that use Command Line Programs
-
--   Convert FLIR JPG (from the Plugins-&gt;Macros Menu only)
-    -   select a candidate JPG or folder of JPGs, and a call to the command line tool, exiftool, is performed to extract the raw-binary 16 bit pixel data, save this to a gray scale tif or png, placed into a 'converted' subfolder.
-    -   subsequently the user can import these 16-bit grayscale images and apply custom transformations or custom Raw2Temp conversions.
-    -   some images may be converted in reverse byte order due to FLIR conventions. These can be fixed with the Byte Swapper plugin after import.
--   Import FLIR JPG <img src='./images/ImportJPG.png'>
-    -   select a candidate JPG, and a call to the command line tool, exiftool, is performed to extract the raw-binary 16 bit pixel data, temporarily save this to a gray scale tif or png, import that file, and calls the Raw2Temp function using the calibration constants derived from the FLIR JPG file.
--   Import/Convert FLIR SEQ <img src='./images/ConvertSEQ.png'>
-    -   *Import*: select a candidate SEQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg is performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
-    -   jpegls as the output video codec is advised for its high compression, lossless quality, and compatibility between different OS versions of FFMPEG.
-    -   this function may also work on FCF file types but has not been thoroughly tested
-    -   *Convert*: this function may also be used to convert the video into a folder of png or tiff files by selecting png or tiff as the output filetype, instead of avi. File codec is ignore if you choose this approach. The folder will be automatically named according ot the video file without extension. Thus, SampleVid.seq will be converted to files in the folder called SampleVid.
--   Import/Convert FLIR CSQ <img src='./images/ConvertCSQ.png'>
-    -   *Import*: select a candidate CSQ file, and a call to the command line tools, exiftool, perl split.pl, and ffmpeg is performed to extract each video frame (.fff) file, extract the subsequent raw-binary 16 bit pixel data, save these as a series of gray scale files, and collate these into an .avi file or a new folder of png or tiff files. Subsequent .avi file is imported to ImageJ using the Import-Movies (FFMPEG) import tool.
-    -   jpegls as the output video codec is advised for its high compression, lossless quality, and compatibility between different OS versions of FFMPEG.
-    -   *Convert*: this function may also be used to convert the video into a folder of png or tiff files by selecting png or tiff as the output filetype, instead of avi. File codec is ignore if you choose this approach. The folder will be automatically named according ot the video file without extension. Thus, SampleVid.csq will be converted to files in the folder called SampleVid.
+    -   short-cut call to the Byte Swapper plugin.
+    -   since FLIR files are sometimes saved using little endian order (tiff) and big endian order (png), a short-cut to a pixel byte swap is a fast way to repair files once they are imported that have byte order mixed up
 
 ### Utilities
 
@@ -263,19 +261,23 @@ Main Functions and Features
 -   FLIR Calibration Values <img src='./images/FLIRSettings.png'>
     -   select a candidate FLIR file (jpg, seq, csq) to display the calibration constants and built-in object parameters stored at image capture. Typically, the user would then use the Planck constants and Object Paramters in the Raw2Temp macro.
     -   use this function on the original FLIR file if you have a 16-bit grayscale image of the raw data in a separate file and need to convert to temperature under specified conditions.
-    -   the calibration constants and object parameters are stored in memory for subsequent use of the Raw2Temp function
+    -   the calibration constants and object parameters are stored in memory for subsequent use of the Raw2Temp function, and should be remembered the next time you re-boot ImageJ, so if you are only working with one thermal camera's files, you should not have to re-type the calibration constants for future uses.
 
 ### Temperature Conversion
 
 -   Raw2Temp <img src='./images/Raw2Temp.png'>
     -   converts a 16-bit grayscale thermal image (or image stack) into estimated temperature using standard equations used in infrared thermography.
-    -   user must provide the camera calibration constants and object parameters that can be obtained using the FLIR Calibrations macro.
+    -   user must provide the camera calibration constants and object parameters that can be obtained using the FLIR Calibration Values macro.
     -   various custom versions of Raw2Temp are included for different cameras the author has used, since the calibration constants do not change from image to image, and only when the camera is sent back to manufacturer for re-calibration. Edit these macros once calibration constants are known for other cameras.
+    -   a Fast and Slow calculation have now been implemented (v 1.4.1).
+    -   The Slow calculation is slow because it converts the file to a 32-bit file and then converts each pixel to its calculated temperature. This can take time on video files and may be too much for large files or computers with little RAM.
+    -   The Fast calculation implements a built-in ImageJ function that allows us to fit a 4th order polynomial through the relationship between Temperature and the Raw 16 bit data, providing a pseudo-converted file with both raw data and converted data showing up in the imageJ status bar. This may or may not be an accurate depiction of the response, although I provide the user with cautionary advice on the numbers returned. If you restrict the range of temperatures to fit the polynomial only to reasonable ones for most biological applications, the error seems to be quite low since the polynomial accurately fits the data. It is mainly at the extremely low and high ends of the camera's temperature range that the fit is poor. For single image analysis, I advise you use the Slow (accurate) conversion, and only consider the Fast conversion for large videos where some trade-off between CPU time vs. accuracy is more crucial.
 
 ### ROI (Region of Interest) Tools
 
--   ROI 1 to ROI 4 (from the Plugins-&gt;Macros menu)
-    -   macros coded to short-cut keys, 1,2,3, and 4 by adding \[\#\] to the name of the macro in the ThermImageJ.ijm file
+-   ROI 1 to ROI 6 (from the Plugins-&gt;Macros menu)
+    -   macros coded to short-cut keys, such as: 1,2,3,4,5,6 by adding \[\#\] to the name of the macro in the ThermImageJ.ijm file
+    -   some extra ROI short-cuts (i.e. d, l) might exist that I have in place for my own analyses - you can ignore these
     -   extracts mean, min, max, sd, and area of the given ROI and saves to results window as well as to a ROI\_Results.csv file to user's desktop
     -   location of ROI\_Results.csv file can be changed by user by editting the variable desktopdir at the top of the ThermImageJ.ijm file
     -   sample results file: <https://github.com/gtatters/ThermImageJ/blob/master/ROI_Results.csv>
@@ -286,7 +288,14 @@ Main Functions and Features
 
 <img src='./images/ROI_Results.csv.png'>
 
--   Add ROI Measurement
+### Other ROI tools
+
+-   Extract ROI Pixel Values (short-cut: p)
+    -   extracts the ROI pixel values to a results window table with X,Y,Value coordinates
+    -   useful if you want to replot only your ROI data in another software environment
+    -   useful if you need to perform different analyses on the data
+    -   based on a macro from <http://imagej.1557.x6.nabble.com/Extracts-individual-pixel-values-from-a-selection-or-RIO-td5020121.html>
+-   Add ROI Measurement to Image
     -   adds the result of the ROI parameter to the image as an overlay.
     -   will work on stacks or single images.
 
@@ -296,20 +305,23 @@ Main Functions and Features
     -   performs an ROI analysis across the entire stack.
     -   min, max, mean, median, mode, skewness, kurtosis for every slice are exported to the results window and to file to desktop
     -   select what summary statistic to perform discrete fourier analysis to extract dominant frequency components.
+    -   i have tested this on oscillatory data (metronomes set to move at fixed rates) and the fourier extracted frequencies appear to work correctly
 -   Cumulative Difference Sum on Stack (in progress)
     -   This function works on stacks, first by subtracting the difference in pixel values between frames, creating an absolute value difference stack n-1 frames in length.
     -   Then all pixels from each frame are examined for the mean and standard deviation per frame, stored to the results window, after which a cumulative value is calculated.
     -   This cumulative absolute difference value is then detrended and zeroed to remove mean value offset prior to a discrete fourier analysis to return freuquency components.
     -   The user should provide time interval in seconds for the image stack.
 
-Workflow
---------
+Typical Workflow
+----------------
 
 ### Converted JPG to raw 16-bit PNG or TIFF Workflow
 
 -   Determine your FLIR camera's calibration constants (i.e. use the Calibration Values Tool)
 -   Convert Image to a 16-bit Grayscale File (i.e. Convert FLIR JPG)
 -   Import converted file to ImageJ using normal ImageJ file recognition. File-&gt;Open or File-&gt;Import Image Sequence can work on PNG and TIFF files.
+-   You may prefer to work with TIFF files, but the filetype created by these macros depends on how the raw data were stored by FLIR (PNG or TIFF). If so, you might use ImageJ's batch conversion tool to convert your files before importing them.
+-   Run the FLIR Calibration values macro on the original FLIR file in order to extract the calibration constants into memory
 -   Run Raw2Temp or one of the custom Raw2Temp macros for your particular camera
 -   Choose your palette (LUT in ImageJ)
 -   Use ImageJ ROI tools and Measurement tools
@@ -351,7 +363,7 @@ Performance, Speed, File Size Limits, and Caveats
 -------------------------------------------------
 
 -   The maximum number of video frames (i.e. stacks) will limited by the CPU and RAM, but success with videos and image stacks of up to ~1000 frames has been tested.
--   Due to memory limits in FIJI, delay convertinglarger video files to temperature until the files have been otherwise processed. The memory required to work with converted files (32-Bit) is double that required to work with the 16-bit grayscale images.
+-   Due to memory limits in FIJI, delay converting larger video files to temperature until the files have been otherwise processed. The memory required to work with converted files (32-Bit) is double that required to work with the 16-bit grayscale images. Or consider using the Fast option in the Raw2Temp function, which will create a virtual conversion that is usually quite close to the real data for normal biological temperatures.
 -   Consider cropping videos, re-sampling fewer stacks if you have oversampled videos, or performing ROI analyses on the 16-bit raw data and then calculate temperature using the raw2temp function also available in an R package (Thermimage).
 -   If you have large video files (&gt;2000 frames and high resolution), it is advisable to convert these videos to folders of png files, and use the File --&gt; Import --&gt; Image Sequence tool to skip files during import as a way of down-sampling.
 -   Finally, verify that the temperature values obtained with these macros are similar to the ones obtained using official thermal imaging software. See <https://github.com/gtatters/ThermimageCalibration> for details on performance accuracy (±0.04C), but a healthy skepticism is advised. Please post in the issues if you do suspect the Raw2Temp conversions are not consistent with expectations.
@@ -392,11 +404,15 @@ Raw2Temp development occurred in association with:
 
 -   Ray Danner (<https://github.com/raydanner>)
 
-Suggestions/Issues
-------------------
+Suggestions/Issues/Caveats
+--------------------------
 
 -   Suggestions for improvements and additions, as well as bugs or issues can be filed here: <https://github.com/gtatters/ThermImageJ/issues>
 
 -   Please include a sample image to help with solving issues
 
 -   Please star or follow this github site to keep up to date on new releases as I fix errors following further testing.
+
+-   ThermImageJ will still remain a work in progress as I add features that are useful to myself, but might not be readily apparent to other users. Occasional odd short-cuts that are present are likely the result of a project I am currently working on.
+
+-   Note: I have no affiliation with thermal image companies nor do I receive any funding or free equipment despite the plethora of customers I have sent to them. This project emerged as a result of the frustration of needing to use Windows only software that has limited journaling and customisation. I should acknowledge that in July 2019, FLIR released a more affordable cross-platform analysis software that some users may prefer to invest in rather than this open source solution. It would be unfair of me to not recommend that you try their software first, since they are the experts.
