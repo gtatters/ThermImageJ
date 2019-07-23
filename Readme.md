@@ -47,7 +47,7 @@ Installation Instructions
 -   Launch FIJI--&gt;Help--&gt;Update, allow it to update any plug-ins, then while the update window is open, select **Manage update websites**, and ensure that the FFMPEG box is ticked. Select **ok**, then click the **Apply** option, and restart FIJI. This FFMPEG plugin is required for importing avi files created during the conversion process, although it might require that you have FFMPEG installed at the command line.
 -   Navigate to where FIJI is installed to find all the subfolders.
 -   Download the **ThermImageJ.ijm** file from this site and copy into the FIJI/macros/toolsets folder.
--   Open the **ThermImageJ.ijm** file in any text editor, and verify the paths are properly set for your respective operating system. See the comments with the text file for guidance.
+-   Open the **ThermImageJ.ijm** file in any text editor, and verify the paths are properly set for your respective operating system. See the comments with the text file for guidance. Most of the default locations are likely fine, although FFMPEG is sometimes installed in different folders depending on what the user might have selected.
 -   Download the additional **luts** files from this site and copy into your FIJI/luts folder. These are palettes that are commonly used in thermal imaging.
 -   Download the perl script, **split.pl** from this site and copy into a FIJI/scripts folder.
 -   Download **Byte\_Swapper.class** to the plugins folder.
@@ -340,14 +340,14 @@ Typical Workflow
 -   The Import SEQ and Import CSQ macros will automatically attempt to calculate temperature
 -   Once the file is converted and imported, double check that the calibration constants and object parameters are appropriate and select ok. If you escape at this stage, you should still have a 16-bit grayscale image stack, and could run the Raw2Temp function later
 
-ROI analysis
-------------
+Custom ROI analysis
+-------------------
 
 -   First set the parameters you are interested in extracting in the Analyze-&gt;Set Measurements menu.
 -   Typical values are min, max, mean, modal, median, standard deviation, but ImageJ offers so many other values.
 -   In ImageJ terminology, "Intensity" or "Gray Value" corresponds to the number stored in each pixel. This might be the 16-bit raw value or it might be the 32-bit decimal converted temperature, depending on when analysis is performed.
 -   Take advantage of all the ImageJ ROI tools, or Tools-&gt;ROI Manager to draw regions of interest over sites of interest.
--   Or, use the ROI 1 through 4 macros included as described earlier in the document.
+-   Or, use the ROI 1-6 macros included as described earlier in the document.
 
 Sample files to test:
 ---------------------
