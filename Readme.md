@@ -49,25 +49,30 @@ similar tools but more emphasis on biological heat transfer analysis.
 
 ### ThermImageJ Downloads from this Github site
 
-  - A custom perl script (split.pl), provided on this github repository,
-    which can be downloaded and placed in a scripts folder with ImageJ:
-    <https://github.com/gtatters/ThermImageJ/tree/master/scripts/split.pl>
-  - ThermImageJ macro toolset. A text file (.ijm) containing all the
-    macros and functions:
-    <https://github.com/gtatters/ThermImageJ/tree/master/toolsets/ThermImageJ.ijm>
-  - Additional Look Up Tables (LUTS), popularly used in thermal imaging,
-    available on this github repository:
-    <https://github.com/gtatters/ThermImageJ/tree/master/luts>
+  - All ThermImageJ files can be easily downloaded as a ZIP file by
+    clicking on the green **Clone or Download** button and then
+    selecting **Download ZIP**
+    (<https://github.com/gtatters/ThermImageJ/archive/master.zip>), or
+    by going to the **Recent Releases**
+    (<https://github.com/gtatters/ThermImageJ/releases>) and selecting
+    the **Source Code** link for the most recent release. Unzip this
+    folder on your computer for access to the toolset, luts, and the
+    split.pl files located in their appropriate subfolders.
 
-Note: ThermImageJ files can be easily downloaded as a ZIP file by
-clicking on the green **Clone or Download** button and then selecting
-**Download ZIP**
-(<https://github.com/gtatters/ThermImageJ/archive/master.zip>), or by
-going to the **Recent Releases**
-(<https://github.com/gtatters/ThermImageJ/releases>) and selecting the
-**Source Code** link for the most recent release. Unzip this folder on
-your computer for access to the toolset, luts, and the split.pl files
-located in their appropriate subfolders.
+  - The primary files you need to extract from this site are:
+    
+      - A custom perl script (split.pl), provided on this github
+        repository, which can be downloaded and placed in a scripts
+        folder with ImageJ:
+        <https://github.com/gtatters/ThermImageJ/tree/master/scripts/split.pl>
+    
+      - ThermImageJ macro toolset. A text file (.ijm) containing all the
+        macros and functions:
+        <https://github.com/gtatters/ThermImageJ/tree/master/toolsets/ThermImageJ.ijm>
+    
+      - Additional Look Up Tables (LUTS), popularly used in thermal
+        imaging, available on this github repository:
+        <https://github.com/gtatters/ThermImageJ/tree/master/luts>
 
 ## Installation Instructions
 
