@@ -4,7 +4,7 @@
 ////        Main Features: import, conversion, and transformation of thermal images.               ////
 ////                           Requires: exiftool, ffmpeg, perl                                    ////
 ////                                Glenn J. Tattersall                                            ////
-////                             July, 2019 - Version 1.5                                         ////
+////                             November, 2019 - Version 2.0                                      ////
 ////                                                                                               ////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -25,10 +25,15 @@ var colors = newArray("Red", "Green", "Blue", "Cyan", "Magenta", "Yellow");
 // the following persistent variable are updated on the user's ImageJ once Raw2Temp or FlirValues is performed on a file
 // This will help for continuity when analysing files in between imagej sessions
 var PR1 = parseFloat(call("ij.Prefs.get", "PR1.persistent","17998.529")); 
-var PR2 = parseFloat(call("ij.Prefs.get", "PR2.persistent","015145967")); 
+var PR2 = parseFloat(call("ij.Prefs.get", "PR2.persistent","0.015145967")); 
 var PB = parseFloat(call("ij.Prefs.get", "PB.persistent","1453.1")); 
 var PF = parseFloat(call("ij.Prefs.get", "PF.persistent","1")); 
 var PO = parseFloat(call("ij.Prefs.get", "PO.persistent","-5854")); 
+var ATA1 = parseFloat(call("ij.Prefs.get", "ATA1.persistent","0.006569")); 
+var ATA2 = parseFloat(call("ij.Prefs.get", "ATA2.persistent","0.01262")); 
+var ATB1 = parseFloat(call("ij.Prefs.get", "ATB1.persistent","-0.002276")); 
+var ATB2 = parseFloat(call("ij.Prefs.get", "ATB2.persistent","-0.00667")); 
+var ATX = parseFloat(call("ij.Prefs.get", "ATX.persistent","1.9")); 
 var E = parseFloat(call("ij.Prefs.get", "E.persistent","0.95")); 
 var OD = parseFloat(call("ij.Prefs.get", "OD.persistent","1")); 
 var RTemp = parseFloat(call("ij.Prefs.get", "RTemp.persistent","20")); 
@@ -318,6 +323,39 @@ function Median(ArrayX){
 	return med;
 }
 
+// percentile of an array
+function percentile(ArrayX, P){
+	len=ArrayX.length;
+	x=Array.sort(ArrayX);
+	Pindex=floor(P*len);
+	pcntile=ArrayX[Pindex];
+	return pcntile;
+}
+
+// outlier remove
+function removeoutliers(ArrayX){
+	qnt25=percentile(ArrayX, 0.25);
+	qnt75=percentile(ArrayX, 0.75);
+	H=1.5 * (qnt75-qnt25);
+	med=Median(ArrayX);
+
+	print(med);
+	print(qnt25);
+	print(qnt75);
+	
+	for(i=0; i < ArrayX.length; i++){
+		if(ArrayX[i] < (qnt25-H)){
+			print("too low");
+			ArrayX[i]=med;	
+		}
+		if(ArrayX[i] > (qnt75+H)){
+			print("too high");
+			ArrayX[i]=med;
+		}
+	}
+	return ArrayX;
+}
+
 // root mean square of an Array:
 function RMS(ArrayX){
 	len=ArrayX.length;
@@ -369,6 +407,13 @@ function GetFileListFilter(directory, searchlength, filterstring){
 		}
 	}
 	return newfilelist;	
+}
+
+// put Atmospheric Trans constants into an array to pass fewer numbers to raw2temp, since ImageJ limits parameters to 20 or fewer
+function AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX){
+	//ATvals=newArray(5);
+	ATvals=newArray(ATA1, ATA2, ATB1, ATB2, ATX);
+	return ATvals;
 }
 
 
@@ -428,6 +473,7 @@ function RawImportMikronRTV() {
 	// conversion here will not be accurate, nor will it take into account atmospheric and reflected conditions.
 	
 	if(converttotemperature) {
+		run("Calibrate...", "function=None");
 		run("32-bit");
 		run("Macro...", "code=v=v/10-273.15 stack");
 		}
@@ -496,21 +542,27 @@ function RawImportFLIRSEQ() {
 	run("Raw...", "open=filepath image=[16-bit Unsigned] width=imagewidth height=imageheight offset=offsetbyte number=nframes gap=gapbytes little-endian use=usevirtual");
 	
 	if(OS=="Mac OS X"){
-		flirvals=exec("/usr/local/bin/exiftool",  "-Planck*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
+		flirvals=exec("/usr/local/bin/exiftool",  "-Planck*", "-*AtmosphericTrans*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
 	}
 
 	if(OS=="Linux"){
-		flirvals=exec("/usr/local/bin/exiftool",  "-Planck*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
+		flirvals=exec("/usr/local/bin/exiftool",  "-Planck*", "-*AtmosphericTrans*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
 	}
 	
 	if(substring(OS, 0, 5)=="Windo"){
-		flirvals=exec("c:/Windows/exiftool.exe", "-Planck*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
+		flirvals=exec("c:/Windows/exiftool.exe", "-Planck*", "-*AtmosphericTrans*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
 	}
+	
         var PR1 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck R1"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck R1")) ));
 		var PB = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck B"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck B")) ));
 		var PF = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck F"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck F")) ));
 		var PO = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck O"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck O")) ));
 		var PR2 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck R2"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck R2")) ));
+		var ATA1 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans Alpha 1"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans Alpha 1")) ));
+		var ATA2 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans Alpha 2"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans Alpha 2")) ));
+		var ATB1 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans Beta 1"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans Beta 1")) ));
+		var ATB2 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans Beta 2"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans Beta 2")) ));
+		var ATX = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans X"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans X")) ));
 		var E = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Emissivity"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Emissivity")) ));
 		var OD = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Object Distance"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Object Distance")) ));
 		var RTemp = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Reflected Apparent Temperature"))+1, indexOf(flirvals, "C\n", indexOf(flirvals, "Reflected Apparent Temperature")) ));
@@ -529,6 +581,11 @@ function RawImportFLIRSEQ() {
 		print("Planck F: ", d2s(PF,0));
 		print("Planck O: ", d2s(PO,0));
 		print("Planck R2: ", d2s(PR2,9));
+		print("Atmospheric Trans Alpha 1: ", d2s(ATA1,12));
+		print("Atmospheric Trans Alpha 2: ", d2s(ATA2,12));
+		print("Atmospheric Trans Beta 1: ", d2s(ATB1,12));
+		print("Atmospheric Trans Beta 2: ", d2s(ATB2,12));
+		print("Atmospheric Trans X: ", d2s(ATX,12));				
 		print("Thermal Image Width: ", imagewidth);
 		print("Thermal Image Height: ", imageheight);
 		
@@ -586,9 +643,11 @@ function ConvertImportFLIRJPG() {
 	
 	print("Loading: ", filepath);
 	print("Extracting calibration and image settings");
-	
+
+	//filepath=replace(filepath, " ", "\ ");
+
 	// populate an array called flirvals with 14 entries to accept the array output from the flirvalues function
-	flirvals=newArray(14);
+	flirvals=newArray(19);
 
 	var printvalues="No";
 	
@@ -600,15 +659,20 @@ function ConvertImportFLIRJPG() {
 	PF=flirvals[2];
 	PO=flirvals[3];
 	PR2=flirvals[4];
-	E=flirvals[5];
-	OD=flirvals[6];
-	RTemp=flirvals[7];
-	ATemp=flirvals[8];
-	IRWTemp=flirvals[9];
-	IRT=flirvals[10];
-	RH=flirvals[11];
-	imagewidth=flirvals[12];
-	imageheight=flirvals[13];
+	ATA1=flirvals[5];
+	ATA2=flirvals[6];
+	ATB1=flirvals[7];
+	ATB2=flirvals[8];
+	ATX=flirvals[9];
+	E=flirvals[10];
+	OD=flirvals[11];
+	RTemp=flirvals[12];
+	ATemp=flirvals[13];
+	IRWTemp=flirvals[14];
+	IRT=flirvals[15];
+	RH=flirvals[16];
+	imagewidth=flirvals[17];
+	imageheight=flirvals[18];
 	
 	filedir=File.getParent(filepath);
 	filename=File.getName(filepath);
@@ -649,6 +713,7 @@ function ConvertImportFLIRJPG() {
 
 	// Define the syntax for the exec command to convert the jpg file into a png for import
 	//convertjpg =  exiftoollocation + exiftool + " " + filepath + " -b -RawThermalImage | convert - gray:- | convert -depth 16 -endian lsb -size 640x480 gray:- " + filedir + "/temp/" + "filename.png";
+	
 	// I cannot get double or single pipes to convert to work when called from imageJ, so I revert to this method:
 	
 	convertjpg =  exiftoolpath + exiftool + " '" + filepath + "' -b -RawThermalImage > '" + tempfolder + File.separator + fileout + "'";
@@ -717,6 +782,11 @@ function ConvertImportFLIRJPG() {
 	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
 	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
     Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+    Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
     Dialog.addMessage("Object Parameters:");
     Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
     Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
@@ -737,6 +807,11 @@ function ConvertImportFLIRJPG() {
 	var PB = Dialog.getNumber();
 	var PF = Dialog.getNumber();
 	var PO = Dialog.getNumber();
+	var ATA1 =  Dialog.getNumber();
+	var ATA2 =  Dialog.getNumber();
+	var ATB1 =  Dialog.getNumber();
+	var ATB2 =  Dialog.getNumber();
+	var ATX =  Dialog.getNumber();
 	var E = Dialog.getNumber();
 	var OD = Dialog.getNumber();
 	var RTemp = Dialog.getNumber();
@@ -760,9 +835,9 @@ function ConvertImportFLIRJPG() {
 
 	if(filedelete_success + folderdelete_success==2){
 		print("Temporary file and folder deleted.");
-	}
-		Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
-	
+	}	
+		Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
+
 	print("Done");
 	print("\n");
 }
@@ -1031,7 +1106,10 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 
 	// filedir = the directory where the file is located
 	filedir=File.getParent(filepath);
-	
+
+	//filepath=replace(filepath, " ", "\ ");
+	//filedir=replace(filedir, " ", "\ ");
+		
 	//	make a temporary folder within the directory
 	tempfolder=filedir + File.separator + "temp";
 	File.makeDirectory(tempfolder);
@@ -1041,27 +1119,32 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	print("Extracting calibration and image settings");
 	
 	// populate an array called flirvals with 14 entries to accept the array output from the flirvalues function
-	flirvals=newArray(14);
+	flirvals=newArray(19);
 
 	var printvalues="No";
 	
 	flirvals=flirvalues(filepath, printvalues);
 	
 	// define the constants extracted from the flir values function
-	var PR1=flirvals[0];
-	var PB=flirvals[1];
-	var PF=flirvals[2];
-	var PO=flirvals[3];
-	var PR2=flirvals[4];
-	var E=flirvals[5];
-	var OD=flirvals[6];
-	var RTemp=flirvals[7];
-	var ATemp=flirvals[8];
-	var IRWTemp=flirvals[9];
-	var IRT=flirvals[10];
-	var RH=flirvals[11];
-	var imagewidth=flirvals[12];
-	var imageheight=flirvals[13];
+	PR1=flirvals[0];
+	PB=flirvals[1];
+	PF=flirvals[2];
+	PO=flirvals[3];
+	PR2=flirvals[4];
+	ATA1=flirvals[5];
+	ATA2=flirvals[6];
+	ATB1=flirvals[7];
+	ATB2=flirvals[8];
+	ATX=flirvals[9];
+	E=flirvals[10];
+	OD=flirvals[11];
+	RTemp=flirvals[12];
+	ATemp=flirvals[13];
+	IRWTemp=flirvals[14];
+	IRT=flirvals[15];
+	RH=flirvals[16];
+	imagewidth=flirvals[17];
+	imageheight=flirvals[18];
 	
 	print("Extracted Camera Calibration and Object Parameters:");
 	Array.print(flirvals);
@@ -1096,6 +1179,8 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 		fileout=File.nameWithoutExtension + File.separator + File.nameWithoutExtension + "_%05d" + "." + outtype; // outtype should be "tiff"
 		pixfmt="gray16le";
 	}
+
+	//fileout=replace(fileout, " ", "\ ");
 	
 	// Define the syntax for the exec command to split the sequence file into .fff files
 	splitfffexeccmd = perlpath + "perl " + perlsplit + " -i " + filepath + " -o " + tempfolder + " -b frame -p fff -x fff";
@@ -1281,7 +1366,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	if(outcodec=="jpegls"){
 		// for recoding to jpegls, setting pred to 2 usually yields the smallest file size
 		// but no saving is generated from a CSQ file where the jpegls compression is already optimal, so it is better simply to set -vodec to copy
-		exec(ffmpeg, "-f", "image2", "-vcodec", RawThermalType, "-r", "30", "-i", tempfolder + File.separator + "frame%05d." + RawThermalType, "-pix_fmt", pixfmt, "-vcodec", outcodec, "-pred", "2", filedir + File.separator + fileout, "-y");
+		exec(ffmpeg, "-f", "image2", "-vcodec", RawThermalType, "-r", "30", "-i", tempfolder + File.separator + "frame%05d." + RawThermalType, "-pix_fmt", pixfmt, "-vcodec", outcodec, "-pred", "2",  filedir + File.separator + fileout, "-y");
 	}
 	else{
  		exec(ffmpeg, "-f", "image2", "-vcodec", RawThermalType, "-r", "30", "-i", tempfolder + File.separator + "frame%05d." + RawThermalType, "-pix_fmt", pixfmt, "-vcodec", outcodec, filedir + File.separator + fileout, "-y");
@@ -1294,6 +1379,9 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	
 	thermalviddelete_success=File.delete(filedir + File.separator + "thermalvid.raw");
 	tempfolderdelete_success=File.delete(filedir + File.separator + "temp" + File.separator );
+
+
+
 		
 	//if(tempfilesdelete_success + tempfolderdelete_success ==2){
 	//	print("Temporary files and folder deleted");
@@ -1337,7 +1425,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	
 	if(converttotemperature==1){
 		print("Converting file to temperature");
-		Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, defaultpalette, "Yes", "Fast", imagetemperaturemin, imagetemperaturemax);	
+		Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, defaultpalette, "Yes", "Fast", imagetemperaturemin, imagetemperaturemax);	
 	}
 	
 	print("Done");
@@ -1354,8 +1442,13 @@ function ImportFFmpegAVI(){
 }
 
 
-function Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, dialogprompt, FastSlow, imagetemperaturemin, imagetemperaturemax) {
+function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, dialogprompt, FastSlow, imagetemperaturemin, imagetemperaturemax) {
 
+	ATA1=ATvals[0];
+	ATA2=ATvals[1];
+	ATB1=ATvals[2];
+	ATB2=ATvals[3];
+	ATX=ATvals[4];
 	
 	//start=getTime();
 	
@@ -1389,6 +1482,11 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, p
 	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
 	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
     Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+    Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
     Dialog.addMessage("Object Parameters:");
     Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
     Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
@@ -1409,6 +1507,11 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, p
 	var PB = Dialog.getNumber();
 	var PF = Dialog.getNumber();
 	var PO = Dialog.getNumber();
+	var ATA1 = Dialog.getNumber();
+	var ATA2 = Dialog.getNumber();
+	var ATB1 = Dialog.getNumber();
+	var ATB2 = Dialog.getNumber();
+	var ATX = Dialog.getNumber();
 	var E = Dialog.getNumber();
 	var OD = Dialog.getNumber();
 	var RTemp = Dialog.getNumber();
@@ -1433,12 +1536,14 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, p
 	}
 	
 	//setBatchMode(true);
+	// Nov 3, 2019, removed these constants and added the ability to search a particular jpg for 
+	// default atmospheric transmittance constants.
 	
-	ATA1 = 0.006569; //Atmospheric Trans Alpha 1
-	ATA2 = 0.012620; //Atmospheric Trans Alpha 2 
-	ATB1 = -0.002276; //Atmospheric Trans Beta 1
-	ATB2 = -0.006670; //Atmospheric Trans Beta 2 
-	ATX =  1.900000; //Atmospheric Trans X
+	//ATA1 = 0.006569; //Atmospheric Trans Alpha 1
+	//ATA2 = 0.012620; //Atmospheric Trans Alpha 2 
+	//ATB1 = -0.002276; //Atmospheric Trans Beta 1
+	//ATB2 = -0.006670; //Atmospheric Trans Beta 2 
+	//ATX =  1.900000; //Atmospheric Trans X
 
 	emisswind = 1- IRT; 
   	reflwind = 0; // anti-reflective coating on window
@@ -1466,6 +1571,9 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, p
 
 	// Fast method is good if you restrict the imagetemperaturemin and imagetemperaturemax ranges to limits that realistically span
 	// the scene you are analysing.
+
+	// empirically, we fit a curve bewteen r and temperature for a regression containing 655 data points.  
+	// using higher number of data points slows down computation and added little benefit to the fits.
 	
 	if(FastSlow=="Fast"){
 		
@@ -1628,13 +1736,18 @@ function flirvalues(filepath, printvalues){
 		var ffmpegpath=ffmpegpathWindows;
 	}
 	
-	flirvals=exec(exiftoolpath + exiftool,  "-Planck*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
+	flirvals=exec(exiftoolpath + exiftool,  "-Planck*", "-*AtmosphericTrans*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
 	
          PR1 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck R1"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck R1")) ));
 		 PB = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck B"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck B")) ));
 		 PF = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck F"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck F")) ));
 		 PO = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck O"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck O")) ));
 		 PR2 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck R2"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck R2")) ));
+		 ATA1 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans Alpha 1"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans Alpha 1")) ));
+		 ATA2 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans Alpha 2"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans Alpha 2")) ));
+		 ATB1 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans Beta 1"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans Beta 1")) ));
+		 ATB2 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans Beta 2"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans Beta 2")) ));
+		 ATX = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans X"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans X")) ));
 		 E = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Emissivity"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Emissivity")) ));
 		 OD = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Object Distance"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Object Distance")) ));
 		 RTemp = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Reflected Apparent Temperature"))+1, indexOf(flirvals, "C\n", indexOf(flirvals, "Reflected Apparent Temperature")) ));
@@ -1653,6 +1766,11 @@ function flirvalues(filepath, printvalues){
 			Dialog.addMessage("      Plank B " + PB);
 			Dialog.addMessage("      Plank F: " + PF);
 			Dialog.addMessage("      Plank O: " + PO);
+			Dialog.addMessage("      Atmospheric Trans Alpha 1: " + ATA1);
+			Dialog.addMessage("      Atmospheric Trans Alpha 2: " + ATA2);
+			Dialog.addMessage("      Atmospheric Trans Beta 1: " + ATB1);
+			Dialog.addMessage("      Atmospheric Trans Beta 2: " + ATB2);
+			Dialog.addMessage("      Atmospheric Trans X: " + ATX);
 			Dialog.addMessage("- Default Object Parameters -");
 			Dialog.addMessage("      Emissivity: " + d2s(E,2));
 			Dialog.addMessage("      Object Distance: " + d2s(OD,2));
@@ -1676,6 +1794,11 @@ function flirvalues(filepath, printvalues){
 			print("Planck B: ", d2s(PB,9));
 			print("Planck F: ", d2s(PF,0));
 			print("Planck O: ", d2s(PO,0));
+			print("Atmospheric Trans Alpha 1: ", d2s(ATA1,12));
+			print("Atmospheric Trans Alpha 2: ", d2s(ATA2,12));
+			print("Atmospheric Trans Beta 1: ", d2s(ATB1,12));
+			print("Atmospheric Trans Beta 2: ", d2s(ATB2,12));
+			print("Atmospheric Trans X: ", d2s(ATX,12));									
 			print("Thermal Image Width: ", imagewidth);
 			print("Thermal Image Height: ", imageheight + "\n");
 			print("Default Object Parameters:");
@@ -1690,14 +1813,19 @@ function flirvalues(filepath, printvalues){
 		
 		}
 
-		output=newArray(14);
-		output=newArray(PR1, PB, PF, PO, PR2, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, imagewidth, imageheight);
+		output=newArray(19);
+		output=newArray(PR1, PB, PF, PO, PR2, ATA1, ATA2, ATB1, ATB2, ATX, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, imagewidth, imageheight);
  
         call("ij.Prefs.set", "PR1.persistent",toString(PR1)); 
 		call("ij.Prefs.set", "PB.persistent",toString(PB)); 
 		call("ij.Prefs.set", "PF.persistent",toString(PF)); 
 		call("ij.Prefs.set", "PR2.persistent",toString(PR2)); 
-		call("ij.Prefs.set", "PO.persistent",toString(PO)); 
+		call("ij.Prefs.set", "PO.persistent",toString(PO));
+		call("ij.Prefs.set", "ATA1.persistent",toString(ATA1));
+		call("ij.Prefs.set", "ATA2.persistent",toString(ATA2));
+		call("ij.Prefs.set", "ATB1.persistent",toString(ATB1));
+		call("ij.Prefs.set", "ATB2.persistent",toString(ATB2));
+		call("ij.Prefs.set", "ATX.persistent",toString(ATX));
 		call("ij.Prefs.set", "E.persistent",toString(E)); 
 		call("ij.Prefs.set", "OD.persistent",toString(OD)); 
 		call("ij.Prefs.set", "RTemp.persistent",toString(RTemp)); 
@@ -1874,12 +2002,13 @@ function StackDifference(){
 
 
 
-function StackCumulativeDiffSummation(interval, dataType, windowType, detrend, removemean){
+function StackCumulativeDiffSummation(interval, dataType, windowType, detrend, removemean, isdifference){
 
 	//run("Duplicate...", "duplicate");
+	if(isdifference=="No"){
+		StackDifference();	
+	}
 	
-	StackDifference();
-
 	//run("8-bit");
 	//run("Stack Difference", "gap=1"); // default provides absolute difference, no negative numbers
 	run("Enhance Contrast", "saturated=0.35"); //   
@@ -1890,16 +2019,35 @@ function StackCumulativeDiffSummation(interval, dataType, windowType, detrend, r
 	mn=newArray(ns);
 	sd=newArray(ns);
 	cv=newArray(ns);
+	rms_data=newArray(ns);
+	w = getWidth();
+	h = getHeight();
+	
 	
 	// obtain the mean and sd of the difference image.  each frame's values are summarised
 	for(i=0; i<ns; i++){
 		setSlice(i+1);
-		getRawStatistics(area, mean, min, max, std);
+		getRawStatistics(area, mean, min, max, std, histogram);
 		mn[i]=mean;
 		sd[i]=std;
-		cv[i]=sd[i]/mn[i];
+		cv[i]=sd[i]/mn[i];	
+		
+		binwidth=(max-min)/256;
+		pixelsumsquares=0;
+		value=min;
+		
+		for (j = 0; j < histogram.length; j++) {
+			pixelsumsquares += pow(value, 2)*histogram[j];
+			value += binwidth;
+		}
+		
+		rms_data[i]=sqrt(pixelsumsquares/histogram.length);
 	}
+
 	
+	// rms_data=removeoutliers(rms_data);
+
+          
 	// create cumulative summation of the mn and sd arrays.
 	cummn=cumsum(mn);
 	cumsd=cumsum(sd);
@@ -1945,6 +2093,7 @@ function StackCumulativeDiffSummation(interval, dataType, windowType, detrend, r
 	  
 	    for (i=0; i<ns; i++) {
 	    	setResult("Slice", i, i+1);
+	    	setResult("RMS", i, rms_data[i]);  // removed from above since this is far too slow to calculate
             setResult("Mean", i, mn[i]);
             setResult("Cumulative Mean", i, cummn[i]);
             setResult("Slope Cumul Mean", i, cummnslp[i]);
@@ -1977,6 +2126,8 @@ function StackCumulativeDiffSummation(interval, dataType, windowType, detrend, r
 	
 	spectralanalysis(data, dataname, windowType, dt, detrend, removemean);
 }
+
+
 
 function spectralanalysis(data, dataname, windowType, dt, detrend, removemean){
 
@@ -2458,6 +2609,11 @@ macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D
 	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
 	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
     Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+    Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
     Dialog.addMessage("Object Parameters:");
     Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
     Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
@@ -2478,6 +2634,11 @@ macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D
 	var PB = Dialog.getNumber();
 	var PF = Dialog.getNumber();
 	var PO = Dialog.getNumber();
+	var ATA1 = Dialog.getNumber();
+	var ATA2 = Dialog.getNumber();
+	var ATB1 = Dialog.getNumber();
+	var ATB2 = Dialog.getNumber();
+	var ATX = Dialog.getNumber();
 	var E = Dialog.getNumber();
 	var OD = Dialog.getNumber();
 	var RTemp = Dialog.getNumber();
@@ -2494,7 +2655,7 @@ macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D
 		run("Byte Swapper");
 	}
 
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
+	Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
 	
 }
 	
@@ -2519,6 +2680,11 @@ macro "Raw2Temp Tool"{
 	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
 	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
     Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+    Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
     Dialog.addMessage("Object Parameters:");
     Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
     Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
@@ -2539,6 +2705,11 @@ macro "Raw2Temp Tool"{
 	var PB = Dialog.getNumber();
 	var PF = Dialog.getNumber();
 	var PO = Dialog.getNumber();
+	var ATA1 = Dialog.getNumber();
+	var ATA2 = Dialog.getNumber();
+	var ATB1 = Dialog.getNumber();
+	var ATB2 = Dialog.getNumber();
+	var ATX = Dialog.getNumber();
 	var E = Dialog.getNumber();
 	var OD = Dialog.getNumber();
 	var RTemp = Dialog.getNumber();
@@ -2555,7 +2726,7 @@ macro "Raw2Temp Tool"{
 		run("Byte Swapper");
 	}
 
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
+	Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
 	
 }
 
@@ -2580,6 +2751,11 @@ macro "Raw2Temp SC660" {
 	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
 	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
     Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+    Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
     Dialog.addMessage("Object Parameters:");
     Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
     Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
@@ -2600,6 +2776,11 @@ macro "Raw2Temp SC660" {
 	var PB = Dialog.getNumber();
 	var PF = Dialog.getNumber();
 	var PO = Dialog.getNumber();
+	var ATA1 = Dialog.getNumber();
+	var ATA2 = Dialog.getNumber();
+	var ATB1 = Dialog.getNumber();
+	var ATB2 = Dialog.getNumber();
+	var ATX = Dialog.getNumber();
 	var E = Dialog.getNumber();
 	var OD = Dialog.getNumber();
 	var RTemp = Dialog.getNumber();
@@ -2616,7 +2797,7 @@ macro "Raw2Temp SC660" {
 		run("Byte Swapper");
 	}
 
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
+	Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
 	
 }
 
@@ -2663,6 +2844,11 @@ macro "Raw2Temp T1030" {
 	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
 	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
     Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+    Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
     Dialog.addMessage("Object Parameters:");
     Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
     Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
@@ -2683,6 +2869,11 @@ macro "Raw2Temp T1030" {
 	var PB = Dialog.getNumber();
 	var PF = Dialog.getNumber();
 	var PO = Dialog.getNumber();
+	var ATA1 = Dialog.getNumber();
+	var ATA2 = Dialog.getNumber();
+	var ATB1 = Dialog.getNumber();
+	var ATB2 = Dialog.getNumber();
+	var ATX = Dialog.getNumber();
 	var E = Dialog.getNumber();
 	var OD = Dialog.getNumber();
 	var RTemp = Dialog.getNumber();
@@ -2699,7 +2890,7 @@ macro "Raw2Temp T1030" {
 		run("Byte Swapper");
 	}
 
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
+	Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
 	
 }
 
@@ -2737,6 +2928,11 @@ macro "Raw2Temp FlirVueProR" {
 	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
 	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
     Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+    Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
     Dialog.addMessage("Object Parameters:");
     Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
     Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
@@ -2757,6 +2953,11 @@ macro "Raw2Temp FlirVueProR" {
 	var PB = Dialog.getNumber();
 	var PF = Dialog.getNumber();
 	var PO = Dialog.getNumber();
+	var ATA1 = Dialog.getNumber();
+	var ATA2 = Dialog.getNumber();
+	var ATB1 = Dialog.getNumber();
+	var ATB2 = Dialog.getNumber();
+	var ATX = Dialog.getNumber();
 	var E = Dialog.getNumber();
 	var OD = Dialog.getNumber();
 	var RTemp = Dialog.getNumber();
@@ -2773,7 +2974,7 @@ macro "Raw2Temp FlirVueProR" {
 		run("Byte Swapper");
 	}
 
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
+	Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
 		
 }
 
@@ -2812,6 +3013,11 @@ macro "Raw2Temp E40" {
 	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
 	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
     Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+    Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
     Dialog.addMessage("Object Parameters:");
     Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
     Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
@@ -2832,6 +3038,11 @@ macro "Raw2Temp E40" {
 	var PB = Dialog.getNumber();
 	var PF = Dialog.getNumber();
 	var PO = Dialog.getNumber();
+	var ATA1 = Dialog.getNumber();
+	var ATA2 = Dialog.getNumber();
+	var ATB1 = Dialog.getNumber();
+	var ATB2 = Dialog.getNumber();
+	var ATX = Dialog.getNumber();
 	var E = Dialog.getNumber();
 	var OD = Dialog.getNumber();
 	var RTemp = Dialog.getNumber();
@@ -2848,7 +3059,7 @@ macro "Raw2Temp E40" {
 		run("Byte Swapper");
 	}
 
-	Raw2Temp(PR1, PR2, PB, PF, PO, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
+	Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
 	
 	//a = newArray(65536); 
 	//templookup=newArray(65536);
@@ -3475,6 +3686,7 @@ macro "Cumulative Difference Sum on Stack [0]"{
 	Dialog.addMessage("This function works on stacks first by subtracting the difference in pixel values between frames,\ncreating an absolute value difference stack n-1 frames in length.");
 	Dialog.addMessage("Then all pixels from each frame are examined for the mean and standard deviation per frame,\nstored to the results window, after which a cumulative value is calculated.");
 	Dialog.addMessage("This cumulative absolute difference value is then detrended and normalised\nto remove mean value prior to a discrete fourier analysis to return freuquency components.");
+	Dialog.addChoice("Is your image stack already a difference image? (If no, a difference stack will be calculated", newArray("Yes", "No"));
 	Dialog.addMessage("The user should provide time interval in seconds for the image stack if value below is blank or incorrect.");
 	Dialog.addNumber("Seconds between video frames: ", dt);
 	Dialog.addChoice("Perform spectral analysis on mean or sd: ", newArray("sd", "mean", "cv"));
@@ -3483,6 +3695,7 @@ macro "Cumulative Difference Sum on Stack [0]"{
 	Dialog.addCheckbox("Remove mean from data before Spectral Analysis: ", 1);
 	Dialog.show();
 
+	isdifference=Dialog.getChoice();
 	dt=Dialog.getNumber();
 	dataType=Dialog.getChoice();
 	windowType=Dialog.getChoice();
@@ -3493,7 +3706,7 @@ macro "Cumulative Difference Sum on Stack [0]"{
 	Stack.setFrameInterval(frameinterval);
 	call("ij.Prefs.set", "frameinterval.persistent", toString(frameinterval)); 
 	
-	StackCumulativeDiffSummation(dt, dataType, windowType, detrend, removemean);
+	StackCumulativeDiffSummation(dt, dataType, windowType, detrend, removemean, isdifference);
 	
 	saveAs("Results", desktopdir + File.separator + "C_Diff_Stack_Results.csv");
 }
