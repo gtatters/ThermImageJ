@@ -4,7 +4,7 @@
 ////        Main Features: import, conversion, and transformation of thermal images.               ////
 ////                           Requires: exiftool, ffmpeg, perl                                    ////
 ////                                Glenn J. Tattersall                                            ////
-////                             November, 2019 - Version 2.0                                      ////
+////                             February, 2020 - Version 2.1                                      ////
 ////                                                                                               ////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -15,7 +15,7 @@ var palettetypes=newArray("Grays", "Ironbow", "Rainbow", "Spectrum", "Thermal", 
 var defaultpalette="Grays";
 var thermlCmds = newMenu("Thermal LUT Menu Tool", palettetypes);
 var ImportCmds = newMenu("Import Menu Tool",
-      newArray("Raw Import RTV", "Raw Import FLIR SEQ", "Import FLIR JPG", "Import FLIR SEQ", "Import FLIR CSQ", "Import 16-bit AVI"));
+      newArray("Raw Import Mikron RTV", "Raw Import FLIR SEQ", "Convert FLIR JPG(s)", "Import FLIR JPG", "Import FLIR SEQ", "Import FLIR CSQ", "Import 16-bit AVI"));
 var lut = -1;
 var lutdir = getDirectory("luts");
 var list;
@@ -481,6 +481,77 @@ function RawImportMikronRTV() {
 	run(defaultpalette);
 	
 	Stack.getStatistics(count, mean, min, max, std);
+		var minpix=min;
+		var maxpix=max;
+		setMinAndMax(minpix, maxpix);
+	
+	print("Done");
+	print("\n");
+	
+}
+
+
+// function to import an rtv file using imageJ raw import option
+
+function RawImportMikronSIT() {
+
+	print("\n------ Running RawImportMikronSIT function ------");
+	
+	var offsetbyte = 1024;
+	var gapbytes = 42;
+	// gapbytes is 3020 for direct SEQ recorded files
+	// gapbytes is 1424 for thermacam researcher pro captured seq files
+	var nframes = 1;
+	var imagewidth = 320;
+	var imageheight = 240;
+	var converttotemperature = 0;
+	var usevirtual = 0;
+	var minpix=1;
+	var maxpix=65535;
+	
+	//Create Dialog Box	
+	Dialog.create("Information for Mikron RTV Video Import");
+	Dialog.addMessage("This macro directly imports the RAW pixel data from a Mikron RTV file");
+	Dialog.addMessage("The user must input the starting offset bytes and frame gaps");
+	Dialog.addMessage("This filetype is preserved as a legacy option");
+	Dialog.addMessage("\n"); 	
+	Dialog.addNumber("Offset Bytes", offsetbyte, 0, 8, "bytes"); 
+	Dialog.addNumber("Gaps Between Frames:", gapbytes, 0, 8, "bytes");
+	Dialog.addNumber("Number of Frames: ", nframes, 0, 8, "frames");
+	Dialog.addNumber("Image Width:", imagewidth, 0, 6, "pixels");
+	Dialog.addNumber("Image Height:", imageheight, 0, 6, "pixels");
+	Dialog.addCheckbox("Convert to Temperature on Import", converttotemperature);
+	Dialog.addCheckbox("Use Virtual Stack", usevirtual);
+    Dialog.show();
+    
+	//Define Variable for Import
+	var offsetbyte = Dialog.getNumber(); 
+	var gapbytes = Dialog.getNumber();
+	var nframes = Dialog.getNumber();
+	var imagewidth = Dialog.getNumber(); 
+	var imageheight = Dialog.getNumber();
+	var converttotemperature = Dialog.getCheckbox();
+	var usevirtual = Dialog.getCheckbox();
+	
+	filepath=File.openDialog("Select a File"); 
+	file=File.openAsString(filepath); 
+	print("Loading: ", filepath);
+	print("\n");
+
+	run("Raw...", "open=filepath image=[16-bit Unsigned] width=imagewidth height=imageheight offset=offsetbyte number=nframes gap=gapbytes little-endian use=usevirtual");
+
+	// Mikron SIT files are simply stored as Temperature in Kelvin * 10 and thus range from 10 to ~3000 (but still stored or imported as 16 bit integer)
+	// conversion here will not be accurate, nor will it take into account atmospheric and reflected conditions.
+	
+	if(converttotemperature) {
+		//run("Calibrate...", "function=None");
+		run("32-bit");
+		run("Macro...", "code=v=v/100-273.15"); // Have not worked out the formula to convert SIT files.
+		}
+	
+	run(defaultpalette);
+	
+	getStatistics(count, mean, min, max, std);
 		var minpix=min;
 		var maxpix=max;
 		setMinAndMax(minpix, maxpix);
@@ -1476,6 +1547,17 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 	Dialog.addChoice("Fast (approximate) or\nSlow (accurate) Calculation?", fastslowchoice, fastslowchoicedefault); 
 	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
  	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
+	
+	Dialog.addMessage("Object Parameters:");
+    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
+    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
+    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
+    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
+    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
+    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
+    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
+    Dialog.addChoice("Palette", palettetypes, defaultpalette);
+	
 	Dialog.addMessage("Camera Calibration Constants:");
 	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
 	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
@@ -1487,21 +1569,23 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
     Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
     Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
     Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
-    Dialog.addMessage("Object Parameters:");
-    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
-    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
-    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
-    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
-    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
-    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
-    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, defaultpalette);
+  
 	Dialog.show();
 
 	var ByteOrder=Dialog.getChoice();
 	var FastSlow=Dialog.getChoice();
 	var imagetemperaturemin = Dialog.getNumber();
 	var imagetemperaturemax = Dialog.getNumber();
+	
+	var E = Dialog.getNumber();
+	var OD = Dialog.getNumber();
+	var RTemp = Dialog.getNumber();
+	var ATemp = Dialog.getNumber();
+	var IRWTemp = Dialog.getNumber();
+	var IRT = Dialog.getNumber();
+	var RH = Dialog.getNumber();
+	var palettetype = Dialog.getChoice();
+
 	var PR1 = Dialog.getNumber();
 	var PR2 = Dialog.getNumber();
 	var PB = Dialog.getNumber();
@@ -1512,14 +1596,6 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 	var ATB1 = Dialog.getNumber();
 	var ATB2 = Dialog.getNumber();
 	var ATX = Dialog.getNumber();
-	var E = Dialog.getNumber();
-	var OD = Dialog.getNumber();
-	var RTemp = Dialog.getNumber();
-	var ATemp = Dialog.getNumber();
-	var IRWTemp = Dialog.getNumber();
-	var IRT = Dialog.getNumber();
-	var RH = Dialog.getNumber();
-	var palettetype = Dialog.getChoice();
 
 	call("ij.Prefs.set", "imagetemperaturemin.persistent",toString(imagetemperaturemin)); 
 	call("ij.Prefs.set", "imagetemperaturemax.persistent",toString(imagetemperaturemax)); 
@@ -2206,10 +2282,14 @@ function spectralanalysis(data, dataname, windowType, dt, detrend, removemean){
 
 macro "Import Menu Tool - C037T0b11FT6b09IT9b09LTeb09E" {
        cmd = getArgument();
-       if (cmd=="Raw Import RTV")
+       if (cmd=="Raw Import Mikron RTV")
            RawImportMikronRTV();
+	   else if (cmd=="Raw Import Mikron SIT")
+           RawImportMikronSIT();
        else if (cmd=="Raw Import FLIR SEQ")
            RawImportFLIRSEQ();
+       else if (cmd=="Convert FLIR JPG(s)")
+           ConvertFLIRJPGs();
        else if (cmd=="Import FLIR JPG")
            ConvertImportFLIRJPG();
        else if (cmd=="Import FLIR SEQ")
@@ -2229,6 +2309,11 @@ macro "Import Menu Tool - C037T0b11FT6b09IT9b09LTeb09E" {
 
 macro "Raw Import Mikron RTV" {
 	RawImportMikronRTV();
+}
+
+
+macro "Raw Import Mikron SIT" {
+	RawImportMikronSIT();
 }
 
 //macro "Raw Import FLIR SEQ Action Tool - C000D00D01D02D03D04D05D06D0aD0bD0fD10D13D19D1cD1fD20D23D24D25D29D2cD2fD30D31D32D33D35D36D39D3dD3eD3fD54D55D56D59D5aD5bD5cD5dD5eD5fD61D62D63D64D69D6cD6fD70D71D74D76D77D79D7cD7fD81D82D83D84D89D8cD8fD94D95D96D99D9fDb0Db1Db2Db3DbaDbbDbcDbdDbeDc3Dc4Dc5Dc6Dc9DcfDd1Dd2Dd3Dd4Dd9DdeDdfDe3De4De5De6DeaDebDecDedDeeDefDf0Df1Df2Df3DffC000C111C222C333C444C555C666C777C888C999D67D78D87C999CaaaCbbbCcccCdddCeeeCfff" {
@@ -2481,8 +2566,6 @@ macro "Adjust Brightness and Contrast Action Tool - C037D04D05D06D07D08D09D0aD0b
         run("Brightness/Contrast...");
 }
 
-macro "-" {} //menu divider
-
 macro "Add Calibration Bar Action Tool - C000D10D11D12D13D14D15D16D17D18D19D1aD1bD1cD1dD1eD1fD20D2dD2eD2fD30D3dD3eD3fD40D4dD4eD4fD50D5dD5eD5fD60D61D62D63D64D65D66D67D68D69D6aD6bD6cD6dD6eD6fD70D72D74D76D78D7aD7cD7eD80D82D84D86D88D8aD8cD8eDa4Da5Da6Da9DaaDabDacDadDb3Db7Db9DbbDc3Dc7Dc9DcbDd4Dd6Dd9C001C002C003C004C005C006C007C107C108C208C308C309C409D2bD2cD3bD3cD4bD4cD5bD5cC409C509C609C709C809C909Ca09D29D2aD39D3aD49D4aD59D5aCa09Cb09Cc09Cc08Cc18Cc17Cd17Cd26D27D28D37D38D47D48D57D58Cd26Cd25Cd34Cd33Ce33Ce32Ce41Ce40Ce50Ce60D25D26D35D36D45D46D55D56Ce60Cf60Cf70Cf80Cf90Cfa0D23D24D33D34D43D44D53D54Cfa0Cfb0Cfc0Cfd0Cfd1D21D22D31D32D41D42D51D52Cfd1Cfe2Cfe3Cfe4Cfe5Cfe6Cff6Cff7Cff8Cff9CffaCffbCffcCffdCffeCfff"{
 	w=getWidth();
 	h=getHeight();
@@ -2598,11 +2681,22 @@ macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D
 	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
 	Dialog.create("Verify Camera and Object Parameters");
 	Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
-	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
-	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder);
-	Dialog.addChoice("Fast (approximate) or\nSlow (accurate) Calculation?", fastslowchoice, fastslowchoicedefault); 
+	Dialog.addMessage("TIFF files are usually little endian PNG files are usually big endian");
+	Dialog.addChoice("Swap Byte Order (Usually default is fine)", byteorder, defaultbyteorder);
+	Dialog.addChoice("Use Fast (approximate) or Slow (accurate) Calculation?", fastslowchoice, fastslowchoicedefault); 
 	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
  	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
+ 	
+	Dialog.addMessage("Object Parameters:");
+    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
+    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
+    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
+    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
+    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
+    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
+    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
+    Dialog.addChoice("Palette", palettetypes, defaultpalette);
+    
 	Dialog.addMessage("Camera Calibration Constants:");
 	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
 	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
@@ -2614,21 +2708,22 @@ macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D
     Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
     Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
     Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
-    Dialog.addMessage("Object Parameters:");
-    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
-    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
-    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
-    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
-    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
-    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
-    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, defaultpalette);
+   
+    
 	Dialog.show();
 
 	var ByteOrder=Dialog.getChoice();
 	var FastSlow=Dialog.getChoice();
 	var imagetemperaturemin = Dialog.getNumber();
 	var imagetemperaturemax = Dialog.getNumber();
+	var E = Dialog.getNumber();
+	var OD = Dialog.getNumber();
+	var RTemp = Dialog.getNumber();
+	var ATemp = Dialog.getNumber();
+	var IRWTemp = Dialog.getNumber();
+	var IRT = Dialog.getNumber();
+	var RH = Dialog.getNumber();
+	var palettetype = Dialog.getChoice();
 	var PR1 = Dialog.getNumber();
 	var PR2 = Dialog.getNumber();
 	var PB = Dialog.getNumber();
@@ -2639,14 +2734,7 @@ macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D
 	var ATB1 = Dialog.getNumber();
 	var ATB2 = Dialog.getNumber();
 	var ATX = Dialog.getNumber();
-	var E = Dialog.getNumber();
-	var OD = Dialog.getNumber();
-	var RTemp = Dialog.getNumber();
-	var ATemp = Dialog.getNumber();
-	var IRWTemp = Dialog.getNumber();
-	var IRT = Dialog.getNumber();
-	var RH = Dialog.getNumber();
-	var palettetype = Dialog.getChoice();
+	
 
 	call("ij.Prefs.set", "imagetemperaturemin.persistent",toString(imagetemperaturemin)); 
 	call("ij.Prefs.set", "imagetemperaturemax.persistent",toString(imagetemperaturemax)); 
@@ -2669,11 +2757,22 @@ macro "Raw2Temp Tool"{
 	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
 	Dialog.create("Verify Camera and Object Parameters");
 	Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
-	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
-	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder);
-	Dialog.addChoice("Fast (approximate) or\nSlow (accurate) Calculation?", fastslowchoice, fastslowchoicedefault); 
+	Dialog.addMessage("TIFF files are usually little endian PNG files are usually big endian");
+	Dialog.addChoice("Swap Byte Order (Usually default is fine)", byteorder, defaultbyteorder);
+	Dialog.addChoice("Use Fast (approximate) or Slow (accurate) Calculation?", fastslowchoice, fastslowchoicedefault); 
 	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
  	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
+ 	
+	Dialog.addMessage("Object Parameters:");
+    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
+    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
+    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
+    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
+    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
+    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
+    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
+    Dialog.addChoice("Palette", palettetypes, defaultpalette);
+    
 	Dialog.addMessage("Camera Calibration Constants:");
 	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
 	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
@@ -2685,21 +2784,22 @@ macro "Raw2Temp Tool"{
     Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
     Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
     Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
-    Dialog.addMessage("Object Parameters:");
-    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
-    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
-    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
-    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
-    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
-    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
-    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, defaultpalette);
+   
+    
 	Dialog.show();
 
 	var ByteOrder=Dialog.getChoice();
 	var FastSlow=Dialog.getChoice();
 	var imagetemperaturemin = Dialog.getNumber();
 	var imagetemperaturemax = Dialog.getNumber();
+	var E = Dialog.getNumber();
+	var OD = Dialog.getNumber();
+	var RTemp = Dialog.getNumber();
+	var ATemp = Dialog.getNumber();
+	var IRWTemp = Dialog.getNumber();
+	var IRT = Dialog.getNumber();
+	var RH = Dialog.getNumber();
+	var palettetype = Dialog.getChoice();
 	var PR1 = Dialog.getNumber();
 	var PR2 = Dialog.getNumber();
 	var PB = Dialog.getNumber();
@@ -2710,15 +2810,7 @@ macro "Raw2Temp Tool"{
 	var ATB1 = Dialog.getNumber();
 	var ATB2 = Dialog.getNumber();
 	var ATX = Dialog.getNumber();
-	var E = Dialog.getNumber();
-	var OD = Dialog.getNumber();
-	var RTemp = Dialog.getNumber();
-	var ATemp = Dialog.getNumber();
-	var IRWTemp = Dialog.getNumber();
-	var IRT = Dialog.getNumber();
-	var RH = Dialog.getNumber();
-	var palettetype = Dialog.getChoice();
-
+	
 	call("ij.Prefs.set", "imagetemperaturemin.persistent",toString(imagetemperaturemin)); 
 	call("ij.Prefs.set", "imagetemperaturemax.persistent",toString(imagetemperaturemax)); 
 	
@@ -2894,189 +2986,11 @@ macro "Raw2Temp T1030" {
 	
 }
 
-macro "Raw2Temp FlirVueProR" {
-	
-	// Written for a FlirVueProR 		
-	var PR1=17096.453;
-	var PR2=0.04351538;
-	var PB=1428; 
-	var PF=1;
-	var PO=-55;
-	var E = 0.95;
-	var OD = 1.5;
-	var RTemp = 20.0;
-	var ATemp = 20.0;
-	var IRWTemp = 20.0;
-	var IRT = 1.0;
-	var RH = 50.0;
-	byteorder=newArray("Default", "Swap");
-	defaultbyteorder="Default";
-	fastslowchoice=newArray("Fast", "Slow");
-	fastslowchoicedefault="Fast";
-	
-	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Verify Camera and Object Parameters");
-	Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
-	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
-	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder);
-	Dialog.addChoice("Fast (approximate) or\nSlow (accurate) Calculation?", fastslowchoice, fastslowchoicedefault); 
-	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
- 	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
-	Dialog.addMessage("Camera Calibration Constants:");
-	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
-	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
-	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
-	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
-    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
-    Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
-    Dialog.addMessage("Object Parameters:");
-    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
-    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
-    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
-    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
-    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
-    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
-    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, defaultpalette);
-	Dialog.show();
-
-	var ByteOrder=Dialog.getChoice();
-	var FastSlow=Dialog.getChoice();
-	var imagetemperaturemin = Dialog.getNumber();
-	var imagetemperaturemax = Dialog.getNumber();
-	var PR1 = Dialog.getNumber();
-	var PR2 = Dialog.getNumber();
-	var PB = Dialog.getNumber();
-	var PF = Dialog.getNumber();
-	var PO = Dialog.getNumber();
-	var ATA1 = Dialog.getNumber();
-	var ATA2 = Dialog.getNumber();
-	var ATB1 = Dialog.getNumber();
-	var ATB2 = Dialog.getNumber();
-	var ATX = Dialog.getNumber();
-	var E = Dialog.getNumber();
-	var OD = Dialog.getNumber();
-	var RTemp = Dialog.getNumber();
-	var ATemp = Dialog.getNumber();
-	var IRWTemp = Dialog.getNumber();
-	var IRT = Dialog.getNumber();
-	var RH = Dialog.getNumber();
-	var palettetype = Dialog.getChoice();
-
-	call("ij.Prefs.set", "imagetemperaturemin.persistent",toString(imagetemperaturemin)); 
-	call("ij.Prefs.set", "imagetemperaturemax.persistent",toString(imagetemperaturemax)); 
-	
-	if(ByteOrder == "Swap"){
-		run("Byte Swapper");
-	}
-
-	Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
-		
-}
-
-
-macro "Raw2Temp E40" {
-			
-	var PR1=15759.339;
-	var PR2=0.011213507;
-	var PB=1413.2; 
-	var PF=1;
-	var PO=-6030;
-	var E = 0.95;
-	var OD = 1;
-	var RTemp = 20.0;
-	var ATemp = 20.0;
-	var IRWTemp = 20.0;
-	var IRT = 1.0;
-	var RH = 50.0;
-	
-	byteorder=newArray("Default", "Swap");
-	defaultbyteorder="Default";
-	fastslowchoice=newArray("Fast", "Slow");
-	fastslowchoicedefault="Fast";
-	
-	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Verify Camera and Object Parameters");
-	Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
-	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
-	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder);
-	Dialog.addChoice("Fast (approximate) or\nSlow (accurate) Calculation?", fastslowchoice, fastslowchoicedefault); 
-	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
- 	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
-	Dialog.addMessage("Camera Calibration Constants:");
-	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
-	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
-	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
-	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
-    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
-    Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
-    Dialog.addMessage("Object Parameters:");
-    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
-    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
-    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
-    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
-    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
-    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
-    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, defaultpalette);
-	Dialog.show();
-
-	var ByteOrder=Dialog.getChoice();
-	var FastSlow=Dialog.getChoice();
-	var imagetemperaturemin = Dialog.getNumber();
-	var imagetemperaturemax = Dialog.getNumber();
-	var PR1 = Dialog.getNumber();
-	var PR2 = Dialog.getNumber();
-	var PB = Dialog.getNumber();
-	var PF = Dialog.getNumber();
-	var PO = Dialog.getNumber();
-	var ATA1 = Dialog.getNumber();
-	var ATA2 = Dialog.getNumber();
-	var ATB1 = Dialog.getNumber();
-	var ATB2 = Dialog.getNumber();
-	var ATX = Dialog.getNumber();
-	var E = Dialog.getNumber();
-	var OD = Dialog.getNumber();
-	var RTemp = Dialog.getNumber();
-	var ATemp = Dialog.getNumber();
-	var IRWTemp = Dialog.getNumber();
-	var IRT = Dialog.getNumber();
-	var RH = Dialog.getNumber();
-	var palettetype = Dialog.getChoice();
-
-	call("ij.Prefs.set", "imagetemperaturemin.persistent",toString(imagetemperaturemin)); 
-	call("ij.Prefs.set", "imagetemperaturemax.persistent",toString(imagetemperaturemax)); 
-	
-	if(ByteOrder == "Swap"){
-		run("Byte Swapper");
-	}
-
-	Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
-	
-	//a = newArray(65536); 
-	//templookup=newArray(65536);
-	//for (i=1; i<65536; i++) {
-	//	a[i]=i; 	
-	//	templookup[i] = 1500/log(21000/(0.012*(a[i]/0.9-100-7300))+1)-273.15;
-		//templookup = PB/log(PR1/(PR2*(a[i]/rawdivisor-rawsubtract+PO))+PF)-273.15;
-	//}
-	
-}
-
-
 
 
 macro "-" {} //menu divider
 
-macro "ROI 1 Results [d]" { // 
+macro "ROI d Results [d]" { // 
 
 	roilabel="BillDepth";
 	
@@ -3126,7 +3040,7 @@ macro "ROI 1 Results [d]" { //
 	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
 }
 
-macro "ROI 1 Results [l]" { // 
+macro "ROI l Results [l]" { // 
 	
 	roilabel="BillLength";
 	
