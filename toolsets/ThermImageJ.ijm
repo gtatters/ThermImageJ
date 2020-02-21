@@ -961,15 +961,26 @@ function ConvertFLIRJPGs() {
 		dirpath=File.getParent(filelist[0]);
 	}
 	
-	convertfolder=dirpath + "converted";
+	convertfolder = dirpath + File.separator + "converted";
 	File.makeDirectory(convertfolder);
-
+	
+	print(dirpath);
+	
 	for (i = 0; i < filelist.length; i++){
 		
 		showProgress(i/filelist.length);
+
+		// because filelist is different for my folder option vs. the single file option, need to set
+		// filepath formally here
 		
-		filepath=dirpath + filelist[i];
-		
+		if(whichtype=="Folder"){
+			filepath=dirpath + filelist[i];
+		}
+
+		if(whichtype=="File"){
+			filepath=filelist[i];
+		}
+
 		if (endsWith(toLowerCase(filepath), ".jpg")) {
 			
 		filename=File.getName(filepath);
@@ -983,7 +994,7 @@ function ConvertFLIRJPGs() {
 		// determine the data storage format of the flir jpg.  Either tiff or png	
 		RawThermalType=replace(RawThermalType, "\n", "");
 		RawThermalType=replace(RawThermalType, " ", "");
-		
+
 		if(RawThermalType=="  " || RawThermalType==" " || RawThermalType==""){
 			print("Raw Thermal Type Unknown. Setting it to tiff");
 			RawThermalType="tiff";
