@@ -4,7 +4,7 @@
 ////        Main Features: import, conversion, and transformation of thermal images.               ////
 ////                           Requires: exiftool, ffmpeg, perl                                    ////
 ////                                Glenn J. Tattersall                                            ////
-////                             February, 2020 - Version 2.2                                      ////
+////                               May, 2020 - Version 2.3                                         ////
 ////                                                                                               ////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -15,7 +15,7 @@ var palettetypes=newArray("Grays", "Ironbow", "Rainbow", "Spectrum", "Thermal", 
 var defaultpalette="Grays";
 var thermlCmds = newMenu("Thermal LUT Menu Tool", palettetypes);
 var ImportCmds = newMenu("Import Menu Tool",
-      newArray("Raw Import Mikron RTV", "Raw Import FLIR SEQ", "Convert FLIR JPG(s)", "Import FLIR JPG", "Import FLIR SEQ", "Import FLIR CSQ", "Import 16-bit AVI"));
+      newArray("Raw Import Mikron RTV", "Raw Import FLIR SEQ", "Convert FLIR JPG(s)", "Import FLIR JPG", "Import Image Sequence", "Import FLIR SEQ", "Import FLIR CSQ", "Import 16-bit AVI"));
 var lut = -1;
 var lutdir = getDirectory("luts");
 var list;
@@ -87,6 +87,12 @@ var ffmpegpathWindows="c:/FFmpeg/bin/";
 
 	
 //////////////////////////////////////// Functions ///////////////////////////////////////////////
+
+
+function ImportImageSequence(){
+	run("Image Sequence...");
+}
+
 
 // Based on the LUTFileTool by Gabriel Landini
 function cycleLUTs(inc) {
@@ -389,6 +395,43 @@ function getPixelArray(){
 		pixeldata=Array.concat(pixeldata, temp);
 	}
 	return pixeldata;
+}
+
+
+// doSort will return the rank positions for the original array, where smallest values have rank zero
+
+function doSort(theArray){
+	sortedValues = Array.copy(theArray);
+	sortedValues=Array.sort(sortedValues);
+	rankPosArr = Array.rankPositions(theArray);
+	
+	//ranks = Array.rankPositions(rankPosArr);
+	
+	//print ("Original array:");
+	//for (jj = 0; jj < theArray.length; jj++){
+	//	print(jj, ": ", theArray[jj]);
+	//}
+	
+	//print ("\nSorted array (starting with smallest value):");
+	//for (jj = 0; jj < theArray.length; jj++){
+	//	print(sortedValues[jj]);
+	//}
+	
+	//print ("\nRank Positions (starting with index of smallest value):");
+	//for (jj = 0; jj < theArray.length; jj++){
+	//	print(rankPosArr[jj]);
+	//}
+	
+	
+	//print ("\nRanks (starting with rank of first value):");
+	//for (jj = 0; jj < theArray.length; jj++){
+	//	print(ranks[jj]);
+	//}
+	
+	//print ("\n- Smallest value is defined to have rank zero");
+	//print ("- Use Array.invert to change between ascending and descending order.");
+	//print ("- String sorting ignores case.");
+	return rankPosArr;
 }
 
 
@@ -760,7 +803,6 @@ function ConvertImportFLIRJPG() {
 
 	// run Exiftool to return the meta tags with the word "RawThermalImageType".  It should be either TIFF or PNG.
 	//flirimageraw = exec("/usr/local/bin/exiftool", "-RawThermalImageType", filepath);	
-  	print(exiftoolpath+exiftool);
 
 	var RawThermalType=""; // set RawThermalType as blank to start
 	
@@ -772,7 +814,9 @@ function ConvertImportFLIRJPG() {
 	RawThermalType=replace(RawThermalType, " ", "");
 
 	if(RawThermalType=="  " || RawThermalType==" " || RawThermalType==""){
-		print("Raw Thermal Type Unknown. Setting it to png");
+		print("-- Warning -- Raw Thermal Type Unknown. This file might not be a radiometric JPG.");
+		print("Setting Raw Thermal Type to png and attempting conversion. If resulting file is 0 bytes, the jpg cannot be converted.");
+		print("Examine the settings on your camera to ensure radiometric jpgs are being saved.");		
 		RawThermalType="png";
 	}
 	
@@ -996,7 +1040,9 @@ function ConvertFLIRJPGs() {
 		RawThermalType=replace(RawThermalType, " ", "");
 
 		if(RawThermalType=="  " || RawThermalType==" " || RawThermalType==""){
-			print("Raw Thermal Type Unknown. Setting it to tiff");
+			print("-- Warning -- Raw Thermal Type Unknown. This file might not be a radiometric JPG.");
+			print("Setting Raw Thermal Type to tiff and attempting conversion. If resulting file is 0 bytes, the jpg cannot be converted.");
+			print("Examine the settings on your camera to ensure radiometric jpgs are being saved.");					
 			RawThermalType="tiff";
 		}
 		
@@ -1797,6 +1843,373 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 	
 }
 
+// Added CalculateTransmittance and CalculateEmissivity May 2020
+
+function CalculateTransmittance() {
+	
+	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
+    print("------ Running CalculateTransmittance function ------");
+    print("Not fully tested.  Confirm these calculations using FLIR software");
+   
+	KnownT = 40;
+	ApparentRaw=17000;
+	
+	Dialog.create("Estimate Window Transmittance");
+	Dialog.addMessage("This macro will estimate IR Window Transmittance (IRT)\nassuming you have accurate information on true temperature");
+	Dialog.addMessage("Provide the Object Parameters:");
+    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
+    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
+    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
+    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
+    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
+    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
+    
+    Dialog.addMessage("Provide Object Thermal Information:\n");
+  	Dialog.addNumber("Object temperature (i.e. known temperature):", KnownT, 2, 6, "C");
+	Dialog.addNumber("Raw 16 bit value of this object with window:", ApparentRaw, 0, 6, "16-bit integer");
+	
+	Dialog.addMessage("Provide Camera Calibration Constants:");
+	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
+	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
+	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
+	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
+    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+    Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
+
+	Dialog.addCheckbox("Store calculated transmittance (IRT) in memory for future use?", 0);
+	
+	Dialog.show();
+	
+	var E = Dialog.getNumber();
+	var OD = Dialog.getNumber();
+	var RTemp = Dialog.getNumber();
+	var ATemp = Dialog.getNumber();
+	var IRWTemp = Dialog.getNumber();
+    //	var IRT = Dialog.getNumber();
+	var RH = Dialog.getNumber();
+	var KnownT = Dialog.getNumber();
+	var ApparentRaw = Dialog.getNumber();
+	
+	var PR1 = Dialog.getNumber();
+	var PR2 = Dialog.getNumber();
+	var PB = Dialog.getNumber();
+	var PF = Dialog.getNumber();
+	var PO = Dialog.getNumber();
+	var ATA1 = Dialog.getNumber();
+	var ATA2 = Dialog.getNumber();
+	var ATB1 = Dialog.getNumber();
+	var ATB2 = Dialog.getNumber();
+	var ATX = Dialog.getNumber();
+
+	storeIRT=Dialog.getCheckbox();
+	
+	TempArray=newArray(1001);
+	IRTArray=newArray(1001);
+	IRTArray=Array.getSequence(1001);
+	
+	for (i = 0; i < 1001; i++) {
+		IRTArray[i]=IRTArray[i]/1000;	
+	}
+
+	raw2temppred=Raw2TempCalc(ApparentRaw, PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, 1, RH);
+	print("This macro will estimate the transmittance of a window placed in front of an object");
+	print("The object temperature must first be known, usually measured without the window");
+	print("User provides the raw 16 bit value of the object, but measured with the window in place");
+	//print("Predicted temperature from the provided raw value, if IRT were truly equal to 1 is: " + raw2temppred);
+	//print("Use this to verify the raw value selected is approximately close to the known temperature");
+	
+	//ApparentRaw=Temp2RawCalc(KnownT, PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, 1, RH);
+
+	print("Next we create an array of predicted temperatures, but only changing transmittance");
+	print("from 0 to 1, in 0.001 increments.");
+	
+	
+	for (i = 0; i < 1001; i++) {
+		TempArray[i]=Raw2TempCalc(ApparentRaw, PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRTArray[i], RH);
+	}
+
+	// need to add a match function that searched through the temp array to find which temperature is closest to KnownT to 
+	// find the effective transmittance.
+	tempdiff=newArray(1001);
+
+	print("The IRT yielding a closest match to the known temperature is the estimated IRT:");
+	
+	// tempdiff will calculate the difference between KnownT and estimated T.  
+	for (i = 0; i < 1001; i++) {
+		tempdiff[i]=abs(TempArray[i]-KnownT);
+	}
+	
+	ranklocation=doSort(tempdiff);
+	// the position of the minimum temp diff should correspond to the appropriate IRT that provides the KnownT
+	// the 0th ranklocation should provide the location within the tempdiff array that corresponds to the minimum
+
+
+	// Do a sanity check.  If the minimum temperature difference isn't within a tolerable range (i.e. 0.5 = 0.5 Celsius),
+	// then flag the calculation as suspect.
+		
+
+	IRT=IRTArray[ranklocation[0]];
+	print(IRT);
+	print("\n");
+
+	if(tempdiff[ranklocation[0]]>0.5){
+		IRT=1;
+		Dialog.create("Window Transmittance");
+		Dialog.addMessage("Warning: Results out of range!");
+		Dialog.addMessage("The default window transmittance estimate is:");
+		Dialog.addMessage("     " + IRT);
+		Dialog.addMessage("Please check the raw 16 bit value, object parameters,\n or calibration constants and try again.");
+		Dialog.show();
+		print("Warning: Results out of range!");
+		print("The algorithm cannot find a suitable transmittance, defaults to 1");
+	}
+
+	if(tempdiff[ranklocation[0]]<=0.5){
+		Dialog.create("Window Transmittance");
+		Dialog.addMessage("The window transmittance is estimated as:");
+		Dialog.addMessage("     " + IRT);
+		Dialog.addMessage("Compare this transmittance to your expected values");
+		Dialog.addMessage("e.g. Germanium windows are ~0.94-0.95 with IR anti-reflective coating");
+		Dialog.show();
+	}
+
+	if(storeIRT==1) {
+		call("ij.Prefs.set", "IRT.persistent",toString(IRT)); 
+	}
+	
+}
+
+
+function CalculateEmissivity() {
+	
+	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
+    print("------ Running CalculateEmissivity function ------");
+    print("Not fully tested.  Confirm these calculations using FLIR software");
+    
+	KnownE = E;
+	KnownT = 52;
+	ApparentTemp=50;
+		
+	Dialog.create("Estimate Window Transmittance");
+	Dialog.addMessage("This macro will estimate Emissivity assuming you have\naccurate information on true temperature usually provided\nby using a reference surface of known Emissivity (i.e. black electrical tape E = 0.95)");
+	Dialog.addMessage("Provide the Object Parameters:");
+    Dialog.addNumber("Reference Emissivity:", KnownE, 3, 6, "unitless");
+    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
+    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
+    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
+    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
+    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
+    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
+    
+    Dialog.addMessage("Provide Object Thermal Information:\n");
+  	Dialog.addNumber("Reference Object temperature (i.e. known temperature):", KnownT, 2, 6, "C");
+	Dialog.addNumber("New Object Apparent temperature, assuming reference Emissivity:", ApparentTemp, 2, 6, "C");
+	
+	Dialog.addMessage("Provide Camera Calibration Constants:");
+	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
+	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
+	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
+	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
+    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+    Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
+    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
+
+	Dialog.addCheckbox("Store calculated Emissivity (E) in memory for future use?", 0);
+	
+	Dialog.show();
+	
+	var KnownE = Dialog.getNumber();
+	var OD = Dialog.getNumber();
+	var RTemp = Dialog.getNumber();
+	var ATemp = Dialog.getNumber();
+	var IRWTemp = Dialog.getNumber();
+   	var IRT = Dialog.getNumber();
+	var RH = Dialog.getNumber();
+	
+	var KnownT = Dialog.getNumber();
+	var ApparentTemp = Dialog.getNumber();
+	
+	var PR1 = Dialog.getNumber();
+	var PR2 = Dialog.getNumber();
+	var PB = Dialog.getNumber();
+	var PF = Dialog.getNumber();
+	var PO = Dialog.getNumber();
+	var ATA1 = Dialog.getNumber();
+	var ATA2 = Dialog.getNumber();
+	var ATB1 = Dialog.getNumber();
+	var ATB2 = Dialog.getNumber();
+	var ATX = Dialog.getNumber();
+
+	storeE = Dialog.getCheckbox();
+	
+	TempArray=newArray(1001);
+	EArray=newArray(1001);
+	EArray=Array.getSequence(1001);
+	
+	for (i = 0; i < 1001; i++) {
+		EArray[i]=EArray[i]/1000;	
+	}
+		
+	ApparentRaw=Temp2RawCalc(ApparentTemp, PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), KnownE, OD, RTemp, ATemp, IRWTemp, IRT, RH);
+	print("This macro will estimate the transmittance of a window placed in front of an object");
+	print("The object temperature must first be known, usually measured with black electrical tape, assuming thermal equilibration.");
+	print("User provides the estimated temperature object of interest, measured assuming same E as the reference E.");
+	//print("Predicted raw from the provided temperature estimate, if E were truly equal to the reference E is: " + ApparentRaw);
+	//print("Use this to verify the raw value selected is approximately close to the known temperature");
+	
+	//ApparentRaw=Temp2RawCalc(KnownT, PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, 1, RH);
+
+	print("Next we create an array of predicted temperatures, but only changing new object Emissivity");
+	print("from 0 to 1, in 0.001 increments.");
+	
+	
+	for (i = 0; i < 1001; i++) {
+		TempArray[i]=Raw2TempCalc(ApparentRaw, PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), EArray[i], OD, RTemp, ATemp, IRWTemp, IRT, RH);
+	}
+
+	// need to add a match function that searched through the temp array to find which temperature is closest to KnownT to 
+	// find the effective transmittance.
+	tempdiff=newArray(1001);
+
+	print("The Emissivity yielding a closest match to the known temperature is the estimated Emissivity:");
+	
+	// tempdiff will calculate the difference between KnownT and estimated T.  
+	for (i = 0; i < 1001; i++) {
+		tempdiff[i]=abs(TempArray[i]-KnownT);
+	}
+	
+	ranklocation=doSort(tempdiff);
+	// the position of the minimum temp diff should correspond to the appropriate E that provides the KnownT
+	// the 0th ranklocation should provide the location within the tempdiff array that corresponds to the minimum
+	
+	E=EArray[ranklocation[0]];
+	print(E);
+	print("\n");
+
+	if(tempdiff[ranklocation[0]]>0.5){
+		E=KnownE;
+		Dialog.create("Object Emissivity");
+		Dialog.addMessage("Warning: Results out of range!");
+		Dialog.addMessage("The default estimate for emissivity will remain:");
+		Dialog.addMessage("     " + KnownE);
+		Dialog.addMessage("Please check the estimated object temperature, object parameters,\n or calibration constants and try again.");
+		Dialog.show();
+		print("Warning: Results out of range!");
+		print("The algorithm cannot find a suitable emissivity, defaults to the reference value.");
+	}
+
+	if(tempdiff[ranklocation[0]]<=0.5){
+		Dialog.create("Object Emissivity");
+		Dialog.addMessage("The Object Emissivity is estimated as:");
+		Dialog.addMessage("     " + E);
+		Dialog.addMessage("Compare this transmittance to your expected values.");
+		Dialog.addMessage("e.g. many biological surfaces have E values above 0.9.");
+		Dialog.show();
+	}
+	
+	
+	if(storeE==1) {
+		call("ij.Prefs.set", "E.persistent",toString(E)); 
+	}
+
+}
+
+
+
+// Create a function that just calculates the Temperature for a given Raw Value - not for use on images, just
+// for calculating the conversion from raw to temperature
+
+
+function Raw2TempCalc(raw, PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IRT, RH) {
+
+	ATA1=ATvals[0];
+	ATA2=ATvals[1];
+	ATB1=ATvals[2];
+	ATB2=ATvals[3];
+	ATX=ATvals[4];
+	
+	emisswind = 1- IRT; 
+  	reflwind = 0; // anti-reflective coating on window
+ 	h2o = (RH/100)*exp(1.5587+0.06939*(ATemp)-0.00027816*(ATemp*ATemp)+0.00000068455*(ATemp*ATemp*ATemp)); // converts relative humidity into water vapour pressure (I think in units mmHg)
+  	tau1 = ATX*exp(-sqrt(OD/2)*(ATA1+ATB1*sqrt(h2o)))+(1-ATX)*exp(-sqrt(OD/2)*(ATA2+ATB2*sqrt(h2o))); // atmos transmittance from object to window
+  	tau2 = ATX*exp(-sqrt(OD/2)*(ATA1+ATB1*sqrt(h2o)))+(1-ATX)*exp(-sqrt(OD/2)*(ATA2+ATB2*sqrt(h2o))); // atmos transmittance from window to camera
+
+	rawrefl1= PR1/(PR2*(exp(PB/(RTemp+273.15))-PF))-PO;   // radiance reflecting off the object before the window
+	rawrefl1attn = (1-E)/E*rawrefl1;   // attn = the attenuated radiance (in raw units) 
+
+	rawatm1 = PR1/(PR2*(exp(PB/(ATemp+273.15))-PF))-PO; // radiance from the atmosphere (before the window)
+	rawatm1attn = (1-tau1)/E/tau1*rawatm1; // attn = the attenuated radiance (in raw units) 
+
+	rawwind = PR1/(PR2*(exp(PB/(IRWTemp+273.15))-PF))-PO;
+	rawwindattn = emisswind/E/tau1/IRT*rawwind; 
+
+	rawrefl2 = PR1/(PR2*(exp(PB/(RTemp+273.15))-PF))-PO;   
+	rawrefl2attn = reflwind/E/tau1/IRT*rawrefl2;
+
+	rawatm2 = PR1/(PR2*(exp(PB/(ATemp+273.15))-PF))-PO;
+	rawatm2attn = (1-tau2)/E/tau1/IRT/tau2*rawatm2;
+
+	rawsubtract = (rawatm1attn + rawatm2attn + rawwindattn + rawrefl1attn + rawrefl2attn);
+	rawdivisor = E*tau1*IRT*tau2;
+
+	rawobj = (raw/E/tau1/IRT/tau2-rawatm1attn-rawatm2attn-rawwindattn-rawrefl1attn-rawrefl2attn);
+  
+  	tempC = PB/log(PR1/(PR2*(rawobj+PO))+PF)-273.15;
+  
+	//print(tempC);
+	
+	return tempC;
+		
+}
+
+
+function Temp2RawCalc(temp, PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IRT, RH) {
+
+	ATA1=ATvals[0];
+	ATA2=ATvals[1];
+	ATB1=ATvals[2];
+	ATB2=ATvals[3];
+	ATX=ATvals[4];
+	
+	emisswind = 1- IRT; 
+  	reflwind = 0; // anti-reflective coating on window
+ 	h2o = (RH/100)*exp(1.5587+0.06939*(ATemp)-0.00027816*(ATemp*ATemp)+0.00000068455*(ATemp*ATemp*ATemp)); // converts relative humidity into water vapour pressure (I think in units mmHg)
+  	tau1 = ATX*exp(-sqrt(OD/2)*(ATA1+ATB1*sqrt(h2o)))+(1-ATX)*exp(-sqrt(OD/2)*(ATA2+ATB2*sqrt(h2o))); // atmos transmittance from object to window
+  	tau2 = ATX*exp(-sqrt(OD/2)*(ATA1+ATB1*sqrt(h2o)))+(1-ATX)*exp(-sqrt(OD/2)*(ATA2+ATB2*sqrt(h2o))); // atmos transmittance from window to camera
+
+	rawobj=PR1/(PR2*(exp(PB/(temp+273.15))-PF))-PO;
+
+	rawrefl1=PR1/(PR2*(exp(PB/(RTemp+273.15))-PF))-PO;   // radiance reflecting off the object before the window
+	rawrefl1attn=(1-E)/E*rawrefl1;   // attn = the attenuated radiance (in raw units) 
+
+	rawatm1=PR1/(PR2*(exp(PB/(ATemp+273.15))-PF))-PO; // radiance from the atmosphere (before the window)
+	rawatm1attn=(1-tau1)/E/tau1*rawatm1; // attn = the attenuated radiance (in raw units) 
+
+	rawwind=PR1/(PR2*(exp(PB/(IRWTemp+273.15))-PF))-PO;
+	rawwindattn=emisswind/E/tau1/IRT*rawwind;
+
+	rawrefl2=PR1/(PR2*(exp(PB/(RTemp+273.15))-PF))-PO;   
+	rawrefl2attn=reflwind/E/tau1/IRT*rawrefl2;
+
+	rawatm2=PR1/(PR2*(exp(PB/(ATemp+273.15))-PF))-PO;
+	rawatm2attn=(1-tau2)/E/tau1/IRT/tau2*rawatm2;
+
+	raw=(rawobj+rawatm1attn+rawatm2attn+rawwindattn+rawrefl1attn+rawrefl2attn)*E*tau1*IRT*tau2;
+
+	raw;
+	
+	return raw;
+		
+}
+
+
 
 function flirvalues(filepath, printvalues){
 	
@@ -2303,6 +2716,8 @@ macro "Import Menu Tool - C037T0b11FT6b09IT9b09LTeb09E" {
            ConvertFLIRJPGs();
        else if (cmd=="Import FLIR JPG")
            ConvertImportFLIRJPG();
+       else if (cmd=="Import Image Sequence")
+           ImportImageSequence();    
        else if (cmd=="Import FLIR SEQ")
            ImportConvertFLIRSEQ();
        else if (cmd=="Import FLIR CSQ")
@@ -2333,6 +2748,30 @@ macro "Raw Import Mikron SIT" {
 
 macro "Raw Import FLIR SEQ" {
 	RawImportFLIRSEQ();
+}
+
+macro "Convert FLIR JPG(s)" {
+	ConvertFLIRJPGs();
+}
+
+macro "Import FLIR JPG" {
+	ConvertImportFLIRJPG();
+}
+
+macro "Import Image Sequence" {
+	ImportImageSequence();    
+}
+
+macro "Import FLIR SEQ" {
+	 ImportConvertFLIRSEQ();
+}
+
+macro "Import FLIR CSQ" {
+	 ImportConvertFLIRCSQ();
+}
+
+macro "Import 16-bit AVI" {
+	ImportFFmpegAVI();
 }
 
 macro "Frame Start Byte"{
@@ -2833,171 +3272,17 @@ macro "Raw2Temp Tool"{
 	
 }
 
-macro "Raw2Temp SC660" {
-	
-	byteorder=newArray("Default", "Swap");
-	defaultbyteorder="Default";
-	fastslowchoice=newArray("Fast", "Slow");
-	fastslowchoicedefault="Fast";
-	
-	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Verify Camera and Object Parameters");
-	Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
-	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
-	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder);
-	Dialog.addChoice("Fast (approximate) or\nSlow (accurate) Calculation?", fastslowchoice, fastslowchoicedefault); 
-	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
- 	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
-	Dialog.addMessage("Camera Calibration Constants:");
-	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
-	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
-	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
-	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
-    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
-    Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
-    Dialog.addMessage("Object Parameters:");
-    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
-    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
-    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
-    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
-    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
-    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
-    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, defaultpalette);
-	Dialog.show();
+macro "-" {} //menu divider
 
-	var ByteOrder=Dialog.getChoice();
-	var FastSlow=Dialog.getChoice();
-	var imagetemperaturemin = Dialog.getNumber();
-	var imagetemperaturemax = Dialog.getNumber();
-	var PR1 = Dialog.getNumber();
-	var PR2 = Dialog.getNumber();
-	var PB = Dialog.getNumber();
-	var PF = Dialog.getNumber();
-	var PO = Dialog.getNumber();
-	var ATA1 = Dialog.getNumber();
-	var ATA2 = Dialog.getNumber();
-	var ATB1 = Dialog.getNumber();
-	var ATB2 = Dialog.getNumber();
-	var ATX = Dialog.getNumber();
-	var E = Dialog.getNumber();
-	var OD = Dialog.getNumber();
-	var RTemp = Dialog.getNumber();
-	var ATemp = Dialog.getNumber();
-	var IRWTemp = Dialog.getNumber();
-	var IRT = Dialog.getNumber();
-	var RH = Dialog.getNumber();
-	var palettetype = Dialog.getChoice();
 
-	call("ij.Prefs.set", "imagetemperaturemin.persistent",toString(imagetemperaturemin)); 
-	call("ij.Prefs.set", "imagetemperaturemax.persistent",toString(imagetemperaturemax)); 
-	
-	if(ByteOrder == "Swap"){
-		run("Byte Swapper");
-	}
-
-	Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
-	
-}
-
-macro "Raw2Temp T1030" {
-
-	// Initial Planck Constants from Purchase Date in 2017 to Re-calibration in Nov 2018:		
-	var PR1=21546.203;
-	var PR2=0.016229488;
-	var PB=1507.2; 
-	var PF=1;
-	var PO=-6331;
-
-	// Planck Constants after Recalibration and Service with New Lens in November 2018:
-	var PR1=17998.529;
-	var PR2=0.015145967;
-	var PB=1453.1; 
-	var PF=1;
-	var PO=-5854;
-	
-	var E = 0.95;
-	var OD = 1.5;
-	var RTemp = 30.0;
-	var ATemp = 30.0;
-	var IRWTemp = 30.0;
-	var IRT = 1.0;
-	var RH = 80.0;
-
-	byteorder=newArray("Default", "Swap");
-	defaultbyteorder="Default";
-	fastslowchoice=newArray("Fast", "Slow");
-	fastslowchoicedefault="Fast";
-	
-	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Verify Camera and Object Parameters");
-	Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
-	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
-	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder);
-	Dialog.addChoice("Fast (approximate) or\nSlow (accurate) Calculation?", fastslowchoice, fastslowchoicedefault); 
-	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
- 	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
-	Dialog.addMessage("Camera Calibration Constants:");
-	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
-	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
-	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
-	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
-    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
-    Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
-    Dialog.addMessage("Object Parameters:");
-    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
-    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
-    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
-    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
-    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
-    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
-    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, defaultpalette);
-	Dialog.show();
-
-	var ByteOrder=Dialog.getChoice();
-	var FastSlow=Dialog.getChoice();
-	var imagetemperaturemin = Dialog.getNumber();
-	var imagetemperaturemax = Dialog.getNumber();
-	var PR1 = Dialog.getNumber();
-	var PR2 = Dialog.getNumber();
-	var PB = Dialog.getNumber();
-	var PF = Dialog.getNumber();
-	var PO = Dialog.getNumber();
-	var ATA1 = Dialog.getNumber();
-	var ATA2 = Dialog.getNumber();
-	var ATB1 = Dialog.getNumber();
-	var ATB2 = Dialog.getNumber();
-	var ATX = Dialog.getNumber();
-	var E = Dialog.getNumber();
-	var OD = Dialog.getNumber();
-	var RTemp = Dialog.getNumber();
-	var ATemp = Dialog.getNumber();
-	var IRWTemp = Dialog.getNumber();
-	var IRT = Dialog.getNumber();
-	var RH = Dialog.getNumber();
-	var palettetype = Dialog.getChoice();
-
-	call("ij.Prefs.set", "imagetemperaturemin.persistent",toString(imagetemperaturemin)); 
-	call("ij.Prefs.set", "imagetemperaturemax.persistent",toString(imagetemperaturemax)); 
-		
-	if(ByteOrder == "Swap"){
-		run("Byte Swapper");
-	}
-
-	Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
-	
+macro "Estimate Window Transmittance" {
+	CalculateTransmittance();
 }
 
 
+macro "Estimate Object Emissivity" {
+	CalculateEmissivity();
+}
 
 macro "-" {} //menu divider
 
@@ -3635,10 +3920,6 @@ macro "Cumulative Difference Sum on Stack [0]"{
 	
 	saveAs("Results", desktopdir + File.separator + "C_Diff_Stack_Results.csv");
 }
-
-
-
-
 
 
 macro "-" {} //menu divider
