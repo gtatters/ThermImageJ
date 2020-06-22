@@ -510,7 +510,7 @@ function RawImportMikronRTV() {
 	print("Loading: ", filepath);
 	print("\n");
 
-	run("Raw...", "open=filepath image=[16-bit Unsigned] width=imagewidth height=imageheight offset=offsetbyte number=nframes gap=gapbytes little-endian use=usevirtual");
+	run("Raw...", "open=[filepath] image=[16-bit Unsigned] width=imagewidth height=imageheight offset=offsetbyte number=nframes gap=gapbytes little-endian use=usevirtual");
 
 	// Mikron RTV files are simply stored as Temperature in Kelvin * 10 and thus range from 10 to ~3000 (but still stored or imported as 16 bit integer)
 	// conversion here will not be accurate, nor will it take into account atmospheric and reflected conditions.
@@ -581,7 +581,7 @@ function RawImportMikronSIT() {
 	print("Loading: ", filepath);
 	print("\n");
 
-	run("Raw...", "open=filepath image=[16-bit Unsigned] width=imagewidth height=imageheight offset=offsetbyte number=nframes gap=gapbytes little-endian use=usevirtual");
+	run("Raw...", "open=[filepath] image=[16-bit Unsigned] width=imagewidth height=imageheight offset=offsetbyte number=nframes gap=gapbytes little-endian use=usevirtual");
 
 	// Mikron SIT files are simply stored as Temperature in Kelvin * 10 and thus range from 10 to ~3000 (but still stored or imported as 16 bit integer)
 	// conversion here will not be accurate, nor will it take into account atmospheric and reflected conditions.
@@ -653,7 +653,7 @@ function RawImportFLIRSEQ() {
 	print("Loading: ", filepath);
 	print("\n");
 
-	run("Raw...", "open=filepath image=[16-bit Unsigned] width=imagewidth height=imageheight offset=offsetbyte number=nframes gap=gapbytes little-endian use=usevirtual");
+	run("Raw...", "open=[filepath] image=[16-bit Unsigned] width=imagewidth height=imageheight offset=offsetbyte number=nframes gap=gapbytes little-endian use=usevirtual");
 	
 	if(OS=="Mac OS X"){
 		flirvals=exec("/usr/local/bin/exiftool",  "-Planck*", "-*AtmosphericTrans*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
@@ -718,9 +718,10 @@ function RawImportFLIRSEQ() {
 		var minpix=min;
 		var maxpix=max;
 		setMinAndMax(minpix, maxpix);
-		
-	if(converttotemperature) {
-		run("Raw2Temp SC660");
+	
+	if(converttotemperature==1){
+		print("Converting file to temperature");
+		Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, defaultpalette, "Yes", "Fast", imagetemperaturemin, imagetemperaturemax);	
 	}
 
 		print("Done");
@@ -888,7 +889,8 @@ function ConvertImportFLIRJPG() {
 	Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
 	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
 	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder);
-	Dialog.addChoice("Fast (approximate) or\nSlow (accurate) Calculation?", fastslowchoice, fastslowchoicedefault); 
+	Dialog.addMessage("Fast calculation is approximate but repeatable \nSlow is accurate but not reversible");
+	Dialog.addChoice("Fast or\nSlow Calculation?", fastslowchoice, fastslowchoicedefault); 
 	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
  	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
 	Dialog.addMessage("Camera Calibration Constants:");
@@ -1025,10 +1027,13 @@ function ConvertFLIRJPGs() {
 			filepath=filelist[i];
 		}
 
-		if (endsWith(toLowerCase(filepath), ".jpg")) {
+		if (endsWith(toLowerCase(filepath), ".jpg") || endsWith(toLowerCase(filepath), ".jpeg")) {
 			
 		filename=File.getName(filepath);
-		filename=substring(filename, 0, lengthOf(filename)-4);
+		dotIndex = lastIndexOf(filename, "." );
+		filename = substring(filename, 0, dotIndex ); // substring based on dot location.  hopefully only 1 dot.
+		
+		//filename=substring(filename, 0, lengthOf(filename)-4);
 	
 		// run Exiftool to return the meta tags with the word "RawThermalImageType".  It should be either TIFF or PNG.	
 		
@@ -1094,6 +1099,7 @@ function ImportConvertFLIRSEQ(){
 	var usevirtual = 1;
 	
 	Dialog.create("Select a FLIR SEQ File");
+	Dialog.addMessage("-- Warning: Before selecting your file, please remove spaces in the file or folder name --");
 	Dialog.addMessage("Define parameters for Video Import");
 	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
 	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
@@ -1142,6 +1148,7 @@ function ImportConvertFLIRCSQ(){
 	var usevirtual = 1;
 	
 	Dialog.create("Select a FLIR CSQ File");
+	Dialog.addMessage("-- Warning: Before selecting your file, please remove spaces in the file or folder name --");
 	Dialog.addMessage("Define parameters for Video Import");
 	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
 	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
@@ -1518,24 +1525,27 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 
 	if(outtype=="png"){
 		print("Importing Image Sequence of PNG files");
-		pngsequenceimportarguments="open=" + outputfolder + " sort";
+		pngsequenceimportarguments="open=[" + outputfolder + "] sort";
+		print(pngsequenceimportarguments);
 		run("Image Sequence...", pngsequenceimportarguments);
 	}
 
 	if(outtype=="tiff"){
 		print("Importing Image Sequence of TIFF files");
-		tiffsequenceimportarguments="open=" + outputfolder + " sort";
+		tiffsequenceimportarguments="open=[" + outputfolder + "] sort";
+		print(tiffsequenceimportarguments);
 		run("Image Sequence...", tiffsequenceimportarguments);
 	}
 
 	if(outtype=="avi"){
 		print("Importing 16-bit grayscale AVI file");
-		ffmpegimportarguments = "choose=" + filedir + File.separator + fileout + " first_frame=0 last_frame=-1";
+		ffmpegimportarguments = "choose=[" + filedir + File.separator + fileout + "]" + " first_frame=0 last_frame=-1";
 		
 		if(usevirtual==1){
-		   ffmpegimportarguments = "choose=" + filedir + File.separator + fileout + " use_virtual_stack first_frame=0 last_frame=-1";
+		   ffmpegimportarguments = "choose=[" + filedir + File.separator + fileout + "]" + " use_virtual_stack first_frame=0 last_frame=-1";
 		}
-		
+
+		print(ffmpegimportarguments);
 		run("Movie (FFMPEG)...", ffmpegimportarguments);
 	}
 
@@ -1563,12 +1573,12 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 
 function ImportFFmpegAVI(){
 	AVIfile=File.openDialog("FFmpeg AVI File");
-	ffmpegchoose="choose=" + "'" + AVIfile + "'" + " use_virtual_stack first_frame=0 last_frame=-1";
+	ffmpegchoose="choose=[" + AVIfile + "]" + " use_virtual_stack first_frame=0 last_frame=-1";
+	print(ffmpegchoose);
 	run("Movie (FFMPEG)...", ffmpegchoose);
 	run("Animation Options...", "speed=30");
 	doCommand("Start Animation [\\]");
 }
-
 
 function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, dialogprompt, FastSlow, imagetemperaturemin, imagetemperaturemax) {
 
@@ -1601,8 +1611,8 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 	Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
 	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
 	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder);
-	Dialog.addChoice("Fast (approximate) or\nSlow (accurate) Calculation?", fastslowchoice, fastslowchoicedefault); 
-	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
+	Dialog.addMessage("Fast calculation is approximate but repeatable \nSlow is accurate but not reversible");
+	Dialog.addChoice("Fast or\nSlow Calculation?", fastslowchoice, fastslowchoicedefault); 	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
  	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
 	
 	Dialog.addMessage("Object Parameters:");
@@ -1762,25 +1772,36 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 			s = s + d2s(r[i], 0) + " \t" + d2s(templookup[i], 12) + "\n";
 			}
 		}
-
+	
 		Fit.doFit("4th Degree Polynomial", x, y);
+		Fit.logResults;
 		predicted=newArray(655);
 		resid=newArray(655);
 		for(i=0; i<655; i++){
 			predicted[i]=Fit.f(x[i]);
 			resid[i]=predicted[i]-y[i];
 		}
- 		
+ 	
 		rms_resid=RMS(resid);
+		Fit.getEquation(3, name, formula);
+		//Fit.plot();
 		
 		print("Temperature was estimated using a 4th order polynomial on a restricted range of the data.");
+		print(formula);
+		print("where y = Temperature, x = Raw 16 bit value, and a,b,c,d,e are the coefficients:");
+		print("a = " + Fit.p(0));
+		print("b = " + Fit.p(1));
+		print("c = " + Fit.p(2));
+		print("d = " + Fit.p(3));
+		print("e = " + Fit.p(4));
+		print("r squared = " + Fit.rSquared);
 		print("This approximates the Sakuma-Hattori equation (used for estimating Planck's law for instruments with non-finite bandwidth) across a limited temperature range");
 		print("The root mean square of the error from polynomial predicted temperature using the fast calculation is:", rms_resid, "degrees C");
 		print("Extreme temperatures are likely to have higher errors");
 		print("If this error is too high, re-run the Raw2Temp with fast calculation setting more stringent image minimum and maximum, or select the Slow calculation");
 		
 		//File.saveString(s, "/Users/GlennTattersall/Desktop/calibration.txt");
-		
+	
 		text1=text1 + "] ";
 		text2=text2 + "] ";
 
@@ -2770,7 +2791,7 @@ macro "Import FLIR CSQ" {
 	 ImportConvertFLIRCSQ();
 }
 
-macro "Import 16-bit AVI" {
+macro "Import 16-bit AVI [i]" {
 	ImportFFmpegAVI();
 }
 
@@ -2945,37 +2966,16 @@ macro "Frame Start Byte"{
 	}
 }
 
-macro "-" {} //menu divider
-
-macro "Convert FLIR JPG(s)"{
-	ConvertFLIRJPGs();
-}
-
 //macro "Import FLIR JPG Action Tool - C000D1eD2eD38D3eD43D48D49D4aD4bD4cD4dD54D65D68D69D6aD6bD6cD6dD6eD70D71D72D73D74D75D76D78D7bD80D81D82D83D84D85D86D88D8bD95D98D99D9aDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DdcDdeDecDedDeeC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff"{
 //	ConvertImportFLIRJPG();
 //}
 
-macro "Import FLIR JPG"{
-	ConvertImportFLIRJPG();
-}
 
 // "Import/Convert FLIR SEQ Action Tool - C000D19D1aD1eD28D2bD2eD38D3bD3eD43D48D4cD4dD4eD54D65D68D69D6aD6bD6cD6dD6eD70D71D72D73D74D75D76D78D7bD7eD80D81D82D83D84D85D86D88D8bD8eD95D98D9eDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DdeDe9DeaDebDecDedDeeDefDfeDffC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
-	
-macro "Import/Convert FLIR SEQ" {
-	ImportConvertFLIRSEQ();
-}
 
 // "Import/Convert FLIR CSQ Action Tool - C000D19D1aD1bD1cD1dD28D2eD38D3eD43D48D4eD54D65D69D6aD6eD70D71D72D73D74D75D76D78D7bD7eD80D81D82D83D84D85D86D88D8bD8eD95D98D9cD9dD9eDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DdeDe9DeaDebDecDedDeeDefDfeDffC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff" {
 	
-	
-macro "Import/Convert FLIR CSQ" {
-	ImportConvertFLIRCSQ();
-}
 
-
-macro "Import FFmpeg AVI [i]" {
-	ImportFFmpegAVI();
-}
 
 macro "-" {} //menu divider
 
@@ -3016,6 +3016,28 @@ macro "Adjust Brightness and Contrast Action Tool - C037D04D05D06D07D08D09D0aD0b
         run("Brightness/Contrast...");
 }
 
+
+macro "-" {} //menu divider
+
+macro "Image Byte Swap Action Tool - C000D12D13D1cD1dD21D24D25D26D27D28D29D2aD2bD2eD31D34D35D36D37D38D39D3aD3bD3eD42D43D4cD4dD82D83D91D92D93D94Da0Da1Da2Da3Da4Da5Db2Db3Dc2Dc3DccDcdDd2Dd3Dd4Dd5Dd6Dd7Dd8Dd9DdaDdbDdeDe2De3De4De5De6De7De8De9DeaDebDeeDfcDfdC000C111C222C333C444C555C666C777C888C999CaaaD1bD4bCaaaD11D14DcbDceDfbDfeCaaaD1eD4eCaaaD41D44CbbbCcccD2dD3dCcccD22DddDedCcccD32CcccD72D73CcccDc4CcccCdddD23D2cD3cDdcDecCdddDb1CdddD33CeeeDb0CeeeD8cD8dDb4DbcDbdCeeeCfffD20D30Df5CfffDc7CfffD17D18D47D48Dc6Dc8Df6Df7Df8CfffD16D19D46D49Dc9Df9CfffDf4CfffDb5CfffDc1"{
+	ByteSwapperFileLocation=getDirectory("plugins") + "Byte_Swapper.class";
+	if(File.exists(ByteSwapperFileLocation)==0){
+		exit("Please install Byte Swapper to your plugins folder\nSee: https://imagej.nih.gov/ij/plugins/swapper.html");
+	}
+	run("Byte Swapper");
+}
+
+macro "Image Byte Swap"{
+	ByteSwapperFileLocation=getDirectory("plugins") + "Byte_Swapper.class";
+	if(File.exists(ByteSwapperFileLocation)==0){
+		exit("Please install Byte Swapper to your plugins folder\nSee: https://imagej.nih.gov/ij/plugins/swapper.html");
+	}
+	run("Byte Swapper");
+}
+
+
+macro "-" {} //menu divider
+
 macro "Add Calibration Bar Action Tool - C000D10D11D12D13D14D15D16D17D18D19D1aD1bD1cD1dD1eD1fD20D2dD2eD2fD30D3dD3eD3fD40D4dD4eD4fD50D5dD5eD5fD60D61D62D63D64D65D66D67D68D69D6aD6bD6cD6dD6eD6fD70D72D74D76D78D7aD7cD7eD80D82D84D86D88D8aD8cD8eDa4Da5Da6Da9DaaDabDacDadDb3Db7Db9DbbDc3Dc7Dc9DcbDd4Dd6Dd9C001C002C003C004C005C006C007C107C108C208C308C309C409D2bD2cD3bD3cD4bD4cD5bD5cC409C509C609C709C809C909Ca09D29D2aD39D3aD49D4aD59D5aCa09Cb09Cc09Cc08Cc18Cc17Cd17Cd26D27D28D37D38D47D48D57D58Cd26Cd25Cd34Cd33Ce33Ce32Ce41Ce40Ce50Ce60D25D26D35D36D45D46D55D56Ce60Cf60Cf70Cf80Cf90Cfa0D23D24D33D34D43D44D53D54Cfa0Cfb0Cfc0Cfd0Cfd1D21D22D31D32D41D42D51D52Cfd1Cfe2Cfe3Cfe4Cfe5Cfe6Cff6Cff7Cff8Cff9CffaCffbCffcCffdCffeCfff"{
 	w=getWidth();
 	h=getHeight();
@@ -3046,24 +3068,6 @@ macro "Add Calibration Bar"{
 	run("Calibration Bar...", calbaroptions);
 }
 
-
-macro "-" {} //menu divider
-
-macro "Image Byte Swap Action Tool - C000D12D13D1cD1dD21D24D25D26D27D28D29D2aD2bD2eD31D34D35D36D37D38D39D3aD3bD3eD42D43D4cD4dD82D83D91D92D93D94Da0Da1Da2Da3Da4Da5Db2Db3Dc2Dc3DccDcdDd2Dd3Dd4Dd5Dd6Dd7Dd8Dd9DdaDdbDdeDe2De3De4De5De6De7De8De9DeaDebDeeDfcDfdC000C111C222C333C444C555C666C777C888C999CaaaD1bD4bCaaaD11D14DcbDceDfbDfeCaaaD1eD4eCaaaD41D44CbbbCcccD2dD3dCcccD22DddDedCcccD32CcccD72D73CcccDc4CcccCdddD23D2cD3cDdcDecCdddDb1CdddD33CeeeDb0CeeeD8cD8dDb4DbcDbdCeeeCfffD20D30Df5CfffDc7CfffD17D18D47D48Dc6Dc8Df6Df7Df8CfffD16D19D46D49Dc9Df9CfffDf4CfffDb5CfffDc1"{
-	ByteSwapperFileLocation=getDirectory("plugins") + "Byte_Swapper.class";
-	if(File.exists(ByteSwapperFileLocation)==0){
-		exit("Please install Byte Swapper to your plugins folder\nSee: https://imagej.nih.gov/ij/plugins/swapper.html");
-	}
-	run("Byte Swapper");
-}
-
-macro "Image Byte Swap"{
-	ByteSwapperFileLocation=getDirectory("plugins") + "Byte_Swapper.class";
-	if(File.exists(ByteSwapperFileLocation)==0){
-		exit("Please install Byte Swapper to your plugins folder\nSee: https://imagej.nih.gov/ij/plugins/swapper.html");
-	}
-	run("Byte Swapper");
-}
 
 
 
@@ -3133,7 +3137,8 @@ macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D
 	Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
 	Dialog.addMessage("TIFF files are usually little endian PNG files are usually big endian");
 	Dialog.addChoice("Swap Byte Order (Usually default is fine)", byteorder, defaultbyteorder);
-	Dialog.addChoice("Use Fast (approximate) or Slow (accurate) Calculation?", fastslowchoice, fastslowchoicedefault); 
+	Dialog.addMessage("Fast calculation is approximate but repeatable \nSlow is accurate but not reversible");
+	Dialog.addChoice("Fast or\nSlow Calculation?", fastslowchoice, fastslowchoicedefault); 
 	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
  	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
  	
@@ -3209,7 +3214,8 @@ macro "Raw2Temp Tool"{
 	Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
 	Dialog.addMessage("TIFF files are usually little endian PNG files are usually big endian");
 	Dialog.addChoice("Swap Byte Order (Usually default is fine)", byteorder, defaultbyteorder);
-	Dialog.addChoice("Use Fast (approximate) or Slow (accurate) Calculation?", fastslowchoice, fastslowchoicedefault); 
+	Dialog.addMessage("Fast calculation is approximate but repeatable \nSlow is accurate but not reversible");
+	Dialog.addChoice("Fast or\nSlow Calculation?", fastslowchoice, fastslowchoicedefault); 
 	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
  	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
  	

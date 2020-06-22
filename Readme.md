@@ -176,18 +176,18 @@ ffmpeg -version
 which ffmpeg
 ```
 
-    ## ffmpeg version 4.1.3 Copyright (c) 2000-2019 the FFmpeg developers
-    ## built with Apple LLVM version 10.0.1 (clang-1001.0.46.4)
-    ## configuration: --prefix=/usr/local/Cellar/ffmpeg/4.1.3_1 --enable-shared --enable-pthreads --enable-version3 --enable-hardcoded-tables --enable-avresample --cc=clang --host-cflags='-I/Library/Java/JavaVirtualMachines/adoptopenjdk-11.0.2.jdk/Contents/Home/include -I/Library/Java/JavaVirtualMachines/adoptopenjdk-11.0.2.jdk/Contents/Home/include/darwin' --host-ldflags= --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libbluray --enable-libmp3lame --enable-libopus --enable-librubberband --enable-libsnappy --enable-libtesseract --enable-libtheora --enable-libvorbis --enable-libvpx --enable-libx264 --enable-libx265 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-librtmp --enable-libspeex --enable-videotoolbox --disable-libjack --disable-indev=jack --enable-libaom --enable-libsoxr
-    ## libavutil      56. 22.100 / 56. 22.100
-    ## libavcodec     58. 35.100 / 58. 35.100
-    ## libavformat    58. 20.100 / 58. 20.100
-    ## libavdevice    58.  5.100 / 58.  5.100
-    ## libavfilter     7. 40.101 /  7. 40.101
+    ## ffmpeg version 4.2.2 Copyright (c) 2000-2019 the FFmpeg developers
+    ## built with Apple clang version 11.0.0 (clang-1100.0.33.17)
+    ## configuration: --prefix=/usr/local/Cellar/ffmpeg/4.2.2_2 --enable-shared --enable-pthreads --enable-version3 --enable-avresample --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libbluray --enable-libmp3lame --enable-libopus --enable-librubberband --enable-libsnappy --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-librtmp --enable-libspeex --enable-libsoxr --enable-videotoolbox --disable-libjack --disable-indev=jack
+    ## libavutil      56. 31.100 / 56. 31.100
+    ## libavcodec     58. 54.100 / 58. 54.100
+    ## libavformat    58. 29.100 / 58. 29.100
+    ## libavdevice    58.  8.100 / 58.  8.100
+    ## libavfilter     7. 57.100 /  7. 57.100
     ## libavresample   4.  0.  0 /  4.  0.  0
-    ## libswscale      5.  3.100 /  5.  3.100
-    ## libswresample   3.  3.100 /  3.  3.100
-    ## libpostproc    55.  3.100 / 55.  3.100
+    ## libswscale      5.  5.100 /  5.  5.100
+    ## libswresample   3.  5.100 /  3.  5.100
+    ## libpostproc    55.  5.100 / 55.  5.100
     ## /usr/local/bin/ffmpeg
 
 ## Setting and verifying paths to command line tools
@@ -467,7 +467,7 @@ Tools” link, selecting **Restore Start-Up Tools** then clicking on the
       - macros coded to short-cut keys, such as: 1,2,3,4,5,6 by adding
         \[\#\] to the name of the macro in the ThermImageJ.ijm file
       - some extra ROI short-cuts (i.e. d, l) might exist that I have in
-        place for my own analyses - you can ignore these
+        place for my own analyses - you can ignore these line ROIs
       - extracts mean, min, max, sd, and area of the given ROI and saves
         to results window as well as to a ROI\_Results.csv file to
         user’s desktop
@@ -588,10 +588,15 @@ Tools” link, selecting **Restore Start-Up Tools** then clicking on the
 
 <https://github.com/gtatters/ThermImageJ/blob/master/SampleFiles.zip>
 
-## Demonstration
+## Video Guide: Installation
+
+See this screen capture introducing the basic installation steps.
+<https://youtu.be/8SXhzOlsmKI>
+
+## Video Guide: Demonstration of Functions
 
 See this screen capture demonstrating basic functions here:
-<https://www.youtube.com/watch?v=5XYZw0kqX64&list=PLKTF21r744mvLvRdF05UloE7g1dxCUvSD&index=3>
+<https://youtu.be/5XYZw0kqX64>
 
 ## Performance, Speed, File Size Limits, and Caveats
 
