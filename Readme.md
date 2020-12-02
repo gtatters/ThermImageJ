@@ -37,15 +37,25 @@ similar tools but more emphasis on biological heat transfer analysis.
   - FIJI is Just ImageJ. Download instructions:
     <https://imagej.net/Fiji/Downloads>
   - Exiftool. (The standalone executable file is suggested).
-    Installation instructions:
-    <http://www.sno.phy.queensu.ca/~phil/exiftool/install.html>
-  - FFMPEG command line utility (static version). Download instructions:
-    <https://ffmpeg.org/download.html>
+      - Installation instructions:
+        <http://www.sno.phy.queensu.ca/~phil/exiftool/install.html>
+      - Windows users might find these instructions do not work readily,
+        so perhaps try this link:
+        <https://oliverbetz.de/pages/Artikel/ExifTool-for-Windows>
+      - I prefer the simple solution of installing exiftool.exe directly
+        into the windows folder and then verifying it has security
+        privileges to run.
+  - FFMPEG command line utility (static version).
+      - Download instructions: <https://ffmpeg.org/download.html>
+      - Choose the “get packages and executable files” to facilitate an
+        easy installation unless you prefer to work with the source code
+      - Choose the static build.
   - Perl. (Activeperl binary is suggested, although perl may already be
-    built into your operating system). Installation instructions:
-    <https://www.perl.org/get.html>
-  - Byte swapper plugin. Download instructions:
-    <https://imagej.nih.gov/ij/plugins/swapper.html>
+    built into your operating system).
+      - Installation instructions: <https://www.perl.org/get.html>
+  - Byte swapper plugin.
+      - Download instructions:
+        <https://imagej.nih.gov/ij/plugins/swapper.html>
 
 ### ThermImageJ Downloads from this Github site
 
@@ -176,18 +186,18 @@ ffmpeg -version
 which ffmpeg
 ```
 
-    ## ffmpeg version 4.2.2 Copyright (c) 2000-2019 the FFmpeg developers
-    ## built with Apple clang version 11.0.0 (clang-1100.0.33.17)
-    ## configuration: --prefix=/usr/local/Cellar/ffmpeg/4.2.2_2 --enable-shared --enable-pthreads --enable-version3 --enable-avresample --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libbluray --enable-libmp3lame --enable-libopus --enable-librubberband --enable-libsnappy --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-librtmp --enable-libspeex --enable-libsoxr --enable-videotoolbox --disable-libjack --disable-indev=jack
-    ## libavutil      56. 31.100 / 56. 31.100
-    ## libavcodec     58. 54.100 / 58. 54.100
-    ## libavformat    58. 29.100 / 58. 29.100
-    ## libavdevice    58.  8.100 / 58.  8.100
-    ## libavfilter     7. 57.100 /  7. 57.100
+    ## ffmpeg version 4.3.1 Copyright (c) 2000-2020 the FFmpeg developers
+    ## built with Apple clang version 11.0.3 (clang-1103.0.32.62)
+    ## configuration: --prefix=/usr/local/Cellar/ffmpeg/4.3.1_1 --enable-shared --enable-pthreads --enable-version3 --enable-avresample --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libbluray --enable-libdav1d --enable-libmp3lame --enable-libopus --enable-librav1e --enable-librubberband --enable-libsnappy --enable-libsrt --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-librtmp --enable-libspeex --enable-libsoxr --enable-videotoolbox --disable-libjack --disable-indev=jack
+    ## libavutil      56. 51.100 / 56. 51.100
+    ## libavcodec     58. 91.100 / 58. 91.100
+    ## libavformat    58. 45.100 / 58. 45.100
+    ## libavdevice    58. 10.100 / 58. 10.100
+    ## libavfilter     7. 85.100 /  7. 85.100
     ## libavresample   4.  0.  0 /  4.  0.  0
-    ## libswscale      5.  5.100 /  5.  5.100
-    ## libswresample   3.  5.100 /  3.  5.100
-    ## libpostproc    55.  5.100 / 55.  5.100
+    ## libswscale      5.  7.100 /  5.  7.100
+    ## libswresample   3.  7.100 /  3.  7.100
+    ## libpostproc    55.  7.100 / 55.  7.100
     ## /usr/local/bin/ffmpeg
 
 ## Setting and verifying paths to command line tools
@@ -601,8 +611,8 @@ See this screen capture demonstrating basic functions here:
 ## Performance, Speed, File Size Limits, and Caveats
 
   - The maximum number of video frames (i.e. stacks) will limited by the
-    CPU and RAM, but success with videos and image stacks of up to ~1000
-    frames has been tested.
+    CPU and RAM, but success with videos and image stacks of up to
+    \~1000 frames has been tested.
   - Due to memory limits in FIJI, delay converting larger video files to
     temperature until the files have been otherwise processed. The
     memory required to work with converted files (32-Bit) is double that
