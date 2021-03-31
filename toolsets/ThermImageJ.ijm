@@ -4,7 +4,7 @@
 ////        Main Features: import, conversion, and transformation of thermal images.               ////
 ////                           Requires: exiftool, ffmpeg, perl                                    ////
 ////                                Glenn J. Tattersall                                            ////
-////                               May, 2020 - Version 2.3                                         ////
+////                               March, 2021 - Version 2.4                                       ////
 ////                                                                                               ////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -24,11 +24,14 @@ var colors = newArray("Red", "Green", "Blue", "Cyan", "Magenta", "Yellow");
 
 // the following persistent variable are updated on the user's ImageJ once Raw2Temp or FlirValues is performed on a file
 // This will help for continuity when analysing files in between imagej sessions
+// User may wish to update these values to reflect their own commonly used thermal camera in order to streamline 
+// calculations:
 var PR1 = parseFloat(call("ij.Prefs.get", "PR1.persistent","17998.529")); 
 var PR2 = parseFloat(call("ij.Prefs.get", "PR2.persistent","0.015145967")); 
 var PB = parseFloat(call("ij.Prefs.get", "PB.persistent","1453.1")); 
 var PF = parseFloat(call("ij.Prefs.get", "PF.persistent","1")); 
-var PO = parseFloat(call("ij.Prefs.get", "PO.persistent","-5854")); 
+var PO = parseFloat(call("ij.Prefs.get", "PO.persistent","-5854"));
+ 
 var ATA1 = parseFloat(call("ij.Prefs.get", "ATA1.persistent","0.006569")); 
 var ATA2 = parseFloat(call("ij.Prefs.get", "ATA2.persistent","0.01262")); 
 var ATB1 = parseFloat(call("ij.Prefs.get", "ATB1.persistent","-0.002276")); 
@@ -60,12 +63,40 @@ var perlscriptpath=getDirectory("imageJ") + "scripts" + File.separator;  			  //
 // ROI commands will automatically save a ROI_Results file to user's desktop folder 
 var desktopdir= getInfo("user.home") + File.separator + "Desktop" + File.separator;  // <- VERIFY THIS
 
+// ROI exported file can be autonamed so as not to overwrite
+// leave defaultroifilename blank and a filename will be generated based on the current open image
+// otherwise set this to var defaultroifilename="ROI_Results.csv";
+var defaultroifilename="";  													     // <- VERIFY THIS	
+
+// related to above, there are currently 6 numbered ROI extraction routines.  
+// Give labels to them here which will be saved in the ROI file.
+var ROI1="Ground";
+var ROI2="Bill";
+var ROI3="Eye";
+var ROI4="Neck";
+var ROI5="Back";
+var ROI6="Foot";
+
+// Note: This is a sample of how you could re-name the 6 ROI names:
+// Simply remove the // in front of each variable name and reboot ImageJ
+//var ROI1="UpperBill";
+//var ROI2="LowerBill";
+//var ROI3="Head";
+//var ROI4="Back";
+//var ROI5="Belly";
+//var ROI6="Foot";
+
+
 // full path to the split.pl script
 var perlsplit=perlscriptpath + "split.pl";	
 
 // Extract Operating system user is on.  
 // OS will be used in most macros calling command line tools
 var OS=getInfo("os.name");
+
+
+// These path variables can be changed depending on where you have installed perl, ffmpeg and exiftool.
+// But these are the recommended folder locations where functionality has been tested
 
 // OSX Users verify these settings:									 // <- VERIFY THIS
 var perlpathOSX="/usr/bin/";    	 // or var perlpathOSX="/usr/local/bin"
@@ -80,10 +111,12 @@ var exiftoolLinux="exiftool";
 var ffmpegpathLinux="/usr/bin/";
 
 // Windows Users verify these settings:								 // <- VERIFY THIS
-var perlpathWindows="c:/Perl64/bin/";
-var exiftoolpathWindows="c:/windows/";
+var perlpathWindows="c:/Perl64/bin/"; 			 // depending on what perl you installed this might be c:/Perl/perl/bin or c:/Perl64/perl/bin
+var exiftoolpathWindows="c:/windows/"; 			 // following exiftool.org recommended location to place exiftool.exe in c:/windows folder
 var exiftoolWindows="exiftool.exe";
-var ffmpegpathWindows="c:/FFmpeg/bin/";
+var ffmpegpathWindows="c:/FFmpeg/bin/";			 // after downloading a recent version of static ffmpeg, simply copy the 'bin' folder to c:/FFmpeg folder
+
+
 
 	
 //////////////////////////////////////// Functions ///////////////////////////////////////////////
@@ -293,6 +326,43 @@ function cumsum(ArrayX){
 	return csum;
 }
 
+
+function movavg(ArrayX, n){
+	// calculate moving average of an Array.
+	// ArrayX is the array of data you want to average over.
+	// n is the number of samples.  Better to use odd numbers, like 3, 5, 7, etc.
+	len=ArrayX.length;
+	cx = cumsum(ArrayX);
+	//Array.print(cx);
+	rsum=newArray(len);
+	rsum=ArrayX;
+	
+	for (i = n; i < len; i++) {
+		rsum[i] = (cx[i] - cx[i-n])/n;	
+	}
+	
+	Array.getStatistics(ArrayX, mean);
+	mean=mean;
+	movingaverage=newArray(len);
+	
+	// go through index, shift to centre the moving average (first n/2 entries and last n/2 entries set to mean)
+	// this is a work in progress.  Might not be perfectly centered over data
+	for (i = 0; i < len; i++) {
+		
+		movingaverage[i]=rsum[n];
+		
+		if(i>floor(n/2)){
+			movingaverage[i]=rsum[i];
+		}
+		if(i>len-floor(n/2)-1){
+			movingaverage[i]=rsum[len-n];
+		}
+	}
+
+	return movingaverage;
+}
+
+
 // faster calculation of median - approximate
 function MedianFast(){
 	getStatistics(area, mean, min, max, std, histogram);
@@ -434,6 +504,130 @@ function doSort(theArray){
 	return rankPosArr;
 }
 
+
+function entropy(){
+	// Objective: solve Shannon's Entropy for a given Region of Interest or Image
+	// Formula: H = - sum(p(Si) * log2(p(Si))
+	// summing across all n elements in a histogram of roi
+	// where p(Si) is the probability of event Si occurring, where i is ith element of n.	
+	// log2 is log base 2
+	// I was going to use this for assessment of randomness or structure in an image but I think it won't work
+	getStatistics(area, mean, min, max, std, histogram);
+	pixelhist=histogram;
+	length=pixelhist.length;
+	p=newArray(length);
+	
+	total=0;
+	for (i=0;i<length;i++){
+	 	total=total+pixelhist[i];
+	}
+	
+	for (i=0;i<length;i++){
+	 	p[i]=pixelhist[i]/total;
+	}
+	
+	//binwidth=(max-min)/length;
+	
+	p=Array.deleteValue(p, 0);
+
+	H=0;
+	
+	for (i = 0; i < lengthOf(p); i++) {
+		//if(p[i]==0) {
+		//	i++;
+		//}
+		H=H+p[i]*log(p[i])/log(2); // to calculate log base 2, compute log(x)/log(2)
+		//print(p[i]);
+	}
+	// H is Shannon's Entropy
+	H=-1*H;
+	print(H);
+}
+
+
+	
+// returns a random number, 0 <= k < n
+function randomInt(n) {
+   return n * random();
+}
+
+function shuffle(array) {
+	// will shuffle an array and return it. 
+	// needs the randomInt() function
+	//array = newArray(2.2, 3.3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97);
+	//shuffle(primes);
+	//Array.print(array);
+    n = array.length;  // The number of items left to shuffle (loop invariant).
+    // newarray=newArray(n);
+ 
+   while (n > 1) {
+      k = randomInt(n);     // 0 <= k < n.
+      n--;                  // n is now the last pertinent index;
+      temp = array[n];  // swap array[n] with array[k] (does nothing if k==n).
+      array[n] = array[k];
+      array[k] = temp;
+   }
+	
+}
+
+
+function ImageRestructure(){
+	//getStatistics(area, mean, min, max, std, histogram);
+	
+	roivalues=getPixelArray();
+	length=lengthOf(roivalues);
+	index=newArray(length);
+	for (i = 0; i < length; i++) {
+		index[i]=i;
+	}
+	
+	shuffle(index);
+		
+	roivaluesrandom=newArray(length);
+	for (i = 0; i < length; i++) {
+		roivaluesrandom[i]=roivalues[index[i]];
+	}
+
+    euclid=newArray(length);
+    euclid2=newArray(length);
+    
+	for (i=0; i<length; i++){
+		//print(roivaluesrandom[i]);
+	 	euclid[i]=roivalues[i] - roivaluesrandom[i];
+	 	euclid2[i]=euclid[i]*euclid[i];
+	    //print(euclid2[i]);
+	}
+
+	// Sum the euclidean differences squared and normalise to length then take squareroot
+	// this provides a standard deviation from the random restructured image
+	sdrandomdiff=sqrt(Sum(euclid2)/length);
+	varrandomdiff=Sum(euclid2)/length;
+	// get raw roi statistics
+	Array.getStatistics(roivalues, min, max, mean, stdDev);
+
+	roivar=stdDev*stdDev;
+	print(varrandomdiff);
+	print(roivar);
+	print(varrandomdiff/roivar);
+	
+	return sdrandomdiff;
+}
+
+var E = parseFloat(call("ij.Prefs.get", "E.persistent","0.95")); 
+var OD = parseFloat(call("ij.Prefs.get", "OD.persistent","1")); 
+var RTemp = parseFloat(call("ij.Prefs.get", "RTemp.persistent","20")); 
+var ATemp = parseFloat(call("ij.Prefs.get", "ATemp.persistent","20")); 
+var IRWTemp = parseFloat(call("ij.Prefs.get", "IRWTemp.persistent","20")); 
+var IRT = parseFloat(call("ij.Prefs.get", "IRT.persistent","1")); 
+var RH = parseFloat(call("ij.Prefs.get", "RH.persistent","50.0")); 
+
+
+function pasteobjectparameters(){
+	// extract the object parameters currently in use
+	// to export easily to spreadsheet
+	op="E=" + E + " OD=" + OD + " RTemp=" + RTemp + " ATemp=" + ATemp + " IRWTemp=" + IRWTemp + " IRT=" + IRT + " RH=" + RH;	
+	return op;
+}
 
 
 // search files for first 3 characters for FFF and return that list of files
@@ -655,16 +849,16 @@ function RawImportFLIRSEQ() {
 
 	run("Raw...", "open=[filepath] image=[16-bit Unsigned] width=imagewidth height=imageheight offset=offsetbyte number=nframes gap=gapbytes little-endian use=usevirtual");
 	
-	if(OS=="Mac OS X"){
-		flirvals=exec("/usr/local/bin/exiftool",  "-Planck*", "-*AtmosphericTrans*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
+	if(OS=="Mac OS X"){		
+		flirvals=exec(exiftoolpathOSX + exiftoolOSX,  "-Planck*", "-*AtmosphericTrans*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
 	}
 
 	if(OS=="Linux"){
-		flirvals=exec("/usr/local/bin/exiftool",  "-Planck*", "-*AtmosphericTrans*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
+		flirvals=exec(exiftoolpathLinux + exiftoolLinux,  "-Planck*", "-*AtmosphericTrans*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
 	}
 	
 	if(substring(OS, 0, 5)=="Windo"){
-		flirvals=exec("c:/Windows/exiftool.exe", "-Planck*", "-*AtmosphericTrans*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
+		flirvals=exec("cmd", "/c", exiftoolpathWindows + exiftoolWindows, "-Planck*", "-*AtmosphericTrans*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
 	}
 	
         var PR1 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck R1"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck R1")) ));
@@ -806,8 +1000,21 @@ function ConvertImportFLIRJPG() {
 	//flirimageraw = exec("/usr/local/bin/exiftool", "-RawThermalImageType", filepath);	
 
 	var RawThermalType=""; // set RawThermalType as blank to start
+
+	if(OS=="Mac OS X"){		
+		flirimageraw = exec(exiftoolpath + exiftoolOSX, "-RawThermalImageType", filepath);
+		}
+
+	if(OS=="Linux"){
+		flirimageraw = exec(exiftoolpath + exiftoolLinux, "-RawThermalImageType", filepath);
+		}
 	
-	flirimageraw = exec(exiftoolpath + exiftool, "-RawThermalImageType", filepath);
+	if(substring(OS, 0, 5)=="Windo"){
+		flirimageraw = exec("cmd", "/c", exiftoolpath + exiftoolWindows, "-RawThermalImageType", filepath);
+		}
+	
+	//flirimageraw = exec(exiftoolpath + exiftool, "-RawThermalImageType", filepath);
+	
 	RawThermalType = substring(flirimageraw, indexOf(flirimageraw, ":")+1 );
 	
 	// determine the data storage format of the flir jpg.  Either tiff or png	
@@ -887,9 +1094,9 @@ function ConvertImportFLIRJPG() {
 	
 	Dialog.create("Verify Camera and Object Parameters");
 	Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
-	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
-	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder);
-	Dialog.addMessage("Fast calculation is approximate but repeatable \nSlow is accurate but not reversible");
+	Dialog.addMessage("TIFF file pixel byte are usually little endian, PNG file pixel bytes are usually big endian");
+	Dialog.addChoice("Keep Default or Swap Byte Order?", byteorder, defaultbyteorder);
+	Dialog.addMessage("Fast calculation is approximate but repeatable. Slow is accurate but not reversible");
 	Dialog.addChoice("Fast or\nSlow Calculation?", fastslowchoice, fastslowchoicedefault); 
 	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
  	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
@@ -1036,8 +1243,21 @@ function ConvertFLIRJPGs() {
 		//filename=substring(filename, 0, lengthOf(filename)-4);
 	
 		// run Exiftool to return the meta tags with the word "RawThermalImageType".  It should be either TIFF or PNG.	
+
+		if(OS=="Mac OS X"){		
+			flirimageraw = exec(exiftoolpath + exiftoolOSX, "-RawThermalImageType", filepath);
+			}
+
+		if(OS=="Linux"){
+			flirimageraw = exec(exiftoolpath + exiftoolLinux, "-RawThermalImageType", filepath);
+			}
+	
+		if(substring(OS, 0, 5)=="Windo"){
+			flirimageraw = exec("cmd", "/c", exiftoolpath + exiftoolWindows, "-RawThermalImageType", filepath);
+			}
+			
+		//flirimageraw = exec(exiftoolpath + exiftool, "-RawThermalImageType", filepath);
 		
-		flirimageraw = exec(exiftoolpath + exiftool, "-RawThermalImageType", filepath);
 		RawThermalType = substring(flirimageraw, indexOf(flirimageraw, ":")+1 );
 		
 		// determine the data storage format of the flir jpg.  Either tiff or png	
@@ -1453,7 +1673,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	// See: http://imagej.1557.x6.nabble.com/macro-Redirection-in-exec-UNIX-binary-td3687463.html
 	//rawcombinecmd = exiftoolpath + exiftool +  " -b -RawThermalImage " + tempfolder + File.separator + "*.fff > " + filedir + File.separator + "thermalvid.raw";
 
-	rawcombinecmd = exiftoolpath + exiftool +  " -b -r -fast -P -progress -sort -RawThermalImage " + tempfolder + File.separator + "*.fff > " + filedir + File.separator + "thermalvid.raw";
+	rawcombinecmd = exiftoolpath + exiftool +  " -b -r -fast -P -sort -RawThermalImage " + tempfolder + File.separator + "*.fff > " + filedir + File.separator + "thermalvid.raw";
 	print("Combining the fff files into a thermalvid.raw file with: ");
 	print(rawcombinecmd);
 	
@@ -1466,7 +1686,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	}
 
 	if(substring(OS, 0, 5)=="Windo"){
-		exec("cmd", "/c", exiftoolpath + exiftool, "-b", "-RawThermalImage", tempfolder + File.separator + "*.fff", ">", filedir + File.separator + "thermalvid.raw");
+		exec("cmd", "/c", exiftoolpath + exiftoolWindows, "-b", "-RawThermalImage", tempfolder + File.separator + "*.fff", ">", filedir + File.separator + "thermalvid.raw");
 	}
 
 	// Execute the split.pl script on thermalvid.raw to create tiff (or jpegls) files
@@ -1609,10 +1829,10 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 	
 	Dialog.create("Verify Camera and Object Parameters");
 	Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
-	Dialog.addMessage("TIFF file pixel byte are usually little endian\nPNG file pixel bytes are usually big endian");
-	Dialog.addChoice("Swap Byte Order?", byteorder, defaultbyteorder);
-	Dialog.addMessage("Fast calculation is approximate but repeatable \nSlow is accurate but not reversible");
-	Dialog.addChoice("Fast or\nSlow Calculation?", fastslowchoice, fastslowchoicedefault); 	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
+	Dialog.addMessage("TIFF file pixel byte are usually little endian, PNG file pixel bytes are usually big endian");
+	Dialog.addChoice("Keep Default or Swap Byte Order?", byteorder, defaultbyteorder);
+	Dialog.addMessage("Fast calculation is approximate but repeatable, Slow is accurate but not reversible");
+	Dialog.addChoice("Fast or Slow Calculation?", fastslowchoice, fastslowchoicedefault); 	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
  	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
 	
 	Dialog.addMessage("Object Parameters:");
@@ -1812,18 +2032,20 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 		getStatistics(count, mean, min, max);
 
 		toohigh=0; toolow=0;
-		if(max + 5 > imagetemperaturemax){
+		if(max > imagetemperaturemax){
 			toohigh=1;
 		}
 		
-		if(min - 5 < imagetemperaturemin){
+		if(min  < imagetemperaturemin){
 			toolow=1;
 		}
 		outofrange=toohigh+toolow;
 
 		if(outofrange>0){
 			print(" ------- WARNING -------");
-			print("Temperatures calculated fall outside the expected image min and max values and are likely subject to extrapolation errors.");
+			print("Minimum estimated temperature = ", min);
+			print("Maximum estimated temperature = ", max);
+			print("Temperatures calculated fall outside your expected image min and max values and are likely subject to extrapolation errors.");
 			print("Please recalculate using the fast option with wider min or max ranges.");
 		}
 	}
@@ -2079,7 +2301,7 @@ function CalculateEmissivity() {
 	}
 		
 	ApparentRaw=Temp2RawCalc(ApparentTemp, PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), KnownE, OD, RTemp, ATemp, IRWTemp, IRT, RH);
-	print("This macro will estimate the transmittance of a window placed in front of an object");
+	print("This macro will estimate the emissivity of a novel surface.");
 	print("The object temperature must first be known, usually measured with black electrical tape, assuming thermal equilibration.");
 	print("User provides the estimated temperature object of interest, measured assuming same E as the reference E.");
 	//print("Predicted raw from the provided temperature estimate, if E were truly equal to the reference E is: " + ApparentRaw);
@@ -2110,12 +2332,12 @@ function CalculateEmissivity() {
 	// the position of the minimum temp diff should correspond to the appropriate E that provides the KnownT
 	// the 0th ranklocation should provide the location within the tempdiff array that corresponds to the minimum
 	
-	E=EArray[ranklocation[0]];
-	print(E);
+	ApparentE=EArray[ranklocation[0]];
+	print(ApparentE);
 	print("\n");
-
+	
 	if(tempdiff[ranklocation[0]]>0.5){
-		E=KnownE;
+		ApparentE=KnownE;
 		Dialog.create("Object Emissivity");
 		Dialog.addMessage("Warning: Results out of range!");
 		Dialog.addMessage("The default estimate for emissivity will remain:");
@@ -2129,15 +2351,19 @@ function CalculateEmissivity() {
 	if(tempdiff[ranklocation[0]]<=0.5){
 		Dialog.create("Object Emissivity");
 		Dialog.addMessage("The Object Emissivity is estimated as:");
-		Dialog.addMessage("     " + E);
+		Dialog.addMessage("     " + ApparentE);
 		Dialog.addMessage("Compare this transmittance to your expected values.");
 		Dialog.addMessage("e.g. many biological surfaces have E values above 0.9.");
 		Dialog.show();
 	}
 	
 	
+	if(storeE==0) {
+		call("ij.Prefs.set", "E.persistent",toString(KnownE)); 
+	}
+	
 	if(storeE==1) {
-		call("ij.Prefs.set", "E.persistent",toString(E)); 
+		call("ij.Prefs.set", "E.persistent",toString(ApparentE)); 
 	}
 
 }
@@ -2241,13 +2467,21 @@ function flirvalues(filepath, printvalues){
 		var exiftoolpath=exiftoolpathOSX;
 		var exiftool=exiftoolOSX;
 		var ffmpegpath=ffmpegpathOSX;
+		flirvaltext=exiftoolpath + exiftool + " " + "'-Planck*'" + " " + "'-*AtmosphericTrans*'" + " " + "'-*Emissivity'" + " " + "'-*Distance'" + " " + "'-*Temperature'" + " " + "'-*Transmission'" + " " +  "'-*Humidity'" + " " + "'-*Height'" + " " + "'-*Width'" + " " + "'-*Original'" + " " + "'-*Date'" + " " + filepath;
+		print("Command line code being executed (copy/paste into terminal window to test):");
+		print(flirvaltext);
+		flirvals=exec(exiftoolpath + exiftool,  "-Planck*", "-*AtmosphericTrans*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
 	}
 
 	if(OS=="Linux"){
 		var perlpath=perlpathLinux;
 		var exiftoolpath=exiftoolpathLinux;
 		var exiftool=exiftoolOSX;
-		var ffmpegpath=ffmpegpathLinux;
+		var ffmpegpath=ffmpegpathLinux;	
+		flirvaltext=exiftoolpath + exiftool + " " + "'-Planck*'" + " " + "'-*AtmosphericTrans*'" + " " + "'-*Emissivity'" + " " + "'-*Distance'" + " " + "'-*Temperature'" + " " + "'-*Transmission'" + " " +  "'-*Humidity'" + " " + "'-*Height'" + " " + "'-*Width'" + " " + "'-*Original'" + " " + "'-*Date'" + " " + filepath;
+		print("Command line code being executed (copy/paste into terminal window to test):");
+		print(flirvaltext);
+		flirvals=exec(exiftoolpath + exiftool,  "-Planck*", "-*AtmosphericTrans*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
 	}
 	
 	if(substring(OS, 0, 5)=="Windo"){
@@ -2255,9 +2489,12 @@ function flirvalues(filepath, printvalues){
 		var exiftoolpath=exiftoolpathWindows;
 		var exiftool=exiftoolWindows;
 		var ffmpegpath=ffmpegpathWindows;
+		flirvaltext=exiftoolpath + exiftool + " " + "'-Planck*'" + " " + "'-*AtmosphericTrans*'" + " " + "'-*Emissivity'" + " " + "'-*Distance'" + " " + "'-*Temperature'" + " " + "'-*Transmission'" + " " +  "'-*Humidity'" + " " + "'-*Height'" + " " + "'-*Width'" + " " + "'-*Original'" + " " + "'-*Date'" + " " + filepath;
+		print("Command line code being executed (copy/paste into command window to test):");
+		print(flirvaltext);
+		// might need to explicitly call "c:/Windows/exiftool.exe" below instead of the variables
+		flirvals=exec("cmd", "/c", exiftoolpath + exiftool,  "-Planck*", "-*AtmosphericTrans*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
 	}
-	
-	flirvals=exec(exiftoolpath + exiftool,  "-Planck*", "-*AtmosphericTrans*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
 	
          PR1 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck R1"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck R1")) ));
 		 PB = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck B"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck B")) ));
@@ -2371,6 +2608,10 @@ function flirdate(filepath, printvalues){
 		var exiftoolpath=exiftoolpathOSX;
 		var exiftool=exiftoolOSX;
 		var ffmpegpath=ffmpegpathOSX;
+		flirvaltext=exiftoolpath + exiftool + " " + "'-*Original'" + " " + filepath;
+		print("Command line code being executed (copy/paste into terminal window to test):");
+		print(flirvaltext);
+		flirvals=exec(exiftoolpath + exiftool, "-*Original*",  filepath);
 	}
 
 	if(OS=="Linux"){
@@ -2378,6 +2619,10 @@ function flirdate(filepath, printvalues){
 		var exiftoolpath=exiftoolpathLinux;
 		var exiftool=exiftoolOSX;
 		var ffmpegpath=ffmpegpathLinux;
+		flirvaltext=exiftoolpath + exiftool + " " + "'-*Original'" + " " + filepath;
+		print("Command line code being executed (copy/paste into terminal window to test):");
+		print(flirvaltext);
+		flirvals=exec(exiftoolpath + exiftool, "-*Original*",  filepath);
 	}
 	
 	if(substring(OS, 0, 5)=="Windo"){
@@ -2385,9 +2630,13 @@ function flirdate(filepath, printvalues){
 		var exiftoolpath=exiftoolpathWindows;
 		var exiftool=exiftoolWindows;
 		var ffmpegpath=ffmpegpathWindows;
+		flirvaltext=exiftoolpath + exiftool + " " + "'-*Original'" + " " + filepath;
+		print("Command line code being executed (copy/paste into command window to test):");
+		print(flirvaltext);
+		flirvals=exec("cmd", "/c", exiftoolpath + exiftool, "-*Original*",  filepath);
 	}
 
-	flirvals=exec(exiftoolpath + exiftool, "-*Original*",  filepath);
+   //	flirvals=exec(exiftoolpath + exiftool, "-*Original*",  filepath);
 	
     datetimeoriginal=substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Original"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Original")) );
     dateoriginal=substring(datetimeoriginal, 1, 11);
@@ -2417,7 +2666,7 @@ function flirdate(filepath, printvalues){
 
 
 
-function addMeasurementLabel(type, units, decimals, colour, addROI, drawx, drawy) {
+function addMeasurementLabel(type, units, decimals, colour, fontsize, addROI, drawx, drawy) {
 
 	print("\n------ Running addMeasurementLabel function ------");
 	
@@ -2467,8 +2716,9 @@ function addMeasurementLabel(type, units, decimals, colour, addROI, drawx, drawy
         	run("Measure");
         	label = type + ": " + d2s(getResult(resulttype, nResults-1), 2) + " " + units;
  			setColor(colour, colour, colour);
-  			setFont("SansSerif", 14);
+  			setFont("SansSerif", fontsize);
          	drawString(label, drawx, drawy);
+         
      	 }
      	 
 	if(addROI==1){
@@ -2477,6 +2727,87 @@ function addMeasurementLabel(type, units, decimals, colour, addROI, drawx, drawy
 	}
      	
 }
+
+
+
+function addvaluelocation(type, label, colour, fontsize) {
+	
+	//type="Max";
+	//fontsize=12;
+	//print(type);
+	print("\n------ Running addvaluelocation function ------");
+
+	// type should be one of: Min or Max
+	// but will be converted to: mean min standard modal median skewness kurtosis
+
+	
+	n = nSlices;
+	getSelectionBounds(x, y, width, height);
+
+     	 for (slice=1; slice<=n; slice++) {
+     	 	//run("Clear Results");
+        	showProgress(slice, n);
+        	print("Slice", slice);
+         	setSlice(slice);
+		 	rownum=getSliceNumber()-1;
+		 	
+				Roi.getBounds(rx, ry, width, height); 
+				row = 0; 
+				X=newArray(width*height);
+				Y=newArray(width*height);
+				Value=newArray(width*height);
+				for(y=ry; y<ry+height; y++) { 
+  				  	for(x=rx; x<rx+width; x++) { 
+  				      	//if(Roi.contains(x, y)==1) { 
+    			        	//setResult("X", row, x); 
+    			        	//setResult("Y", row, y); 
+    			        	//setResult("Value", row, getPixel(x, y)); 
+  				          	X[row]=x;
+  				          	Y[row]=y;
+  				          	Value[row]=getPixel(x,y);
+  				          	//print(Value[row]);
+  				          	row++; 
+  				          //	} 
+			    	} 
+				} 
+				
+        	// Get the columns from the active Results table
+			//X=Table.getColumn("X");
+			//Y=Table.getColumn("Y");
+			//Value=Table.getColumn("Value");
+			
+			// locate maxima in the array, returns an array
+			indices_max = Array.findMaxima(Value, 1);
+			indices_min = Array.findMinima(Value, 1);
+			
+			imax = indices_max[0]; // just keep the largest
+			imin = indices_min[0];
+			
+			if(type=="Max"){
+				Xcoord=X[imax];
+				Ycoord=Y[imax];
+			}
+
+ 			  if(type=="Min"){
+				Xcoord=X[imin];
+				Ycoord=Y[imin];
+			}
+			
+        	setColor(colour, colour, colour);
+        	setFont("SansSerif", fontsize);
+         	drawString(label, Xcoord, Ycoord);
+         	      	
+     	 }
+     
+     
+}
+
+
+
+
+
+
+
 
 function StackDifference(){
 
@@ -2702,11 +3033,14 @@ function spectralanalysis(data, dataname, windowType, dt, detrend, removemean){
 	rms_detrend=sqrt(sum_detrend/len);
 		
 	y = Array.fourier(data, windowType);
-  	f = newArray(lengthOf(y));
+	//logy=newArray(lengthOf(y));
+	f = newArray(lengthOf(y));
   	
  		 for (i=0; i<lengthOf(y); i++){
  		 	f[i] = i/(2*lengthOf(y)*dt);
+ 		 	//logy[i] = log(y[i])/log(10);
  		 }
+
 
 	fhtSize = 2*lengthOf(y);
   	peakF = frequ/len*fhtSize; // i.e., frequ/len = peakF/fhtSize
@@ -2719,6 +3053,23 @@ function spectralanalysis(data, dataname, windowType, dt, detrend, removemean){
 
    
 }
+
+
+
+// Call an R script: requires that you install Rserve http://www.rforge.net/Rserve/doc.html
+function callRScriptviaJavaScript(script) {
+	// Use javascript ability to call direct java commands to load R engine and send command to R
+	// Note that anything because this is an ImageJ macro calling a javascript calling R...
+	//	pretty much anything with quotes in it is likely to fail.
+	jscode = "importClass(javax.script.ScriptEngineManager); ";
+	jscode = jscode + "sEM = new ScriptEngineManager();";
+	jscode = jscode + "engine = sEM.getEngineByName(\"Renjin\");"
+	jscode = jscode + "engine.eval(\""+script+"\")";
+	ret = eval("script",jscode);
+	return ret;
+}
+
+
 
 
 
@@ -3135,10 +3486,10 @@ macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D
 	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
 	Dialog.create("Verify Camera and Object Parameters");
 	Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
-	Dialog.addMessage("TIFF files are usually little endian PNG files are usually big endian");
-	Dialog.addChoice("Swap Byte Order (Usually default is fine)", byteorder, defaultbyteorder);
-	Dialog.addMessage("Fast calculation is approximate but repeatable \nSlow is accurate but not reversible");
-	Dialog.addChoice("Fast or\nSlow Calculation?", fastslowchoice, fastslowchoicedefault); 
+	Dialog.addMessage("TIFF files are usually little endian, PNG files are usually big endian");
+	Dialog.addChoice("Keep Default or Swap Byte Order (Usually default is fine)", byteorder, defaultbyteorder);
+	Dialog.addMessage("Fast calculation is approximate but repeatable, Slow is accurate but not reversible");
+	Dialog.addChoice("Fast or Slow Calculation?", fastslowchoice, fastslowchoicedefault); 
 	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
  	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
  	
@@ -3212,10 +3563,10 @@ macro "Raw2Temp Tool"{
 	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
 	Dialog.create("Verify Camera and Object Parameters");
 	Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
-	Dialog.addMessage("TIFF files are usually little endian PNG files are usually big endian");
-	Dialog.addChoice("Swap Byte Order (Usually default is fine)", byteorder, defaultbyteorder);
-	Dialog.addMessage("Fast calculation is approximate but repeatable \nSlow is accurate but not reversible");
-	Dialog.addChoice("Fast or\nSlow Calculation?", fastslowchoice, fastslowchoicedefault); 
+	Dialog.addMessage("TIFF files are usually little endian, PNG files are usually big endian");
+	Dialog.addChoice("Keep Default or Swap Byte Order (Usually default is fine)", byteorder, defaultbyteorder);
+	Dialog.addMessage("Fast calculation is approximate but repeatable, Slow is accurate but not reversible");
+	Dialog.addChoice("Fast or Slow Calculation?", fastslowchoice, fastslowchoicedefault); 
 	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
  	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
  	
@@ -3281,12 +3632,12 @@ macro "Raw2Temp Tool"{
 macro "-" {} //menu divider
 
 
-macro "Estimate Window Transmittance" {
+macro "Estimate Window Transmittance [T]" {
 	CalculateTransmittance();
 }
 
 
-macro "Estimate Object Emissivity" {
+macro "Estimate Object Emissivity [E]" {
 	CalculateEmissivity();
 }
 
@@ -3294,6 +3645,10 @@ macro "-" {} //menu divider
 
 macro "ROI d Results [d]" { // 
 
+	if(defaultroifilename=="") {
+		roifilename=getTitle() + "_roi_results.csv";
+	}
+	
 	roilabel="BillDepth";
 	
 	roitype=Roi.getType();
@@ -3316,7 +3671,7 @@ macro "ROI d Results [d]" { //
 	getStatistics(area, mean, min, max, std, histogram);
 
 	filename=getTitle; 
-	
+
 	type = selectionType(); 
 	if(type==-1) exit("No ROI selection specified");
 	
@@ -3339,10 +3694,14 @@ macro "ROI d Results [d]" { //
 	setResult(roilabel, rownum, hypotenuse);	
 	
 	updateResults();
-	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
+	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
 }
 
 macro "ROI l Results [l]" { // 
+	
+	if(defaultroifilename=="") {
+		roifilename=getTitle() + "_roi_results.csv";
+	}
 	
 	roilabel="BillLength";
 	
@@ -3389,12 +3748,22 @@ macro "ROI l Results [l]" { //
 	setResult(roilabel, rownum, hypotenuse);	
 	
 	updateResults();
-	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
+	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
+
 }
 
 macro "ROI 1 Results [1]" { // 
 
-	roilabel="UpperBill";
+	if(defaultroifilename=="") {
+		roifilename=getTitle() + "_roi_results.csv";
+	}
+	
+	else{
+		roifilename="Roi_results.csv";
+	}
+	
+	
+	roilabel=ROI1;
 	
 	roitype=Roi.getType();
 	
@@ -3409,7 +3778,6 @@ macro "ROI 1 Results [1]" { //
 	x2=xCoordinates[len-1];
 	y2=yCoordinates[len-1];
 	
-
 	//theta=180/PI*atan2((y2-y1), (x2-x1));
 	hypotenuse=sqrt((wd*wd + ht*ht));
 
@@ -3429,6 +3797,7 @@ macro "ROI 1 Results [1]" { //
 		setResult("Filename", i, "");
 	}
 
+	op=pasteobjectparameters();
 	setResult("Filename", rownum, filename);
 	setResult("SliceLabel", rownum, getMetadata("label"));
 	setResult("Slice", rownum, getSliceNumber());
@@ -3436,7 +3805,8 @@ macro "ROI 1 Results [1]" { //
 	//setResult("ROI 1 Y1", rownum, y1);
 	//setResult("ROI 1 X2", rownum, x2);
 	//setResult("ROI 1 Y2", rownum, y2);
-	//setResult("ROI 1 Length", rownum, hypotenuse);	
+	//setResult("ROI 1 Length", rownum, hypotenuse);
+	setResult("ObjectParam", rownum, op);	
 	setResult(roilabel + "Mean", rownum, mean);
 	setResult(roilabel + "Min", rownum, min);
 	setResult(roilabel + "Max", rownum, max);
@@ -3444,12 +3814,21 @@ macro "ROI 1 Results [1]" { //
 	setResult(roilabel + "Area", rownum, area);
 	
 	updateResults();
-	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
+	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
+
 }
 
 macro "ROI 2 Results [2]" {
 	
-	roilabel="LowerBill";
+	if(defaultroifilename=="") {
+		roifilename=getTitle() + "_roi_results.csv";
+	}
+	
+	else{
+		roifilename="Roi_results.csv";
+	}
+	
+	roilabel=ROI2;
 	
 	roitype=Roi.getType();
 	
@@ -3483,7 +3862,8 @@ macro "ROI 2 Results [2]" {
 	for (i=0; i<getSliceNumber(); i++) { 	
 		setResult("Filename", i, "");
 	}
-
+	
+	op=pasteobjectparameters();
 	setResult("Filename", rownum, filename);
 	setResult("SliceLabel", rownum, getMetadata("label"));
 	setResult("Slice", rownum, getSliceNumber());
@@ -3491,7 +3871,8 @@ macro "ROI 2 Results [2]" {
 	//setResult("ROI 1 Y1", rownum, y1);
 	//setResult("ROI 1 X2", rownum, x2);
 	//setResult("ROI 1 Y2", rownum, y2);
-	//setResult("ROI 1 Length", rownum, hypotenuse);	
+	//setResult("ROI 1 Length", rownum, hypotenuse);
+	setResult("ObjectParam", rownum, op);		
 	setResult(roilabel + "Mean", rownum, mean);
 	setResult(roilabel + "Min", rownum, min);
 	setResult(roilabel + "Max", rownum, max);
@@ -3499,13 +3880,22 @@ macro "ROI 2 Results [2]" {
 	setResult(roilabel + "Area", rownum, area);
 	
 	updateResults();
-	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
+	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
+
 }
 
 
 macro "ROI 3 Results [3]" { // 
 	
-	roilabel="Head";
+	if(defaultroifilename=="") {
+		roifilename=getTitle() + "_roi_results.csv";
+	}
+	
+	else{
+		roifilename="Roi_results.csv";
+	}
+	
+	roilabel=ROI3;
 	
 	roitype=Roi.getType();
 	
@@ -3540,6 +3930,8 @@ macro "ROI 3 Results [3]" { //
 		setResult("Filename", i, "");
 	}
 
+	op=pasteobjectparameters();
+	
 	setResult("Filename", rownum, filename);
 	setResult("SliceLabel", rownum, getMetadata("label"));
 	setResult("Slice", rownum, getSliceNumber());
@@ -3547,7 +3939,8 @@ macro "ROI 3 Results [3]" { //
 	//setResult("ROI 1 Y1", rownum, y1);
 	//setResult("ROI 1 X2", rownum, x2);
 	//setResult("ROI 1 Y2", rownum, y2);
-	//setResult("ROI 1 Length", rownum, hypotenuse);	
+	//setResult("ROI 1 Length", rownum, hypotenuse);
+	setResult("ObjectParam", rownum, op);			
 	setResult(roilabel + "Mean", rownum, mean);
 	setResult(roilabel + "Min", rownum, min);
 	setResult(roilabel + "Max", rownum, max);
@@ -3555,14 +3948,22 @@ macro "ROI 3 Results [3]" { //
 	setResult(roilabel + "Area", rownum, area);
 	
 	updateResults();
-	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
-	
+	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
+
 }
 
 
 macro "ROI 4 Results [4]" { // 
 	
-	roilabel="Back";
+	if(defaultroifilename=="") {
+		roifilename=getTitle() + "_roi_results.csv";
+	}
+	
+	else{
+		roifilename="Roi_results.csv";
+	}
+	
+	roilabel=ROI4;
 	
 	roitype=Roi.getType();
 	
@@ -3597,6 +3998,7 @@ macro "ROI 4 Results [4]" { //
 		setResult("Filename", i, "");
 	}
 
+	op=pasteobjectparameters();
 	setResult("Filename", rownum, filename);
 	setResult("SliceLabel", rownum, getMetadata("label"));
 	setResult("Slice", rownum, getSliceNumber());
@@ -3604,7 +4006,8 @@ macro "ROI 4 Results [4]" { //
 	//setResult("ROI 1 Y1", rownum, y1);
 	//setResult("ROI 1 X2", rownum, x2);
 	//setResult("ROI 1 Y2", rownum, y2);
-	//setResult("ROI 1 Length", rownum, hypotenuse);	
+	//setResult("ROI 1 Length", rownum, hypotenuse);
+	setResult("ObjectParam", rownum, op);		
 	setResult(roilabel + "Mean", rownum, mean);
 	setResult(roilabel + "Min", rownum, min);
 	setResult(roilabel + "Max", rownum, max);
@@ -3612,13 +4015,21 @@ macro "ROI 4 Results [4]" { //
 	setResult(roilabel + "Area", rownum, area);
 	
 	updateResults();
-	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
+	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
 }
 
 
 macro "ROI 5 Results [5]" { // 
 	
-	roilabel="Belly";
+	if(defaultroifilename=="") {
+		roifilename=getTitle() + "_roi_results.csv";
+	}
+	
+	else{
+		roifilename="Roi_results.csv";
+	}
+	
+	roilabel=ROI5;
 	
 	roitype=Roi.getType();
 	
@@ -3653,6 +4064,7 @@ macro "ROI 5 Results [5]" { //
 		setResult("Filename", i, "");
 	}
 
+	op=pasteobjectparameters();
 	setResult("Filename", rownum, filename);
 	setResult("SliceLabel", rownum, getMetadata("label"));
 	setResult("Slice", rownum, getSliceNumber());
@@ -3660,7 +4072,8 @@ macro "ROI 5 Results [5]" { //
 	//setResult("ROI 1 Y1", rownum, y1);
 	//setResult("ROI 1 X2", rownum, x2);
 	//setResult("ROI 1 Y2", rownum, y2);
-	//setResult("ROI 1 Length", rownum, hypotenuse);	
+	//setResult("ROI 1 Length", rownum, hypotenuse);
+	setResult("ObjectParam", rownum, op);		
 	setResult(roilabel + "Mean", rownum, mean);
 	setResult(roilabel + "Min", rownum, min);
 	setResult(roilabel + "Max", rownum, max);
@@ -3668,14 +4081,22 @@ macro "ROI 5 Results [5]" { //
 	setResult(roilabel + "Area", rownum, area);
 	
 	updateResults();
-	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
+	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
 	
 }
 
 
 macro "ROI 6 Results [6]" { // 
 	
-	roilabel="Foot";
+	if(defaultroifilename=="") {
+		roifilename=getTitle() + "_roi_results.csv";
+	}
+	
+	else{
+		roifilename="Roi_results.csv";
+	}
+	
+	roilabel=ROI6;
 	
 	roitype=Roi.getType();
 	
@@ -3710,14 +4131,17 @@ macro "ROI 6 Results [6]" { //
 		setResult("Filename", i, "");
 	}
 
+	op=pasteobjectparameters();
+
 	setResult("Filename", rownum, filename);
-	setResult("Slice Label", rownum, getMetadata("label"));
+	setResult("SliceLabel", rownum, getMetadata("label"));
 	setResult("Slice", rownum, getSliceNumber());
 	//setResult("ROI 1 X1", rownum, x1);
 	//setResult("ROI 1 Y1", rownum, y1);
 	//setResult("ROI 1 X2", rownum, x2);
 	//setResult("ROI 1 Y2", rownum, y2);
-	//setResult("ROI 1 Length", rownum, hypotenuse);	
+	//setResult("ROI 1 Length", rownum, hypotenuse);
+	setResult("ObjectParam", rownum, op);		
 	setResult(roilabel + "Mean", rownum, mean);
 	setResult(roilabel + "Min", rownum, min);
 	setResult(roilabel + "Max", rownum, max);
@@ -3725,7 +4149,7 @@ macro "ROI 6 Results [6]" { //
 	setResult(roilabel + "Area", rownum, area);
 	
 	updateResults();
-	saveAs("Results", desktopdir + File.separator + "ROI_Results.csv");
+	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
 	
 }
 
@@ -3765,6 +4189,7 @@ macro "Add ROI Measurement to Image" {
 	Dialog.addString("Measurement Units", "°C");
 	Dialog.addNumber("Decimal Places", 3);
 	Dialog.addNumber("Text Colour 0-255: Black-White", 255);
+	Dialog.addNumber("Font Size", 14);
 	Dialog.addCheckbox("Add ROI to Image?", 1);
 	Dialog.addMessage("Where to place label (X,Y)?");
 	Dialog.addMessage("Top Left = " + leftx + ", " + topy);
@@ -3780,12 +4205,41 @@ macro "Add ROI Measurement to Image" {
 	var units=Dialog.getString();
 	var decimals=Dialog.getNumber();
 	var colour=Dialog.getNumber();
+	var fontsize=Dialog.getNumber();
 	var addROI=Dialog.getCheckbox();
 	var drawx=Dialog.getNumber();
 	var drawy=Dialog.getNumber();
 	
-	addMeasurementLabel(type, units, decimals, colour, addROI, drawx, drawy);
+	addMeasurementLabel(type, units, decimals, colour, fontsize, addROI, drawx, drawy);
+	
 }
+
+
+macro "Add Location of Min or Max to Image" {
+	w=getWidth();
+	h=getHeight();
+	leftx=0;
+	rightx=w;
+	topy=0;
+	bottomy=h;
+		
+	items=newArray("Max", "Min");
+	Dialog.create("Choose Measurement Type");
+	Dialog.addChoice("Measure Type", items);
+	Dialog.addString("Label", "+");
+	Dialog.addNumber("Text Colour 0-255: Black-White", 255);
+	Dialog.addNumber("Font Size", 14);
+	Dialog.show();
+	
+	var type=Dialog.getChoice();
+	var label=Dialog.getString();
+	var colour=Dialog.getNumber();
+	var fontsize=Dialog.getNumber();
+	
+	addvaluelocation(type, label,  colour, fontsize);
+	
+}
+
 
 macro "-" {} //menu divider
 
@@ -3801,6 +4255,7 @@ macro "ROI on Entire Stack [9]" {
 	if(dt==0){
 		dt=frameinterval;
 	}
+	
 	items=newArray("Mean", "StdDev", "Min", "Max", "Mode", "Median", "CenterMassX", "CenterMassY", "Skewness", "Kurtosis");
 	Dialog.create("ROI Analysis on Stack");
 	Dialog.addMessage("This function works on stacks.  Provide an ROI and preferred summary statistic.");
@@ -3808,18 +4263,29 @@ macro "ROI on Entire Stack [9]" {
 	Dialog.addMessage("The user should provide time interval in seconds for the image stack if the value below is blank or incorrect.");
 	Dialog.addNumber("Seconds between video frames: ", dt);
 	Dialog.addChoice("Perform spectral analysis on: ", items);
-	Dialog.addChoice("Window Type for Spectral Analysis: ", newArray("None", "Hamming", "Hann", "Flattop"));
-	Dialog.addCheckbox("Detrend data before Spectral Analysis: ", 1);
+	Dialog.addChoice("Window Type for Spectral Analysis: ", newArray("None", "Hamming", "Hann", "Flattop"), "Hann");
+	Dialog.addNumber("Lowpass Filter: set number of samples for moving average (set to 0 to ignore): ", 0);
+	Dialog.addNumber("Highpass filter: set number of samples for moving average (set to 0 to ignore): ", 0);
+	Dialog.addCheckbox("Linear Detrend data before Spectral Analysis: ", 1);
 	Dialog.addCheckbox("Remove mean from data before Spectral Analysis: ", 1);
+	
 	Dialog.show();
-
+	//x=getValue("Mean");
+	//print(x);
+	//roiManager("select", 0);
+	
+	
 	dt=Dialog.getNumber();
 	dataType=Dialog.getChoice();
 	windowType=Dialog.getChoice();
+	lowpasssamples=Dialog.getNumber();
+	highpasssamples=Dialog.getNumber();
 	detrend=Dialog.getCheckbox();
 	removemean=Dialog.getCheckbox();
+	
 
 	frameinterval=dt;
+
 	Stack.setFrameInterval(frameinterval);
 	call("ij.Prefs.set", "frameinterval.persistent", toString(frameinterval)); 
 	
@@ -3828,52 +4294,126 @@ macro "ROI on Entire Stack [9]" {
 	run("ROI Manager...");
 	roiManager("reset");
 	roiManager("Add");
+	//run("Select All"); // select entire image frame and add as a second ROI 
+	//roiManager("Add");
 	roiManager("Show All");
 	roiManager("Multi Measure");
-
+	
+	
 	data=newArray(nSlices);
+	x=newArray(nSlices);
+	Time=Array.getSequence(nSlices);
+	databackground=newArray(nSlices);
+	
 	for(n=0; n<nSlices; n++){
 		if(dataType=="Mean"){
 			data[n]=getResult("Mean1", n);
+			databackground[n]=getResult("Mean1", n);
+			//databackground[n]=getResult("XM2", n) + getResult("YM2", n);
+			//databackground[n]=(getResult("XM2", n) + getResult("YM2", n) +  getResult("StdDev2", n) + getResult("Skew2", n) + getResult("Kurt2", n))/5;
 			dataname="ROI Mean";
 		}
 		if(dataType=="StdDev"){
 			data[n]=getResult("StdDev1", n);
+			databackground[n]=getResult("Mean1", n);
 			dataname="ROI StdDev";
 		}
 		if(dataType=="Min"){
 			data[n]=getResult("Min1", n);
+			databackground[n]=getResult("Mean1", n);
 			dataname="ROI Min";
 		}
 		if(dataType=="Max"){
 			data[n]=getResult("Max1", n);
+			databackground[n]=getResult("Mean1", n);
 			dataname="ROI Max";
 		}
 		if(dataType=="CenterMassX"){
 			data[n]=getResult("XM1", n);
+			databackground[n]=getResult("Mean1", n);
 			dataname="ROI CenterMassX";
 		}
 		if(dataType=="CenterMassY"){
 			data[n]=getResult("YM1", n);
+			databackground[n]=getResult("Mean1", n);
 			dataname="ROI CenterMassY";
 		}
 		if(dataType=="Mode"){
 			data[n]=getResult("Mode1", n);
+			databackground[n]=getResult("Mean1", n);
 			dataname="ROI Mode";
 		}
 		if(dataType=="Median"){
 			data[n]=getResult("Median1", n);
+			databackground[n]=getResult("Mean1", n);
 			dataname="ROI Median";
 		}
 		if(dataType=="Skewness"){
 			data[n]=getResult("Skew1", n);
+			databackground[n]=getResult("Mean1", n);
 			dataname="ROI Skewness";
 		}
 		if(dataType=="Kurtosis"){
 			data[n]=getResult("Kurt1", n);
+			databackground[n]=getResult("Mean1", n);
 			dataname="ROI Kurtosis";
 		}		
 	}
+	
+	originaldata=newArray(nSlices);
+	for (i = 0; i < nSlices; i++) {
+		Time[i]=Time[i]*frameinterval;
+		originaldata[i]=data[i];
+	}
+
+	Array.getStatistics(originaldata, mean);
+	mean=mean;
+
+		// Having decided on the background reference data, fit a curve through it to represent the slow changing movement
+		// artifact
+	
+		//Fit.doFit("8th Degree Polynomial", x, databackground);
+		//Fit.logResults;
+
+		if(lowpasssamples==0 || highpasssamples==0){
+			predictedlowpass=data;
+			predictedhighpass=data;
+		}
+		
+		// if user sets low pass sample >0, then resample the data as a moving average over these # of samples
+		if(lowpasssamples>0){
+			predictedlowpass=movavg(data,lowpasssamples);
+			for(i=0; i<nSlices; i++){
+				data[i]=predictedlowpass[i];
+			}
+		}
+		
+		shifteddata=newArray(nSlices);
+		
+		// if highpasssamples>0 then subtract the slow moving average from the data
+		if(highpasssamples >0 ){
+			predictedhighpass=movavg(databackground, highpasssamples);
+			for(i=0; i<nSlices; i++){
+				//predicted[i]=Fit.f(x[i]);
+				data[i]=data[i]-predictedhighpass[i];
+				shifteddata[i]=data[i]+mean;
+			}
+		}
+
+	
+	if(lowpasssamples>0 || highpasssamples>0){
+		Plot.create("Original Data", "Time (s)", "Data", Time, originaldata);
+		Plot.show();
+		Plot.setColor("red");
+		run("Line Width...", "line=5");
+		Plot.add("line", Time, predictedhighpass);
+		Plot.setColor("blue");
+		Plot.add("line", Time, predictedlowpass);
+		Plot.setColor("orange");
+		Plot.add("line", Time, shifteddata);
+		run("Line Width...", "line=1"); // return to default
+	}
+	
 	
 	spectralanalysis(data, dataname, windowType, dt, detrend, removemean);
 	
@@ -3930,3 +4470,4 @@ macro "Cumulative Difference Sum on Stack [0]"{
 
 macro "-" {} //menu divider
 
+	
