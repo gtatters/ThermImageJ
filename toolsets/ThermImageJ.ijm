@@ -646,6 +646,23 @@ function GetFileListFilter(directory, searchlength, filterstring){
 	return newfilelist;	
 }
 
+// Search a particular folder and count the number of files that have the given extension.  I.e. used to count up # of .fff files
+function CountFilesByExtension(directory, extension){
+	filenames=getFileList(directory);
+	counter=0;
+	for (i = 0; i < filenames.length; i++) {
+		//print(filenames[i]);
+		if(endsWith(filenames[i], extension)){
+			counter=counter+1;
+		}
+}
+return counter;
+}
+
+dir="/Users/GlennTattersall/IRconvert/TestFiles/fff";
+xx=CountFilesByExtension(dir, ".fff");
+print(xx);
+
 // put Atmospheric Trans constants into an array to pass fewer numbers to raw2temp, since ImageJ limits parameters to 20 or fewer
 function AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX){
 	//ATvals=newArray(5);
@@ -1102,21 +1119,29 @@ function ConvertImportFLIRJPG() {
  	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
 	Dialog.addMessage("Camera Calibration Constants:");
 	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
+	Dialog.addToSameRow();
 	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
 	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
+	Dialog.addToSameRow();
 	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
     Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
     Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
+    Dialog.addToSameRow();
     Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
     Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
+    Dialog.addToSameRow();
     Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
     Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
+    
     Dialog.addMessage("Object Parameters:");
     Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
+    Dialog.addToSameRow();
     Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
     Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
+    Dialog.addToSameRow();
     Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
     Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
+    Dialog.addToSameRow();
     Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
     Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
     Dialog.addChoice("Palette", palettetypes, defaultpalette);
@@ -1473,7 +1498,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	
 	print("Extracting calibration and image settings");
 	
-	// populate an array called flirvals with 14 entries to accept the array output from the flirvalues function
+	// populate an array called flirvals with 19 entries to accept the array output from the flirvalues function
 	flirvals=newArray(19);
 
 	var printvalues="No";
@@ -1545,7 +1570,10 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	// Execute the split.pl script on the SEQ file to create fff files
 	exec(perl, perlsplit, "-i", filepath, "-o", tempfolder, "-b", "frame", "-p", "fff", "-x", "fff");
 
-
+	ffffilesintempfolder=CountFilesByExtension(tempfolder, ".fff");
+	print("The number of .FFF files in the temporary folder is: ", ffffilesintempfolder);
+	print("Use this number to troubleshoot if each command line step is working. The number of files should relate to the number of video frames.");
+	
 	//
 	// Extract Date/Time Original from the .fff files
 //	timefind =  exiftoolpath + exiftool + " -*Original* " + tempfolder + File.separator + "*.fff -r -q";
@@ -1627,7 +1655,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 		
 		fff_files = getFileList(tempfolder);
 	
-		print("Splitting fff files into jpegls files by looping through all files similar to:");
+		print("Splitting fff files into jpegls files by looping through all files using:");
 		print(perl + perlsplit + "-i " + tempfolder + File.separator + fff_files[0] + " -o " + filedir + File.separator + "temp " +  "-b " + fff_files[0] + ". " + "-p " + "jpegls " + "-x " + "jpegls " + "-s " + "y");
 		
 		
@@ -1636,6 +1664,12 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 			exec(perl, perlsplit, "-i", tempfolder + File.separator + fff_files[i], "-o", filedir + File.separator + "temp", "-b", fff_files[i] + ".", "-p", "jpegls", "-x", "jpegls", "-s", "y");
 		}
 
+		// Use to troubleshoot the conversion process
+		jpeglsfilesintempfolder=CountFilesByExtension(tempfolder, ".jpegls");
+		print("The number of .JPEGLS files in the temporary folder is: ", jpeglsfilesintempfolder);
+		print("Use this number to troubleshoot if each command line step is working. The number of files should relate to the number of video frames.");
+
+		
 		// I added an option to the perl script so that it skips exporting data before the magicbyte, allowing for only jpegls images to be split off, so these fff checks are unnecessary now:
 		//fileswithfff=GetFileListFilter(tempfolder, 3, "FFF");
 		
@@ -1673,7 +1707,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	// See: http://imagej.1557.x6.nabble.com/macro-Redirection-in-exec-UNIX-binary-td3687463.html
 	//rawcombinecmd = exiftoolpath + exiftool +  " -b -RawThermalImage " + tempfolder + File.separator + "*.fff > " + filedir + File.separator + "thermalvid.raw";
 
-	rawcombinecmd = exiftoolpath + exiftool +  " -b -r -fast -P -sort -RawThermalImage " + tempfolder + File.separator + "*.fff > " + filedir + File.separator + "thermalvid.raw";
+	rawcombinecmd = exiftoolpath + exiftool +  " -b -r -fast -P -sort -RawThermalImage " + tempfolder + File.separator + "*.fff > " + tempfolder + File.separator + "thermalvid.raw";
 	print("Combining the fff files into a thermalvid.raw file with: ");
 	print(rawcombinecmd);
 	
@@ -1686,24 +1720,42 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	}
 
 	if(substring(OS, 0, 5)=="Windo"){
-		exec("cmd", "/c", exiftoolpath + exiftoolWindows, "-b", "-RawThermalImage", tempfolder + File.separator + "*.fff", ">", filedir + File.separator + "thermalvid.raw");
+		exec("cmd", "/c", exiftoolpath + exiftoolWindows, "-b", "-RawThermalImage", tempfolder + File.separator + "*.fff", ">", tempfolder + File.separator + "thermalvid.raw");
 	}
 
+	// Use to troubleshoot the conversion process
+	thermalvidrawfilesintempfolder=CountFilesByExtension(tempfolder, ".raw");
+	print("The number of .RAW files in the temporary folder is: ", thermalvidrawfilesintempfolder);
+	print("Use this number to troubleshoot if each command line step is working. There should be 1 thermalvid.raw file if conversion was successful.");
+	
 	// Execute the split.pl script on thermalvid.raw to create tiff (or jpegls) files
-	splittiffexeccmd = perlpath + "perl " + perlsplit + " -i " + filedir + "/thermalvid.raw" + " -o " + filedir + "/temp -b frame -p " + RawThermalType + " -x " + RawThermalType;
+	splittiffexeccmd = perlpath + "perl " + perlsplit + " -i " + tempfolder + File.separator + "thermalvid.raw" + " -o " + filedir + "/temp -b frame -p " + RawThermalType + " -x " + RawThermalType;
 	print("Splitting the thermalvid.raw file into " + RawThermalType + " files with: ");
 	print(splittiffexeccmd);
 	
 	if(vidtype=="seq"){
-		exec(perl, perlsplit, "-i", filedir + File.separator + "thermalvid.raw", "-o", filedir + File.separator + "temp", "-b", "frame", "-p", "tiff", "-x", "tiff");
+		exec(perl, perlsplit, "-i", tempfolder + File.separator + "thermalvid.raw", "-o", filedir + File.separator + "temp", "-b", "frame", "-p", "tiff", "-x", "tiff");
+		
+		// Use to troubleshoot the conversion process
+		tifffilesintempfolder=CountFilesByExtension(tempfolder, ".tiff");
+		print("The number of .TIFF files in the temporary folder is: ", tifffilesintempfolder);
+		print("Use this number to troubleshoot if each command line step is working. The number of files should relate to the number of video frames.");
 	}
 	
 	if(vidtype=="csq"){
-		exec(perl, perlsplit, "-i", filedir + File.separator + "thermalvid.raw", "-o", filedir + File.separator + "temp", "-b", "frame", "-p", "jpegls", "-x", "jpegls");
+		exec(perl, perlsplit, "-i", tempfolder + File.separator + "thermalvid.raw", "-o", filedir + File.separator + "temp", "-b", "frame", "-p", "jpegls", "-x", "jpegls");
+		
+		// Use to troubleshoot the conversion process
+		jpeglsfilesintempfolder=CountFilesByExtension(tempfolder, ".jpegls");
+		print("The number of JPEGLS files in the temporary folder is: ", jpeglsfilesintempfolder);
+		print("Use this number to troubleshoot if each command line step is working. The number of files should relate to the number of video frames.");
+
 	}
+
 
 }
 
+	
 ////////////////// ^ Thermalvid.raw approach ^ //////////////////////
 
 
@@ -1726,6 +1778,12 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	else{
  		exec(ffmpeg, "-f", "image2", "-vcodec", RawThermalType, "-r", "30", "-i", tempfolder + File.separator + "frame%05d." + RawThermalType, "-pix_fmt", pixfmt, "-vcodec", outcodec, filedir + File.separator + fileout, "-y");
 	}
+
+	// Use to troubleshoot the conversion process
+	filesintempfolder=getFileList(tempfolder);
+	print("The number of files in the temporary folder is: ", filesintempfolder.length);
+	print("Use this number to troubleshoot if each command line step is working.");
+	print("The number of files should be the sum of the number of .FFF, .RAW, plus the .TIFF or .JPEGLS files generated from the extraction process.");
 	
 	templist = getFileList(tempfolder);
 	for (i = 0; i < templist.length; i++){
@@ -1735,7 +1793,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	thermalviddelete_success=File.delete(filedir + File.separator + "thermalvid.raw");
 	tempfolderdelete_success=File.delete(filedir + File.separator + "temp" + File.separator );
 
-
+	print("All these temporary files are deleted upon completion of the conversion.");
 
 		
 	//if(tempfilesdelete_success + tempfolderdelete_success ==2){
@@ -1744,21 +1802,36 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 
 
 	if(outtype=="png"){
-		print("Importing Image Sequence of PNG files");
+		print("Your converted file(s) should be located in the following folder: ", outputfolder);
+		//print(outputfolder + File.Separator + File.nameWithoutExtension + "00001.png");
+			
+		if(File.exists(outputfolder + File.separator + File.nameWithoutExtension + "_00001.png")==0){
+			exit("No .PNG files exist at that location. Please check steps above to see where conversion is failing. ");	
+		}
+		
+		print("\nImporting Image Sequence of PNG files");
 		pngsequenceimportarguments="open=[" + outputfolder + "] sort";
 		print(pngsequenceimportarguments);
 		run("Image Sequence...", pngsequenceimportarguments);
 	}
 
 	if(outtype=="tiff"){
-		print("Importing Image Sequence of TIFF files");
+		print("Your converted file(s) should be located here in the following folder: ", outputfolder);
+		
+		print("\nImporting Image Sequence of TIFF files");
 		tiffsequenceimportarguments="open=[" + outputfolder + "] sort";
 		print(tiffsequenceimportarguments);
 		run("Image Sequence...", tiffsequenceimportarguments);
 	}
 
 	if(outtype=="avi"){
-		print("Importing 16-bit grayscale AVI file");
+		print("Your converted file(s) should be located here: ", filedir + File.separator +  fileout);
+		
+		if(File.exists(filedir + File.separator +  fileout)==0){
+			exit("No .AVI file exists at that location. Please check steps above to see where conversion is failing. ");	
+		}
+		
+		print("\nImporting 16-bit grayscale AVI file");
 		ffmpegimportarguments = "choose=[" + filedir + File.separator + fileout + "]" + " first_frame=0 last_frame=-1";
 		
 		if(usevirtual==1){
@@ -1766,9 +1839,11 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 		}
 
 		print(ffmpegimportarguments);
+		
 		run("Movie (FFMPEG)...", ffmpegimportarguments);
 	}
 
+	
 //	print("Adding file time origin as slice label");
 //	for (i=1; i<=nSlices; i++) { 
 //		setSlice(i);
@@ -1837,23 +1912,30 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 	
 	Dialog.addMessage("Object Parameters:");
     Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
+    Dialog.addToSameRow();
     Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
     Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
+    Dialog.addToSameRow();
     Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
     Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
+    Dialog.addToSameRow();
     Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
     Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
     Dialog.addChoice("Palette", palettetypes, defaultpalette);
 	
 	Dialog.addMessage("Camera Calibration Constants:");
 	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
+	Dialog.addToSameRow();
 	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
 	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
+	Dialog.addToSameRow();
 	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
     Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
     Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
+    Dialog.addToSameRow();
     Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
     Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
+    Dialog.addToSameRow();
     Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
     Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
   
@@ -2003,10 +2085,13 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 		}
  	
 		rms_resid=RMS(resid);
+		Array.getStatistics(resid, min, max, mean);
+		
 		Fit.getEquation(3, name, formula);
 		//Fit.plot();
-		
-		print("Temperature was estimated using a 4th order polynomial on a restricted range of the data.");
+
+			
+		print("Temperature was estimated using a 4th order polynomial on a restricted range of the data (655 data points evenly spanning a possible range of 65535 data points).");
 		print(formula);
 		print("where y = Temperature, x = Raw 16 bit value, and a,b,c,d,e are the coefficients:");
 		print("a = " + Fit.p(0));
@@ -2017,9 +2102,11 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 		print("r squared = " + Fit.rSquared);
 		print("This approximates the Sakuma-Hattori equation (used for estimating Planck's law for instruments with non-finite bandwidth) across a limited temperature range");
 		print("The root mean square of the error from polynomial predicted temperature using the fast calculation is:", rms_resid, "degrees C");
-		print("Extreme temperatures are likely to have higher errors");
-		print("If this error is too high, re-run the Raw2Temp with fast calculation setting more stringent image minimum and maximum, or select the Slow calculation");
-		
+		print("The maximum mathematical error detected using the polynomial fit is:", max, "degrees C");
+		print("Extreme temperatures are likely driving these errors.");
+		print("If this error is too high, re-run the Raw2Temp Macro Tool (R->T icon) with fast calculation setting more stringent image minimum and maximum, or select the Slow calculation");
+		print("For example, if the max residual error or the root mean square is greater than 0.1 degrees C, you probably should use the Slow calculation.");
+
 		//File.saveString(s, "/Users/GlennTattersall/Desktop/calibration.txt");
 	
 		text1=text1 + "] ";
@@ -2091,11 +2178,22 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 function CalculateTransmittance() {
 	
 	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-    print("------ Running CalculateTransmittance function ------");
-    print("Not fully tested.  Confirm these calculations using FLIR software");
-   
+    print("\n------ Running CalculateTransmittance function ------");
+    print("Not fully tested.  Please confirm these calculations using FLIR software");
+    print("This macro will estimate the transmittance of a window that is placed in front of an object.");
+	print("The true object temperature must first be known, usually measured without the window in place.");
+	print("User provides the raw 16 bit value of the object but measured with the window in place");
+	//print("Predicted temperature from the provided raw value, if IRT were truly equal to 1 is: " + raw2temppred);
+	//print("Use this to verify the raw value selected is approximately close to the known temperature");
+	
+	//ApparentRaw=Temp2RawCalc(KnownT, PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, 1, RH);
+
+	print("Next, this function will use the raw2temp function, but only changing transmittance");
+	print("from 0 to 1, in 0.001 increments, and return the transmittance value that best results in the true temperature");
+	print("Default parameters are for a hypothetical object of 40 degrees C and apparent raw 16-bit value of 21000");
+	
 	KnownT = 40;
-	ApparentRaw=17000;
+	ApparentRaw=21000;
 	
 	Dialog.create("Estimate Window Transmittance");
 	Dialog.addMessage("This macro will estimate IR Window Transmittance (IRT)\nassuming you have accurate information on true temperature");
@@ -2159,16 +2257,7 @@ function CalculateTransmittance() {
 	}
 
 	raw2temppred=Raw2TempCalc(ApparentRaw, PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, 1, RH);
-	print("This macro will estimate the transmittance of a window placed in front of an object");
-	print("The object temperature must first be known, usually measured without the window");
-	print("User provides the raw 16 bit value of the object, but measured with the window in place");
-	//print("Predicted temperature from the provided raw value, if IRT were truly equal to 1 is: " + raw2temppred);
-	//print("Use this to verify the raw value selected is approximately close to the known temperature");
 	
-	//ApparentRaw=Temp2RawCalc(KnownT, PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, 1, RH);
-
-	print("Next we create an array of predicted temperatures, but only changing transmittance");
-	print("from 0 to 1, in 0.001 increments.");
 	
 	
 	for (i = 0; i < 1001; i++) {
@@ -2230,9 +2319,24 @@ function CalculateTransmittance() {
 function CalculateEmissivity() {
 	
 	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-    print("------ Running CalculateEmissivity function ------");
+	
+    print("\n------ Running CalculateEmissivity function ------");
     print("Not fully tested.  Confirm these calculations using FLIR software");
-    
+    print("This macro will estimate the emissivity of a novel surface.");
+	print("The object temperature must first be known, usually measured with black electrical tape, assuming thermal equilibration.");
+	print("Alternatively, user may paint onto the surface a small patch, provided the emissivity of that paint is known. This also assumes thermal equilibration");
+	print("User provides the estimated temperature of the object of interest, measured assuming same E as the reference E.");
+	print("If the unknown Emissivity is the same as the Known Emissivity, then the 2 temperatures should equal one another");
+	//print("Predicted raw from the provided temperature estimate, if E were truly equal to the reference E is: " + ApparentRaw);
+	//print("Use this to verify the raw value selected is approximately close to the known temperature");
+	
+	//ApparentRaw=Temp2RawCalc(KnownT, PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, 1, RH);
+
+	print("This macro creates an array of predicted temperatures, by only changing new object Emissivity");
+	print("from 0 to 1, in 0.001 increments.  The Emissivity that results in a calculated temperature that matches the known temperature");
+	print("allows for the unknown emissivity to be estimated.");
+	print("The principle follows that outlined in FLIR Documentation for Research and Professional Thermographers.");
+	
 	KnownE = E;
 	KnownT = 52;
 	ApparentTemp=50;
@@ -2301,16 +2405,6 @@ function CalculateEmissivity() {
 	}
 		
 	ApparentRaw=Temp2RawCalc(ApparentTemp, PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), KnownE, OD, RTemp, ATemp, IRWTemp, IRT, RH);
-	print("This macro will estimate the emissivity of a novel surface.");
-	print("The object temperature must first be known, usually measured with black electrical tape, assuming thermal equilibration.");
-	print("User provides the estimated temperature object of interest, measured assuming same E as the reference E.");
-	//print("Predicted raw from the provided temperature estimate, if E were truly equal to the reference E is: " + ApparentRaw);
-	//print("Use this to verify the raw value selected is approximately close to the known temperature");
-	
-	//ApparentRaw=Temp2RawCalc(KnownT, PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, 1, RH);
-
-	print("Next we create an array of predicted temperatures, but only changing new object Emissivity");
-	print("from 0 to 1, in 0.001 increments.");
 	
 	
 	for (i = 0; i < 1001; i++) {
@@ -2367,6 +2461,67 @@ function CalculateEmissivity() {
 	}
 
 }
+
+
+function CalculateSpotsize() {
+
+	OD = 1;
+	HFOV = 0.47445;
+	//IHFOV=0.47222;
+	ph = 1024;
+	
+	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
+    print("\n------ Running CalculateSpotsize function ------");
+    print("Not fully tested.  Please confirm these calculations with your camera manufacturer.");
+    print("Default values are for a FLIR T1K with a 36mm lens.");
+    print("For calculations, see http://www.flirmedia.com/MMC/THG/Brochures/RND_048/RND_048_EN.pdf");
+   	
+	Dialog.create("Estimate Minimum Spot Size");
+	Dialog.addMessage("This macro will estimate minimum spot size for your camera\nat a specific object viewing distance.");
+	Dialog.addMessage("Provide the Following Parameters:");
+    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
+    Dialog.addNumber("Horizontal Field of View (HFOV):", HFOV, 4, 6, "radians");
+    Dialog.addNumber("Sensor Horizontal Pixel Resolution:", ph, 0, 4, "pixels");
+ 	//   Dialog.addMessage("Alternatively, if you lack HFOV and Sensor Pixel Resolution\nprovide the IFOV");
+ 	//Dialog.addNumber("Instantaneous Horizontal Field of View (IHFOV)", IHFOV, 4,6, "mradians");
+	Dialog.show();
+	
+	var OD = Dialog.getNumber();
+	var HFOV = Dialog.getNumber();
+	var ph = Dialog.getNumber();
+	//var IFOV = Dialog.getNumber();
+	
+	SS=1000*2*OD*tan(HFOV/2)/ph;
+	//SS2=(IHFOV)*OD;
+	EffectiveSS=3*SS;
+
+	Dialog.create("Spot Size Estimate");
+	Dialog.addMessage("Estimated Spot Size (i.e., 1 pixel at " + OD + "metre working distance) is: " + SS + " mm");
+	//Dialog.addMessage("Estimated Spot Size (i.e., 1 pixel at " + OD + "metre working distance) is: " + SS2 + " mm");
+
+	Dialog.addMessage("Effective Spot Size (i.e., 3 pixels at " + OD + "metre working distance) is: " + 3*SS + " mm");
+	Dialog.addMessage("See Log output for further details");
+	Dialog.show();
+	
+	print("\nEstimated Spot Size (i.e., size of 1 pixel at", OD, "metre working distance) is:", SS, "mm");
+	print("\nDue to uncertainty regarding alignment of object to the digital sensor 'pixel', it is");
+	print("recommended to multiply the minimum spot size by 3 to obtain a working minimum spot size");
+	print("Therefore, the advised, effective minimum spot size is:", EffectiveSS, "mm");
+	print("which means that you cannot accurately report temperature of an object smaller than", EffectiveSS, "mm.");
+	print("\nNote that even if you take this as the minimum spot size of your camera, if the actual size of");
+	print("the object on your image is only 3 pixels x 3 pixels, that is a small representation of the object");
+	print("of interest, and your estimate of temperature may be inaccurate due to any number of reasons, such as:");
+	print("1) pixel sensor noise");
+	print("2) sampling error");
+	print("3) lack of focus");
+	print("4) uncertainty regarding the true environmental parameters");
+	print("5) algorithm approximation");
+	print("6) uncertainty in object emissivity");
+	print("7) angle of incidence to object");
+	print("8) camera calibration - or lack thereof");
+	print("8) etc...etc...");
+}
+
 
 
 
@@ -3495,28 +3650,35 @@ macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D
  	
 	Dialog.addMessage("Object Parameters:");
     Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
+    Dialog.addToSameRow();
     Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
     Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
+    Dialog.addToSameRow();
     Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
     Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
+    Dialog.addToSameRow();
     Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
     Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
+    Dialog.addToSameRow();
     Dialog.addChoice("Palette", palettetypes, defaultpalette);
     
 	Dialog.addMessage("Camera Calibration Constants:");
 	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
+	Dialog.addToSameRow();
 	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
 	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
+	Dialog.addToSameRow();
 	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
     Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
     Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
+	Dialog.addToSameRow();
     Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
     Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
+	Dialog.addToSameRow();
     Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
-   
-    
+    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");     
 	Dialog.show();
+	
 
 	var ByteOrder=Dialog.getChoice();
 	var FastSlow=Dialog.getChoice();
@@ -3572,27 +3734,33 @@ macro "Raw2Temp Tool"{
  	
 	Dialog.addMessage("Object Parameters:");
     Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
+    Dialog.addToSameRow();
     Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
     Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
+    Dialog.addToSameRow();
     Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
     Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
+    Dialog.addToSameRow();
     Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
     Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
+    Dialog.addToSameRow();
     Dialog.addChoice("Palette", palettetypes, defaultpalette);
     
 	Dialog.addMessage("Camera Calibration Constants:");
 	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
+	Dialog.addToSameRow();
 	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
 	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
+	Dialog.addToSameRow();
 	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
     Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
     Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
+	Dialog.addToSameRow();
     Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
     Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
+	Dialog.addToSameRow();
     Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
-   
-    
+    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");     
 	Dialog.show();
 
 	var ByteOrder=Dialog.getChoice();
@@ -3640,6 +3808,11 @@ macro "Estimate Window Transmittance [T]" {
 macro "Estimate Object Emissivity [E]" {
 	CalculateEmissivity();
 }
+
+macro "Estimate Camera Spot Size [S]" {
+	CalculateSpotsize();
+}
+
 
 macro "-" {} //menu divider
 
