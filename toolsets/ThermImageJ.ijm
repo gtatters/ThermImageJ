@@ -4,7 +4,7 @@
 ////        Main Features: import, conversion, and transformation of thermal images.               ////
 ////                           Requires: exiftool, ffmpeg, perl                                    ////
 ////                                Glenn J. Tattersall                                            ////
-////                               March, 2021 - Version 2.4                                       ////
+////                               June, 2022 - Version 2.5                                        ////
 ////                                                                                               ////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2674,27 +2674,21 @@ function flirvalues(filepath, printvalues){
 		if(printvalues == "Yes"){
 			Dialog.create("FLIR Values Extracted from: " + File.getName(filepath));
 			Dialog.addMessage("- Camera Calibration Constants -");
-			Dialog.addMessage("      Plank R1: " + PR1);
-			Dialog.addMessage("      Plank R2: " + PR2);
-			Dialog.addMessage("      Plank B " + PB);
-			Dialog.addMessage("      Plank F: " + PF);
-			Dialog.addMessage("      Plank O: " + PO);
-			Dialog.addMessage("      Atmospheric Trans Alpha 1: " + ATA1);
-			Dialog.addMessage("      Atmospheric Trans Alpha 2: " + ATA2);
-			Dialog.addMessage("      Atmospheric Trans Beta 1: " + ATB1);
-			Dialog.addMessage("      Atmospheric Trans Beta 2: " + ATB2);
+			Dialog.addMessage("      Planck R1: " + PR1 + "     Planck R2: " + PR2);
+			Dialog.addMessage("      Planck B: " + PB + "            Planck F:" + PF);
+			Dialog.addMessage("      Planck O: " + PO);
+			Dialog.addMessage("      Atmospheric Trans Alpha 1: " + ATA1 + "     Atmospheric Trans Alpha 2: " + ATA2);
+			Dialog.addMessage("      Atmospheric Trans Beta 1: " + ATB1 + "      Atmospheric Trans Beta 2: " + ATB2);
+
 			Dialog.addMessage("      Atmospheric Trans X: " + ATX);
 			Dialog.addMessage("- Default Object Parameters -");
-			Dialog.addMessage("      Emissivity: " + d2s(E,2));
-			Dialog.addMessage("      Object Distance: " + d2s(OD,2));
-			Dialog.addMessage("      Reflected Apparent Temperature: " + d2s(RTemp,2));
-			Dialog.addMessage("      Atmospheric Temperature: " + d2s(ATemp,2));
-			Dialog.addMessage("      IR Window Temperature: " + d2s(IRWTemp,2));
-			Dialog.addMessage("      IR Window Transmission: " + d2s(IRT,3));
+			Dialog.addMessage("      Emissivity: " + d2s(E,2) + "     Object Distance: " + d2s(OD,2));
+			Dialog.addMessage("      Reflected Apparent Temperature: " + d2s(RTemp,2) + "     Atmospheric Temperature: " + d2s(ATemp,2));
+			Dialog.addMessage("      IR Window Temperature: " + d2s(IRWTemp,2) + "     IR Window Transmission: " + d2s(IRT,3));			
 			Dialog.addMessage("      Relative Humidity: " + d2s(RH,2));
 			Dialog.addMessage("      Thermal Image Width: " + imagewidth);
 			Dialog.addMessage("      Thermal Image Height: " + imageheight);
-			Dialog.addMessage("Press OK to export results to log window\nand store parameters for future Raw2Temp call");
+			//Dialog.addMessage("Press OK to export results to log window and store parameters for future Raw2Temp call");
 			Dialog.show()
 			
 			print("\n");
