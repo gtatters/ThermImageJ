@@ -15,7 +15,7 @@ var palettetypes=newArray("Grays", "Ironbow", "Rainbow", "Spectrum", "Thermal", 
 var defaultpalette="Grays";
 var thermlCmds = newMenu("Thermal LUT Menu Tool", palettetypes);
 var ImportCmds = newMenu("Import Menu Tool",
-      newArray("Raw Import Mikron RTV", "Raw Import FLIR SEQ", "Convert FLIR JPG(s)", "Import FLIR JPG", "Import Image Sequence", "Import FLIR SEQ", "Import FLIR CSQ", "Import 16-bit AVI"));
+      newArray("Raw Import Mikron RTV", "Raw Import FLIR SEQ", "Convert FLIR JPG(s)", "Import FLIR JPG", "Import FLIR JPG with defaults", "Import Image Sequence", "Import FLIR SEQ", "Import FLIR CSQ", "Import 16-bit AVI"));
 var lut = -1;
 var lutdir = getDirectory("luts");
 var list;
@@ -940,7 +940,7 @@ function RawImportFLIRSEQ() {
 
 }
 
-function ConvertImportFLIRJPG() {
+function ConvertImportFLIRJPG(ConvertWithDefault) {
 	
 	print("\n------ Running ConvertImportFLIRJPG function ------");
 	
@@ -1095,17 +1095,25 @@ function ConvertImportFLIRJPG() {
 	byteorder=newArray("Default", "Swap");
 	
 	if(RawThermalType=="TIFF"){
-		defaultbyteorder="Default";		
+		var defaultbyteorder="Default";		
 	}
 	
 	if(RawThermalType=="PNG"){
-		defaultbyteorder="Swap";
+		var defaultbyteorder="Swap";
 	}
 	
 	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
 	byteorder=newArray("Default", "Swap");
 	fastslowchoice=newArray("Fast", "Slow");
 	fastslowchoicedefault="Slow";
+	
+	if(ConvertWithDefault=="yes"){
+		var palettetype = defaultpalette;
+		var FastSlow="Slow";
+	}
+	
+	
+	if(ConvertWithDefault=="no"){
 	
 	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
 	
@@ -1170,6 +1178,12 @@ function ConvertImportFLIRJPG() {
 	var RH = Dialog.getNumber();
 	var palettetype = Dialog.getChoice();
 
+	if(ByteOrder == "Swap"){
+		run("Byte Swapper");
+	}
+	
+	}
+	
 	call("ij.Prefs.set", "imagetemperaturemin.persistent",toString(imagetemperaturemin)); 
 	call("ij.Prefs.set", "imagetemperaturemax.persistent",toString(imagetemperaturemax)); 
 	
@@ -1178,13 +1192,11 @@ function ConvertImportFLIRJPG() {
 		folderdelete_success=File.delete(filedir + File.separator + "temp" + File.separator );
 	}
 	
-	if(ByteOrder == "Swap"){
-		run("Byte Swapper");
-	}
 
 	if(filedelete_success + folderdelete_success==2){
 		print("Temporary file and folder deleted.");
 	}	
+	
 		Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
 
 	print("Done");
@@ -3236,7 +3248,9 @@ macro "Import Menu Tool - C037T0b11FT6b09IT9b09LTeb09E" {
        else if (cmd=="Convert FLIR JPG(s)")
            ConvertFLIRJPGs();
        else if (cmd=="Import FLIR JPG")
-           ConvertImportFLIRJPG();
+           ConvertImportFLIRJPG("no");
+       else if (cmd=="Import FLIR JPG with defaults")
+           ConvertImportFLIRJPG("yes");
        else if (cmd=="Import Image Sequence")
            ImportImageSequence();    
        else if (cmd=="Import FLIR SEQ")
@@ -3276,7 +3290,13 @@ macro "Convert FLIR JPG(s)" {
 }
 
 macro "Import FLIR JPG" {
-	ConvertImportFLIRJPG();
+	var ConvertWithDefault="no";
+	ConvertImportFLIRJPG(ConvertWithDefault);
+}
+
+macro "Import FLIR JPG with defaults" {
+	var ConvertWithDefault="yes";
+	ConvertImportFLIRJPG(ConvertWithDefault);
 }
 
 macro "Import Image Sequence" {
