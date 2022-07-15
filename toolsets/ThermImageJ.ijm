@@ -4,7 +4,7 @@
 ////        Main Features: import, conversion, and transformation of thermal images.               ////
 ////                           Requires: exiftool, ffmpeg, perl                                    ////
 ////                                Glenn J. Tattersall                                            ////
-////                               June, 2022 - Version 2.5                                        ////
+////                               July, 2022 - Version 2.7                                        ////
 ////                                                                                               ////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1182,6 +1182,10 @@ function ConvertImportFLIRJPG(ConvertWithDefault) {
 		run("Byte Swapper");
 	}
 	
+	}
+	
+	if(RawThermalType == "PNG" && ConvertWithDefault == "yes"){
+		run("Byte Swapper");
 	}
 	
 	call("ij.Prefs.set", "imagetemperaturemin.persistent",toString(imagetemperaturemin)); 
