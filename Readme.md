@@ -364,7 +364,9 @@ Tools” link, selecting **Restore Start-Up Tools** then clicking on the
 
 ### Lookup tables and adjusting colour ranges
 
-<img src='./images/PaletteChoices.gif' align="right">
+<img src='./images/PaletteChoices.gif'>
+
+<br>
 
 - LUT (Thermal Palette Look Up Table) menu <img src='./images/LUT.png'>
   - for rapidly accessing different pseudocolour palettes
