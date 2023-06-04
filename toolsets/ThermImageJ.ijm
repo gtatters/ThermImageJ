@@ -4,8 +4,8 @@
 ////        Main Features: import, conversion, and transformation of thermal images.               ////
 ////                           Requires: exiftool, ffmpeg, perl                                    ////
 ////                                Glenn J. Tattersall                                            ////
-////                               July, 2022 - Version 2.7                                        ////
-////                                                                                               ////
+////                               June, 2023 - Version 2.8                                        ////
+////            - Highlights: added time stamps to slices in SEQ, CSQ imports                      ////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -15,7 +15,7 @@ var palettetypes=newArray("Grays", "Ironbow", "Rainbow", "Spectrum", "Thermal", 
 var defaultpalette="Grays";
 var thermlCmds = newMenu("Thermal LUT Menu Tool", palettetypes);
 var ImportCmds = newMenu("Import Menu Tool",
-      newArray("Raw Import Mikron RTV", "Raw Import FLIR SEQ", "Convert FLIR JPG(s)", "Import FLIR JPG", "Import FLIR JPG with defaults", "Import Image Sequence", "Import FLIR SEQ", "Import FLIR CSQ", "Import 16-bit AVI"));
+      newArray("Raw Import Mikron RTV", "Raw Import FLIR SEQ", "Convert FLIR JPG(s)", "Import FLIR JPG", "Import FLIR JPG with defaults", "Import Image Sequence", "Import CSV Image Sequence", "Import FLIR SEQ", "Import FLIR CSQ", "Import 16-bit AVI"));
 var lut = -1;
 var lutdir = getDirectory("luts");
 var list;
@@ -70,12 +70,13 @@ var defaultroifilename="";  													     // <- VERIFY THIS
 
 // related to above, there are currently 6 numbered ROI extraction routines.  
 // Give labels to them here which will be saved in the ROI file.
-var ROI1="Ground";
-var ROI2="Bill";
-var ROI3="Eye";
-var ROI4="Neck";
-var ROI5="Back";
-var ROI6="Foot";
+var ROI1="Bill";
+var ROI2="Tarsus";
+var ROI3="Foot";
+var ROI4="Body";
+var ROI5="Eye";
+var ROI6="Ground";
+var ROI7="EyeRegion";
 
 // Note: This is a sample of how you could re-name the 6 ROI names:
 // Simply remove the // in front of each variable name and reboot ImageJ
@@ -125,6 +126,21 @@ var ffmpegpathWindows="c:/FFmpeg/bin/";			 // after downloading a recent version
 function ImportImageSequence(){
 	run("Image Sequence...");
 }
+
+
+function ImportCSVImageSequence(){
+	dir = getDirectory("Choose directory");
+	list = getFileList(dir);
+	run("Close All");
+	setBatchMode(true);
+	for (i=0; i<list.length; i++) {
+ 		file = dir + list[i];
+ 		run("Text Image... ", "open=&file");
+	}
+	run("Images to Stack", "use");
+	setBatchMode(false);
+}
+
 
 
 // Based on the LUTFileTool by Gabriel Landini
@@ -1369,11 +1385,14 @@ function ImportConvertFLIRSEQ(){
 	Dialog.addChoice("Video Image Encoding (ignored if choosing image)", newArray("jpegls", "png"), "jpegls");
 	Dialog.addCheckbox("Convert to Temperature on Import", converttotemperature);
 	Dialog.addMessage("Unselect Convert to Temperature for faster loading.\nThe imported file will be a 16-bit grayscale");
+	Dialog.addCheckbox("Use virtual stack for avi Import.", usevirtual);
+	Dialog.addMessage("Select Virtualstack for faster loading, but cannot add time stamps to image stack.");
 	Dialog.show();
 	
 	var outtypechoice=Dialog.getChoice();
 	var encodetypechoice = Dialog.getChoice();
 	var converttotemperature = Dialog.getCheckbox();
+	var usevirtual = Dialog.getCheckbox();	
 	var copycodec="no";
 
 	// ffmpeg copy codec with tiff file creates a corrupted avi, so best to simply use ffmpeg to re-encode
@@ -1418,11 +1437,14 @@ function ImportConvertFLIRCSQ(){
 	Dialog.addChoice("Video Image Encoding (ignored if choosing file)", newArray("jpegls", "png"), "jpegls");
 	Dialog.addCheckbox("Convert to Temperature on Import", converttotemperature);
 	Dialog.addMessage("Unselect Convert to Temperature for faster loading.\nThe imported file will be a 16-Bit grayscale.");
+	Dialog.addCheckbox("Use virtual stack for avi Import.", usevirtual);
+	Dialog.addMessage("Select Virtualstack for faster loading, but cannot add time stamps to image stack.");
 	Dialog.show();
 	
 	var outtypechoice=Dialog.getChoice();
 	var encodetypechoice = Dialog.getChoice();
 	var converttotemperature = Dialog.getCheckbox();
+	var usevirtual = Dialog.getCheckbox();
 	var copycodec="no";
 	
 	if(outtypechoice=="avi"){
@@ -1563,6 +1585,13 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	if(outtype=="png"){
 		outputfolder=filedir + File.separator + File.nameWithoutExtension;
 		//print(outputfolder);
+		
+		outputfolderlist = getFileList(outputfolder);
+		for (i = 0; i < outputfolderlist.length; i++){
+      		outputfolderfilesdelete_success=File.delete(outputfolder + File.separator + outputfolderlist[i]);	
+		}	
+	     //outputfolderdelete=File.delete(outputfolder);
+		
 		File.makeDirectory(outputfolder);
 		fileout=File.nameWithoutExtension + File.separator + File.nameWithoutExtension + "_%05d" + "." + outtype; // outtype should be "png"
 		pixfmt="gray16be";
@@ -1571,6 +1600,12 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	if(outtype=="tiff"){
 		outputfolder=filedir + File.separator + File.nameWithoutExtension;
 		//print(outputfolder);
+		
+		outputfolderlist = getFileList(outputfolder);
+		for (i = 0; i < outputfolderlist.length; i++){
+      		outputfolderfilesdelete_success=File.delete(outputfolder + File.separator + outputfolderlist[i]);	
+		}	
+	     //outputfolderdelete=File.delete(outputfolder);
 		File.makeDirectory(outputfolder);
 		fileout=File.nameWithoutExtension + File.separator + File.nameWithoutExtension + "_%05d" + "." + outtype; // outtype should be "tiff"
 		pixfmt="gray16le";
@@ -1590,72 +1625,80 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	print("The number of .FFF files in the temporary folder is: ", ffffilesintempfolder);
 	print("Use this number to troubleshoot if each command line step is working. The number of files should relate to the number of video frames.");
 	
-	//
-	// Extract Date/Time Original from the .fff files
-//	timefind =  exiftoolpath + exiftool + " -*Original* " + tempfolder + File.separator + "*.fff -r -q";
-//	print("Extracting frame times with: ");
-//	print(timefind);
 	
+	// Extract Date/Time Original from the .fff files    
+	
+	// timefind =  exiftoolpath + exiftool + " -*Original* " + tempfolder + File.separator + "*.fff -r -q";
+	timefind = exiftoolpath + exiftool + " -DateTimeOriginal -s -T " + tempfolder + File.separator + "*.fff" + " > " + tempfolder + File.separator + "datetime.txt";
+	print("Extracting frame times with: ");
+	print(timefind);
+	
+	//exiftool -*DateTimeOriginal -s -T *.fff > datetime.txt
+
 	// Execute the timefind command
 	//	flirvals=exec("/bin/sh", "-c", timefind);
 	
-//	if(OS=="Mac OS X"){
-//		flirvals=exec("/bin/sh", "-c", timefind);	
-//	}
+	if(OS=="Mac OS X"){
+		flirvals=exec("/bin/sh", "-c", timefind);	
+	}
 
-//	if(OS=="Linux"){
-//		flirvals=exec("/bin/sh", "-c", timefind);		
-//	}
+	if(OS=="Linux"){
+		flirvals=exec("/bin/sh", "-c", timefind);		
+	}
 
-//	if(substring(OS, 0, 5)=="Windo"){
-//		flirvals=exec("cmd", "/c", timefind);
-//	}
+	if(substring(OS, 0, 5)=="Windo"){
+		flirvals=exec("cmd", "/c", timefind);
+	}
 
+	// Load in Text file that contains time stamps for each frame from a SEQ or CSQ file
+	// Store these time stamps into an Array to return to the ConvertImportFLIRVideo function
+	// Then use these time stamps to re-name each layer in the stack
+
+	datetimefilePath=tempfolder + File.separator + "datetime.txt";
+	test=Table.open(datetimefilePath);
+	Heading=Table.headings();
+	NumFrames=Table.size()+1;
+	Times1=Table.getColumn(Heading);
+	HeadingArray=newArray(Heading);
+	Times=Array.concat(HeadingArray, Times1);
 	
-//	flirvals=replace(flirvals, "Date/Time Original", "");
-//	flirvals=replace(flirvals, "  ", ""); // 2 spaces replace with null
-//	flirvals=replace(flirvals, ": ", ""); // 2 spaces replace with null
-//	nframes=lengthOf(flirvals)/30; // 30 characters per line, will allow to calculate the number of frames
-//	timeoriginal=newArray(nframes+1);
+	dateoriginal=newArray(NumFrames);
+	timeoriginal=newArray(NumFrames);
+	tz=newArray(NumFrames);
+	sec=newArray(NumFrames);
+	
+	i=0;
+	while (i<dateoriginal.length) { 
+		dateoriginal[i]=Times[i];
+		timeoriginal[i]=Times[i];
+		tz[i]=Times[i];
+			
+		if(Times[i] == "-") {
+			i++;
+		} else {
+			dateoriginal[i]=replace(substring(dateoriginal[i], 0, 10), ":", "-");
+			tz[i]=substring(tz[i], 23, 29);
+			timeoriginal[i]=substring(timeoriginal[i], 11, 23);	
+			sec[i]=parseFloat(substring(timeoriginal[i], 6, 12));
+			i++;
+		}
 		
-	// 29 characters per line (30, including \n)
-	// Date is character 0 through 10
-	// Time is character 11 through 23
+	}
+
+	framediff=newArray(NumFrames-1);
+	for(i=0; i<NumFrames-1; i++){
+		framediff[i]=sec[i+1] - sec[i];
+		if(framediff[i]<0){
+			rem=60*abs(round(framediff[i]/60));
+			framediff[i]=framediff[i]+rem;
+		}
+	}
 	
-//	dateoriginal=replace(substring(flirvals, 0, 10), ":", "-");
-//	tz=substring(flirvals, 23, 29);
-	
-//	for(i = 1; i <=nframes; i++){
-		
-//		timeoriginal[i]=substring(flirvals, 11+(i-1)*30, 23+(i-1)*30);
-//	}
+	//Array.print(framediff);
+	Array.getStatistics(framediff, mean);
+	medianframediff=Median(framediff);
 
-//	maxnumframe=minOf(11, nframes);
-//	sec=newArray(maxnumframe);
-//	//min=newArray(maxnumframe);
-//	//hour=newArray(maxnumframe);
-	
-//	for(i=0; i<maxnumframe; i++){
-		
-//		sec[i]=parseFloat(substring(timeoriginal[i+1], 6, 12));
-//	}
-
-//	framediff=newArray(maxnumframe-1);
-//	for(i=0; i<maxnumframe-1; i++){
-//		framediff[i]=sec[i+1] - sec[i];
-//		if(framediff[i]<0){
-//			rem=60*abs(round(framediff[i]/60));
-//			framediff[i]=framediff[i]+rem;
-//		}
-//	}
-	
-//	Array.print(framediff);
-//	Array.getStatistics(framediff, mean);
-//	meanframediff=mean;
-
-//	print("Video frame time difference is: " + meanframediff + " seconds");
-
-
+	print("Video frame time difference is: " + medianframediff + " seconds");
 
 
 ////////////////////// Split fff -> jpegls and remove extra files approach //////////////////////
@@ -1768,12 +1811,10 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 
 	}
 
-
 }
 
 	
 ////////////////// ^ Thermalvid.raw approach ^ //////////////////////
-
 
 
 // Execute the ffmpeg command to assimilate all the image (TIFF or JPEGLS or PNG?) files into one avi file
@@ -1811,7 +1852,6 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 
 	print("All these temporary files are deleted upon completion of the conversion.");
 
-		
 	//if(tempfilesdelete_success + tempfolderdelete_success ==2){
 	//	print("Temporary files and folder deleted");
 	//}
@@ -1859,16 +1899,19 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 		run("Movie (FFMPEG)...", ffmpegimportarguments);
 	}
 
-	
-//	print("Adding file time origin as slice label");
-//	for (i=1; i<=nSlices; i++) { 
-//		setSlice(i);
-//		slicelabel= dateoriginal + "_" + timeoriginal[i] + tz;
-//		run("Set Label...", "label=" + slicelabel);
-//	}
+	print("Adding file time origin as slice label");
+	setBatchMode(true);
+	for (i=1; i<=nSlices; i++) { 
+		setSlice(i);
+		//slicelabel= dateoriginal + "_" + timeoriginal[i] + tz;
+		slicelabel=dateoriginal[i-1] + " " + timeoriginal[i-1] + " " + tz[i-1];
+		setMetadata("Label", slicelabel);
+		//Property.setSliceLabel(string, slice)
+	}
+	setBatchMode(false);
 	
 	// Set frame interval to stack
-//	Stack.setFrameInterval(meanframediff); // sets the frame rate
+	Stack.setFrameInterval(medianframediff); // sets the frame rate
 	
 	//run("Raw2Temp Tool");
 	
@@ -1876,8 +1919,8 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 		print("Converting file to temperature");
 		Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, defaultpalette, "Yes", "Fast", imagetemperaturemin, imagetemperaturemax);	
 	}
-	
-	print("Done");
+
+	print("Done Importing Video");
 	print("\n");
 	
 }
@@ -3239,6 +3282,25 @@ function callRScriptviaJavaScript(script) {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /////////////////////////////////////////////// Macros //////////////////////////////////////////////////////
 
 macro "Import Menu Tool - C037T0b11FT6b09IT9b09LTeb09E" {
@@ -3257,6 +3319,8 @@ macro "Import Menu Tool - C037T0b11FT6b09IT9b09LTeb09E" {
            ConvertImportFLIRJPG("yes");
        else if (cmd=="Import Image Sequence")
            ImportImageSequence();    
+       else if (cmd=="Import CSV Image Sequence")
+           ImportCSVImageSequence();        
        else if (cmd=="Import FLIR SEQ")
            ImportConvertFLIRSEQ();
        else if (cmd=="Import FLIR CSQ")
@@ -3305,6 +3369,10 @@ macro "Import FLIR JPG with defaults" {
 
 macro "Import Image Sequence" {
 	ImportImageSequence();    
+}
+
+macro "Import CSV Image Sequence" {
+	ImportCSVImageSequence();    
 }
 
 macro "Import FLIR SEQ" {
@@ -4344,6 +4412,74 @@ macro "ROI 6 Results [6]" { //
 	
 }
 
+macro "ROI 7 Results [7]" { // 
+	
+	if(defaultroifilename=="") {
+		roifilename=getTitle() + "_roi_results.csv";
+	}
+	
+	else{
+		roifilename="Roi_results.csv";
+	}
+	
+	roilabel=ROI7;
+	
+	roitype=Roi.getType();
+	
+	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
+	getSelectionCoordinates(xCoordinates, yCoordinates);
+	len=xCoordinates.length;
+		
+	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
+
+	x1=xCoordinates[0];
+	y1=yCoordinates[0];
+	x2=xCoordinates[len-1];
+	y2=yCoordinates[len-1];
+	
+
+	//theta=180/PI*atan2((y2-y1), (x2-x1));
+	hypotenuse=sqrt((wd*wd + ht*ht));
+
+	getStatistics(area, mean, min, max, std, histogram);
+
+	filename=getTitle; 
+	
+	type = selectionType(); 
+	if(type==-1) exit("No ROI selection specified");
+	
+	updateResults();
+
+	rownum=getSliceNumber()-1;
+	
+	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
+	for (i=0; i<getSliceNumber(); i++) { 	
+		setResult("Filename", i, "");
+	}
+
+	op=pasteobjectparameters();
+
+	setResult("Filename", rownum, filename);
+	setResult("SliceLabel", rownum, getMetadata("label"));
+	setResult("Slice", rownum, getSliceNumber());
+	//setResult("ROI 1 X1", rownum, x1);
+	//setResult("ROI 1 Y1", rownum, y1);
+	//setResult("ROI 1 X2", rownum, x2);
+	//setResult("ROI 1 Y2", rownum, y2);
+	//setResult("ROI 1 Length", rownum, hypotenuse);
+	setResult("ObjectParam", rownum, op);		
+	setResult(roilabel + "Mean", rownum, mean);
+	setResult(roilabel + "Min", rownum, min);
+	setResult(roilabel + "Max", rownum, max);
+	setResult(roilabel + "SD", rownum, std);
+	setResult(roilabel + "Area", rownum, area);
+	
+	updateResults();
+	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
+	
+}
+
+
 macro "-" {} //menu divider
 
 macro "Extract ROI Pixel Values [p]"{
@@ -4491,6 +4627,12 @@ macro "ROI on Entire Stack [9]" {
 	roiManager("Multi Measure");
 	
 	
+	// rename Label values to be the Slice Labels
+	for (i=1; i<=nSlices; i++) { 
+		setSlice(i);
+		setResult("Label", i-1, getMetadata("Label"));
+	}
+	
 	data=newArray(nSlices);
 	x=newArray(nSlices);
 	Time=Array.getSequence(nSlices);
@@ -4606,7 +4748,9 @@ macro "ROI on Entire Stack [9]" {
 	}
 	
 	
+	
 	spectralanalysis(data, dataname, windowType, dt, detrend, removemean);
+	
 	
 	saveAs("Results", desktopdir + File.separator + "ROI_Stack_Results.csv");
 }
