@@ -4,8 +4,10 @@
 ////        Main Features: import, conversion, and transformation of thermal images.               ////
 ////                           Requires: exiftool, ffmpeg, perl                                    ////
 ////                                Glenn J. Tattersall                                            ////
-////                               June, 2023 - Version 2.8                                        ////
+////                               June, 2023 - Version 2.9                                        ////
 ////            - Highlights: added time stamps to slices in SEQ, CSQ imports                      ////
+////            - Highlights: added a Check Installation Macro to help with pathing issues         ////
+////            - Highlights: added a frame skipping option for importing SEQ and CSQ files        ////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -26,6 +28,7 @@ var colors = newArray("Red", "Green", "Blue", "Cyan", "Magenta", "Yellow");
 // This will help for continuity when analysing files in between imagej sessions
 // User may wish to update these values to reflect their own commonly used thermal camera in order to streamline 
 // calculations:
+
 var PR1 = parseFloat(call("ij.Prefs.get", "PR1.persistent","17998.529")); 
 var PR2 = parseFloat(call("ij.Prefs.get", "PR2.persistent","0.015145967")); 
 var PB = parseFloat(call("ij.Prefs.get", "PB.persistent","1453.1")); 
@@ -50,6 +53,10 @@ var magicbyte=call("ij.Prefs.get", "magicbyte.persistent","02008002e001");
 var frameinterval=parseFloat(call("ij.Prefs.get", "frameinterval.persistent", "0.03333333333"));
 var imagetemperaturemin=parseInt(call("ij.Prefs.get", "imagetemperaturemin.persistent","-20"));
 var imagetemperaturemax=parseInt(call("ij.Prefs.get", "imagetemperaturemax.persistent","60")); 
+var usevirtual=parseInt(call("ij.Prefs.get", "usevirtual.persistent","1")); 
+var addtimestamp=parseInt(call("ij.Prefs.get", "addtimestamp.persistent","0")); 
+var converttotemperature=parseInt(call("ij.Prefs.get", "converttotemperature.persistent","1")); 
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 ////                                                                                               ////
@@ -118,12 +125,126 @@ var exiftoolWindows="exiftool.exe";
 var ffmpegpathWindows="c:/FFmpeg/bin/";			 // after downloading a recent version of static ffmpeg, simply copy the 'bin' folder to c:/FFmpeg folder
 
 
-
-	
 //////////////////////////////////////// Functions ///////////////////////////////////////////////
 
+function InstallChecks(){
+	
+	installsuccess=0;
+	
+	if(OS=="Mac OS X"){
+		var perlpath=perlpathOSX;
+		var exiftoolpath=exiftoolpathOSX;
+		var exiftool=exiftoolOSX;
+		var ffmpegpath=ffmpegpathOSX;
+		exiftoolcheck=exec(exiftoolpath + exiftool,  "-ver"); // should just return version number, i.e. 12.62
+		perlcheck=exec(perlpath + "perl", "-v"); // returns a verbose output "This is perl ..."
+		splitcheck=splitcheck=File.exists(perlscriptpath + File.separator + "split.pl");
+		ffmpegcheck=exec(ffmpegpath + "ffmpeg", "-version"); // returns a verbose output starting with "ffmpeg version ..."
+	}
+
+	if(OS=="Linux"){
+		var perlpath=perlpathLinux;
+		var exiftoolpath=exiftoolpathLinux;
+		var exiftool=exiftoolOSX;
+		var ffmpegpath=ffmpegpathLinux;
+		exiftoolcheck=exec(exiftoolpath + exiftool,  "-ver"); // should just return version number, i.e. 12.62
+		perlcheck=exec(perlpath + "perl", "-v"); // returns a verbose output "This is perl ..."
+		splitcheck=File.exists(perlscriptpath + File.separator + "split.pl");
+		ffmpegcheck=exec(ffmpegpath + "ffmpeg", "-version"); // returns a verbose output starting with "ffmpeg version ..."
+	}
+	
+	if(substring(OS, 0, 5)=="Windo"){
+		var perlpath=perlpathWindows;
+		var exiftoolpath=exiftoolpathWindows;
+		var exiftool=exiftoolWindows;
+		var ffmpegpath=ffmpegpathWindows;
+		exiftoolcheck=exec("cmd", "/c", exiftoolpath + exiftool,  "-ver"); // should just return version number, i.e. 12.62
+		perlcheck=exec("cmd", "/c", perlpath + "perl", "-v"); // returns a verbose output "This is perl ..."
+		splitcheck=File.exists(perlscriptpath + File.separator + "split.pl");
+		ffmpegcheck=exec("cmd", "/c", ffmpegpath + "ffmpeg", "-version"); // returns a verbose output starting with "ffmpeg version ..."	
+	}	
+	
+		exiftoolcheck=parseFloat(exiftoolcheck);
+		if(lengthOf(perlcheck)>13){
+			perlcheck=replace(perlcheck, "\n", "");
+			perlcheck=substring(perlcheck, 0, 12); // if successful this should simply read "This is perl"
+		}
+		if(lengthOf(ffmpegcheck)>15){
+			ffmpegcheck=substring(ffmpegcheck, 0, 14); // if successful this should simply read: "ffmpeg version"
+		}
+		
+		if(exiftoolcheck>10){  // requires exiftool version>10
+			exiftoolinstall = "Installed at: " + exiftoolpath;
+			installsuccess=installsuccess+1;
+		}
+		else{
+			exiftoolinstall = "Could not find exiftool installation in: " + exiftoolpath;
+		}
+				
+		if(perlcheck=="This is perl"){
+			perlinstall = "Installed at: " + perlpath;
+			installsuccess=installsuccess+1;
+		}
+		else{
+			perlinstall = "Could not find perl installation in: " + perlpath;
+		}
+					
+		if(splitcheck==1){
+			splitinstall = "Installed at: " + perlscriptpath;
+			installsuccess=installsuccess+1;
+		}
+		else{
+			splitinstall = "Could not find split.pl file in: " + perlscriptpath;
+		}
+				
+		if(ffmpegcheck=="ffmpeg version"){
+			ffmpeginstall = "Installed at: " + ffmpegpath;
+			installsuccess=installsuccess+1;
+		}
+		else{
+			ffmpeginstall = "Could not find ffmpeg installation in: " + ffmpegpath;
+		}
+		
+		Dialog.create("Installation Checks");
+		Dialog.addMessage("Exiftool: " + exiftoolinstall);
+		Dialog.addMessage("Perl: " + perlinstall);
+		Dialog.addMessage("Split.pl: " + splitinstall);
+		Dialog.addMessage("FFmpeg: " + ffmpeginstall);
+		Dialog.show()
+		
+		print("Installation Checks:");
+		setFont("SansSerif", 12);
+		print(exiftoolinstall);
+		print(perlinstall);
+		print(splitinstall);
+		print(ffmpeginstall);	
+		
+		
+		if(installsuccess==1){
+			print("Only one installation check passed.");
+			print("For those unsuccessful installations,\nplease edit the ThermimageJ.ijm file to specify the proper path.\nThis information can be found in the first 100 lines of code");
+		}
+		
+		if(installsuccess==2){
+			print("Two installations checks passed.");
+			print("For those unsuccessful installations,\nplease edit the ThermimageJ.ijm file to specify the proper path.\nThis information can be found in the first 100 lines of code");
+		}
+		
+		if(installsuccess==3){
+			print("Three installation checks passed.");
+			print("For those unsuccessful installations,\nplease edit the ThermimageJ.ijm file to specify the proper path.\nThis information can be found in the first 100 lines of code");
+		}
+		
+		if(installsuccess==4){
+			print("All four installation checks have passed.\nIt appears that all 4 programs are installed in the proper folders.");
+		}
+		
+		print("\n");
+
+}
 
 function ImportImageSequence(){
+	
 	run("Image Sequence...");
 }
 
@@ -582,8 +703,7 @@ function shuffle(array) {
       temp = array[n];  // swap array[n] with array[k] (does nothing if k==n).
       array[n] = array[k];
       array[k] = temp;
-   }
-	
+   }	
 }
 
 
@@ -629,14 +749,6 @@ function ImageRestructure(){
 	return sdrandomdiff;
 }
 
-var E = parseFloat(call("ij.Prefs.get", "E.persistent","0.95")); 
-var OD = parseFloat(call("ij.Prefs.get", "OD.persistent","1")); 
-var RTemp = parseFloat(call("ij.Prefs.get", "RTemp.persistent","20")); 
-var ATemp = parseFloat(call("ij.Prefs.get", "ATemp.persistent","20")); 
-var IRWTemp = parseFloat(call("ij.Prefs.get", "IRWTemp.persistent","20")); 
-var IRT = parseFloat(call("ij.Prefs.get", "IRT.persistent","1")); 
-var RH = parseFloat(call("ij.Prefs.get", "RH.persistent","50.0")); 
-
 
 function pasteobjectparameters(){
 	// extract the object parameters currently in use
@@ -662,6 +774,23 @@ function GetFileListFilter(directory, searchlength, filterstring){
 	return newfilelist;	
 }
 
+
+// Returns a new list of files in directory of a certain extension.
+// e.g. set extension to "fff" to only return .fff files
+function GetFileListByExtension(directory, extension){
+	filelist=getFileList(directory);
+	newfilelist=filelist;
+	for(i=0; i<filelist.length; i++){
+		doesfilepathendinextension=endsWith(filelist[i], extension);
+		if(doesfilepathendinextension == 0){
+			//print(filelist[i]);
+			//print(newfilelist[i]);
+			newfilelist=Array.deleteValue(newfilelist, filelist[i]);			
+		}
+	}
+	return newfilelist;
+}
+
 // Search a particular folder and count the number of files that have the given extension.  I.e. used to count up # of .fff files
 function CountFilesByExtension(directory, extension){
 	filenames=getFileList(directory);
@@ -675,9 +804,56 @@ function CountFilesByExtension(directory, extension){
 return counter;
 }
 
-dir="/Users/GlennTattersall/IRconvert/TestFiles/fff";
-xx=CountFilesByExtension(dir, ".fff");
-print(xx);
+
+// Given a directory, it will GetFileListByExtension from directory, of specified file extension (e.g. "fff") and remove every nth file determined by the step value. 
+// Step=1 will not delete any files. Step=2 will delete every other file, Step=3 will delete every ... 
+// Note: directory needs to end in a file.separator or result from a getDirectory() dialog prompt.
+function RemoveEveryNthFFF(directory, step){
+	// directory needs to end in file.separator
+	if(endsWith(directory, File.separator)==0){
+		directory=directory + File.separator;
+	}
+	
+	filenames=GetFileListByExtension(directory, "fff");
+	if(step>1){ // if step=1, this function should not do anything.
+		// create an index array that corresponds to the length of the filenames array
+		inputArray = Array.getSequence(filenames.length);  // ie. [0,1,2,3,4,5,...]
+ 		finalArray = Array.getSequence(filenames.length); // ie. [0,1,2,3,4,5,...]
+		
+		// Initialize the keep array
+ 		keepArray = newArray(); // this is the index array of filenames to keep. Starts out blank, but gets built in loop below
+ 		
+ 		// Loop through the input array   i.e. keep array might look like [0,2,4,6,...] if step = 2
+		for (i = 0; i < inputArray.length; i=i+step) {
+  		    // Add every nth number to the keep array, according to the step value
+ 			// this keeparray correspondes to indexes in the filenames array that will be kept, not deleted.
+ 			keepArray = Array.concat(keepArray, inputArray[i]);
+ 			 }
+		// Loop through the keepArray and remove these from the final array i.e. final array would look like [1,3,5,7,...] if step = 2
+		// finalArray corresponds to indexes in the filenames array that will be deleted
+		for(i=0; i < keepArray.length; i++){
+			//print(directory + File.separator + filenames[i]);
+		    //print(keepArray[i]);
+		    finalArray=Array.deleteValue(finalArray, keepArray[i]);
+		    //FileDeleteSuccess=File.delete(directory + filenames[]);	
+		}
+		
+		for(i=0; i < finalArray.length; i++){
+			//print(directory + File.separator + filenames[i]);
+		    //print(finalArray[i]);
+		    showProgress(i);
+		    //print("Should delete: " + directory + filenames[finalArray[i]]);
+		    FileDeleteSuccess=File.delete(directory + filenames[finalArray[i]]);	
+		}
+		
+	print("Starting number of fff files: " + inputArray.length);
+	print("Nnumber of fff files removed: " + finalArray.length);
+	print("Remaining fff files: " + inputArray.length - finalArray.length);	
+	print("Removed fff files corresponding to the provided step value of: " + step);
+   }
+}
+
+///RemoveEveryNthFFF("/Users/GlennTattersall/Desktop/test/", 1);
 
 // put Atmospheric Trans constants into an array to pass fewer numbers to raw2temp, since ImageJ limits parameters to 20 or fewer
 function AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX){
@@ -685,6 +861,34 @@ function AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX){
 	ATvals=newArray(ATA1, ATA2, ATB1, ATB2, ATX);
 	return ATvals;
 }
+
+// clean up the temp folder at end of video conversion and provide feedback on success
+function deletetempfolder(tempfolder){
+	templist = getFileList(tempfolder);
+	tempfilesdelete_success = 0;
+	tempfolderdelete_success = 0;
+	
+	for (i = 0; i < templist.length; i++){
+	  showProgress(i/templist.length);
+      tempfilesdelete_success=File.delete(tempfolder + File.separator + templist[i]);	
+	}	
+	
+	thermalviddelete_success=File.delete(tempfolder + "thermalvid.raw");
+	tempfolderdelete_success=File.delete(tempfolder);
+	
+	if(tempfilesdelete_success + tempfolderdelete_success ==2){
+		print("Temporary files and folder deleted");
+	}
+}
+
+
+
+// Print the output array
+for (i = 0; i < lengthOf(outputArray); i++) {
+  print(outputArray[i]);
+}
+
+
 
 
 // function to import an rtv file using imageJ raw import option
@@ -703,12 +907,12 @@ function RawImportMikronRTV() {
 	var nframes = 10000;
 	var imagewidth = 320;
 	var imageheight = 240;
-	var converttotemperature = 0;
+	//var converttotemperature = 0; // now is a persistent variable 
 	var usevirtual = 0;
 	var minpix=1;
 	var maxpix=65535;
 	
-	//Create Dialog Box	
+	// Create Dialog Box	
 	Dialog.create("Information for Mikron RTV Video Import");
 	Dialog.addMessage("This macro directly imports the RAW pixel data from a Mikron RTV file");
 	Dialog.addMessage("The user must input the starting offset bytes and frame gaps");
@@ -731,6 +935,10 @@ function RawImportMikronRTV() {
 	var imageheight = Dialog.getNumber();
 	var converttotemperature = Dialog.getCheckbox();
 	var usevirtual = Dialog.getCheckbox();
+	
+	call("ij.Prefs.set", "usevirtual.persistent",toString(usevirtual)); 
+	call("ij.Prefs.set", "converttotemperature.persistent",toString(converttotemperature)); 
+	
 	
 	filepath=File.openDialog("Select a File"); 
 	file=File.openAsString(filepath); 
@@ -774,8 +982,8 @@ function RawImportMikronSIT() {
 	var nframes = 1;
 	var imagewidth = 320;
 	var imageheight = 240;
-	var converttotemperature = 0;
-	var usevirtual = 0;
+	//var converttotemperature = 0; // now is a persistent variable
+	//var usevirtual = 0;
 	var minpix=1;
 	var maxpix=65535;
 	
@@ -803,6 +1011,9 @@ function RawImportMikronSIT() {
 	var converttotemperature = Dialog.getCheckbox();
 	var usevirtual = Dialog.getCheckbox();
 	
+	call("ij.Prefs.set", "usevirtual.persistent",toString(usevirtual)); 
+	call("ij.Prefs.set", "converttotemperature.persistent",toString(converttotemperature)); 
+
 	filepath=File.openDialog("Select a File"); 
 	file=File.openAsString(filepath); 
 	print("Loading: ", filepath);
@@ -846,8 +1057,8 @@ function RawImportFLIRSEQ() {
 	var nframes = 10000;
 	var imagewidth = 640;
 	var imageheight = 480;
-	var converttotemperature = 1;
-	var usevirtual = 0;
+	//var converttotemperature = 1; // now is a persistent variable
+	//var usevirtual = 0;
 	var minpix=1;
 	var maxpix=65535;
 	
@@ -875,6 +1086,9 @@ function RawImportFLIRSEQ() {
 	var converttotemperature = Dialog.getCheckbox();
 	var usevirtual = Dialog.getCheckbox();
 	
+	call("ij.Prefs.set", "usevirtual.persistent",toString(usevirtual)); 
+	call("ij.Prefs.set", "converttotemperature.persistent",toString(converttotemperature)); 
+
 	filepath=File.openDialog("Select a File"); 
 	file=File.openAsString(filepath); 
 	print("Loading: ", filepath);
@@ -1372,8 +1586,9 @@ function ConvertFLIRJPGs() {
 
 function ImportConvertFLIRSEQ(){
 	
-	var converttotemperature = 1;
-	var usevirtual = 1;
+	//var converttotemperature = 1;
+	//var usevirtual = 1;
+	//var addtimestamp=0;
 	
 	Dialog.create("Select a FLIR SEQ File");
 	Dialog.addMessage("-- Warning: Before selecting your file, please remove spaces in the file or folder name --");
@@ -1381,20 +1596,28 @@ function ImportConvertFLIRSEQ(){
 	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
 	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
 	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files\nwill be created for each SEQ frame");
-	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
-	Dialog.addChoice("Video Image Encoding (ignored if choosing image)", newArray("jpegls", "png"), "jpegls");
+	Dialog.addChoice("Output file type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
+	Dialog.addChoice("Video image encoding (ignored if choosing image above)", newArray("jpegls", "png"), "jpegls");
+	Dialog.addNumber("Number of frames to skip on import. Use 1 for all frames (default), 2 to skip every other frame.", 1);
 	Dialog.addCheckbox("Convert to Temperature on Import", converttotemperature);
 	Dialog.addMessage("Unselect Convert to Temperature for faster loading.\nThe imported file will be a 16-bit grayscale");
-	Dialog.addCheckbox("Use virtual stack for avi Import.", usevirtual);
+	Dialog.addCheckbox("Add video frame time stamp to slice labels (choice is remembered on relaunch).", addtimestamp);
+	Dialog.addCheckbox("Use virtual stack for avi import (choice is remembered on relaunch).", usevirtual);
 	Dialog.addMessage("Select Virtualstack for faster loading, but cannot add time stamps to image stack.");
 	Dialog.show();
 	
 	var outtypechoice=Dialog.getChoice();
 	var encodetypechoice = Dialog.getChoice();
+	var framestep = Dialog.getNumber();
 	var converttotemperature = Dialog.getCheckbox();
+	var addtimestamp = Dialog.getCheckbox();
 	var usevirtual = Dialog.getCheckbox();	
 	var copycodec="no";
 
+	call("ij.Prefs.set", "usevirtual.persistent",toString(usevirtual)); 
+	call("ij.Prefs.set", "addtimestamp.persistent",toString(addtimestamp)); 
+	call("ij.Prefs.set", "converttotemperature.persistent",toString(converttotemperature)); 
+	
 	// ffmpeg copy codec with tiff file creates a corrupted avi, so best to simply use ffmpeg to re-encode
 	if(encodetypechoice=="tiff"){
 		copycodec="no";
@@ -1418,14 +1641,15 @@ function ImportConvertFLIRSEQ(){
 		var outcodec="tiff";
 	}
 	
-	ConvertFLIRVideo("seq", outtype, outcodec, converttotemperature, usevirtual, copycodec);
+	ConvertFLIRVideo("seq", outtype, outcodec, converttotemperature, usevirtual, copycodec, addtimestamp);
 }
 
 
 function ImportConvertFLIRCSQ(){
 
-	var converttotemperature = 1;
-	var usevirtual = 1;
+	//var converttotemperature = 1;
+	//var usevirtual = 1;
+	//var addtimestamp=0;
 	
 	Dialog.create("Select a FLIR CSQ File");
 	Dialog.addMessage("-- Warning: Before selecting your file, please remove spaces in the file or folder name --");
@@ -1435,18 +1659,26 @@ function ImportConvertFLIRCSQ(){
 	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files\nwill be created for each SEQ frame");
 	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
 	Dialog.addChoice("Video Image Encoding (ignored if choosing file)", newArray("jpegls", "png"), "jpegls");
+	Dialog.addNumber("Number of frames to skip on import. Use 1 for all frames (default), 2 to skip every other frame.", 1);
 	Dialog.addCheckbox("Convert to Temperature on Import", converttotemperature);
-	Dialog.addMessage("Unselect Convert to Temperature for faster loading.\nThe imported file will be a 16-Bit grayscale.");
-	Dialog.addCheckbox("Use virtual stack for avi Import.", usevirtual);
+	Dialog.addMessage("Unselect Convert to Temperature for faster loading.\nThe imported file will be a 16-bit grayscale");
+	Dialog.addCheckbox("Add video frame time stamp to slice labels (choice is remembered on relaunch).", addtimestamp);
+	Dialog.addCheckbox("Use virtual stack for avi import (choice is remembered on relaunch).", usevirtual);
 	Dialog.addMessage("Select Virtualstack for faster loading, but cannot add time stamps to image stack.");
 	Dialog.show();
 	
 	var outtypechoice=Dialog.getChoice();
 	var encodetypechoice = Dialog.getChoice();
+	var framestep = Dialog.getNumber();
 	var converttotemperature = Dialog.getCheckbox();
+	var addtimestamp = Dialog.getCheckbox();
 	var usevirtual = Dialog.getCheckbox();
 	var copycodec="no";
 	
+	call("ij.Prefs.set", "usevirtual.persistent",toString(usevirtual)); 
+	call("ij.Prefs.set", "addtimestamp.persistent",toString(addtimestamp)); 
+	call("ij.Prefs.set", "converttotemperature.persistent",toString(converttotemperature)); 
+
 	if(outtypechoice=="avi"){
 		var outtype="avi";
 		var outcodec=encodetypechoice;
@@ -1465,11 +1697,15 @@ function ImportConvertFLIRCSQ(){
 		var outcodec="tiff";
 	}
 
-	ConvertFLIRVideo("csq", outtype, outcodec, converttotemperature, usevirtual, copycodec);	
+	ConvertFLIRVideo("csq", outtype, outcodec, converttotemperature, usevirtual, copycodec, addtimestamp);	
 }
 
-function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usevirtual, copycodec) {
+function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usevirtual, copycodec, addtimestamp) {
 
+    getDateAndTime(startyear, startmonth, startdayOfWeek, startdayOfMonth, starthour, startminute, startsecond, startmsec);
+	
+	var medianframediff=1;
+	
 	print("\n------ Running ConvertFLIRVideo function ------");
 	
 	// vidtype should be seq or csq
@@ -1532,6 +1768,17 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	tempfolder=filedir + File.separator + "temp";
 	File.makeDirectory(tempfolder);
 	
+	// Use to troubleshoot the conversion process
+	print("Removing old files that may be in the following temporary folder: " + tempfolder);
+	
+	deletetempfolder(tempfolder);
+	
+//	filesintempfolder=getFileList(tempfolder);
+//	for (i = 0; i < filesintempfolder.length; i++){
+//	  showProgress(i/filesintempfolder.length);
+//      tempfilesdelete_success=File.delete(tempfolder + File.separator + filesintempfolder[i]);	
+//	}	
+	
 	print("Loading: ", filepath);
 	
 	print("Extracting calibration and image settings");
@@ -1593,7 +1840,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	     //outputfolderdelete=File.delete(outputfolder);
 		
 		File.makeDirectory(outputfolder);
-		fileout=File.nameWithoutExtension + File.separator + File.nameWithoutExtension + "_%05d" + "." + outtype; // outtype should be "png"
+		fileout=File.nameWithoutExtension + File.separator + File.nameWithoutExtension + "_%06d" + "." + outtype; // outtype should be "png"
 		pixfmt="gray16be";
 	}
     
@@ -1607,120 +1854,157 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 		}	
 	     //outputfolderdelete=File.delete(outputfolder);
 		File.makeDirectory(outputfolder);
-		fileout=File.nameWithoutExtension + File.separator + File.nameWithoutExtension + "_%05d" + "." + outtype; // outtype should be "tiff"
+		fileout=File.nameWithoutExtension + File.separator + File.nameWithoutExtension + "_%06d" + "." + outtype; // outtype should be "tiff"
 		pixfmt="gray16le";
 	}
 
 	//fileout=replace(fileout, " ", "\ ");
 	
 	// Define the syntax for the exec command to split the sequence file into .fff files
-	splitfffexeccmd = perlpath + "perl " + perlsplit + " -i " + filepath + " -o " + tempfolder + " -b frame -p fff -x fff";
+	if(vidtype=="csq"){
+		splitfffexeccmd = perlpath + "perl " + perlsplit + " -i " + filepath + " -o " + tempfolder + " -b frame -p csq -x fff";
+	}
+	
+	if(vidtype=="seq"){
+		splitfffexeccmd = perlpath + "perl " + perlsplit + " -i " + filepath + " -o " + tempfolder + " -b frame -p fff -x fff";
+	}
+	
 	print("Splitting the video file into its .fff files with: ");
 	print(splitfffexeccmd);
 
 	// Execute the split.pl script on the SEQ file to create fff files
-	exec(perl, perlsplit, "-i", filepath, "-o", tempfolder, "-b", "frame", "-p", "fff", "-x", "fff");
+	if(vidtype=="csq"){
+		exec(perl, perlsplit, "-i", filepath, "-o", tempfolder, "-b", "frame", "-p", "csq", "-x", "fff");
+	}
+	
+	if(vidtype=="seq"){
+			exec(perl, perlsplit, "-i", filepath, "-o", tempfolder, "-b", "frame", "-p", "fff", "-x", "fff");
+	}
 
 	ffffilesintempfolder=CountFilesByExtension(tempfolder, ".fff");
 	print("The number of .FFF files in the temporary folder is: ", ffffilesintempfolder);
 	print("Use this number to troubleshoot if each command line step is working. The number of files should relate to the number of video frames.");
 	
+	// According to the framestep value, we will examing the number of fff files in the temporary folder and remove every nth frame.  
+	// If framestep = 1, we skip this step
+	// If framestep = 2, it should delete every other .fff file, keeping frame000001.fff, frame000003.fff, etc..
 	
+	if(framestep > 1){
+		RemoveEveryNthFFF(tempfolder, framestep);		
+	}
+		
 	// Extract Date/Time Original from the .fff files    
 	
-	// timefind =  exiftoolpath + exiftool + " -*Original* " + tempfolder + File.separator + "*.fff -r -q";
-	timefind = exiftoolpath + exiftool + " -DateTimeOriginal -s -T " + tempfolder + File.separator + "*.fff" + " > " + tempfolder + File.separator + "datetime.txt";
-	print("Extracting frame times with: ");
-	print(timefind);
-	
-	//exiftool -*DateTimeOriginal -s -T *.fff > datetime.txt
-
-	// Execute the timefind command
-	//	flirvals=exec("/bin/sh", "-c", timefind);
-	
-	if(OS=="Mac OS X"){
-		flirvals=exec("/bin/sh", "-c", timefind);	
-	}
-
-	if(OS=="Linux"){
-		flirvals=exec("/bin/sh", "-c", timefind);		
-	}
-
-	if(substring(OS, 0, 5)=="Windo"){
-		flirvals=exec("cmd", "/c", timefind);
-	}
-
-	// Load in Text file that contains time stamps for each frame from a SEQ or CSQ file
-	// Store these time stamps into an Array to return to the ConvertImportFLIRVideo function
-	// Then use these time stamps to re-name each layer in the stack
-
-	datetimefilePath=tempfolder + File.separator + "datetime.txt";
-	test=Table.open(datetimefilePath);
-	Heading=Table.headings();
-	NumFrames=Table.size()+1;
-	Times1=Table.getColumn(Heading);
-	HeadingArray=newArray(Heading);
-	Times=Array.concat(HeadingArray, Times1);
-	
-	dateoriginal=newArray(NumFrames);
-	timeoriginal=newArray(NumFrames);
-	tz=newArray(NumFrames);
-	sec=newArray(NumFrames);
-	
-	i=0;
-	while (i<dateoriginal.length) { 
-		dateoriginal[i]=Times[i];
-		timeoriginal[i]=Times[i];
-		tz[i]=Times[i];
-			
-		if(Times[i] == "-") {
-			i++;
-		} else {
-			dateoriginal[i]=replace(substring(dateoriginal[i], 0, 10), ":", "-");
-			tz[i]=substring(tz[i], 23, 29);
-			timeoriginal[i]=substring(timeoriginal[i], 11, 23);	
-			sec[i]=parseFloat(substring(timeoriginal[i], 6, 12));
-			i++;
-		}
+	if(addtimestamp==1){
+		// The following does not work from inside fiji
+		//timefind = exiftoolpath + exiftool + " -DateTimeOriginal -s -r -T -f -fast " + tempfolder + " > " + tempfolder + File.separator + "datetime.txt";  
+		// the following does work, but exiftool cannot handle large numbers of files this way.
+		timefind = exiftoolpath + exiftool + " -DateTimeOriginal -s -r -T -f -fast " + tempfolder + File.separator + "*.fff" + " > " + tempfolder + File.separator + "datetime.txt"; // 
 		
-	}
-
-	framediff=newArray(NumFrames-1);
-	for(i=0; i<NumFrames-1; i++){
-		framediff[i]=sec[i+1] - sec[i];
-		if(framediff[i]<0){
-			rem=60*abs(round(framediff[i]/60));
-			framediff[i]=framediff[i]+rem;
-		}
-	}
+		print("Extracting frame times with: ");
+		print(timefind);
 	
-	//Array.print(framediff);
-	Array.getStatistics(framediff, mean);
-	medianframediff=Median(framediff);
+		//exiftool -*DateTimeOriginal -s -T *.fff > datetime.txt
 
-	print("Video frame time difference is: " + medianframediff + " seconds");
+		// Execute the timefind command
+		//	flirvals=exec("/bin/sh", "-c", timefind);
+		
+	
+		if(OS=="Mac OS X"){
+			flirvals=exec("/bin/sh", "-c", timefind);	
+		}
 
+		if(OS=="Linux"){
+			flirvals=exec("/bin/sh", "-c", timefind);		
+		}
+
+		if(substring(OS, 0, 5)=="Windo"){
+			flirvals=exec("cmd", "/c", timefind);
+		}
+
+		// Load in Text file that contains time stamps for each frame from a SEQ or CSQ file
+		// Store these time stamps into an Array to return to the ConvertImportFLIRVideo function
+		// Then use these time stamps to re-name each layer in the stack
+
+		datetimefilePath=tempfolder + File.separator + "datetime.txt";
+		test=Table.open(datetimefilePath);
+		Heading=Table.headings();
+		NumFrames=Table.size()+1;
+		Times1=Table.getColumn(Heading);
+		HeadingArray=newArray(Heading);
+		Times=Array.concat(HeadingArray, Times1);
+	
+		dateoriginal=newArray(NumFrames);
+		timeoriginal=newArray(NumFrames);
+		tz=newArray(NumFrames);
+		sec=newArray(NumFrames);
+	
+		i=0;
+		while (i<dateoriginal.length) { 
+			dateoriginal[i]=Times[i];
+			timeoriginal[i]=Times[i];
+			tz[i]=Times[i];
+			showProgress(i/dateoriginal.length);
+			 
+			if(Times[i] == "-") {
+				i++;
+			} else {
+				dateoriginal[i]=replace(substring(dateoriginal[i], 0, 10), ":", "-");
+				tz[i]=substring(tz[i], 23, 29);
+				timeoriginal[i]=substring(timeoriginal[i], 11, 23);	
+				sec[i]=parseFloat(substring(timeoriginal[i], 6, 12));
+				i++;
+			}
+		}
+
+		framediff=newArray(NumFrames-1);
+		for(i=0; i<NumFrames-1; i++){
+			framediff[i]=sec[i+1] - sec[i];
+			if(framediff[i]<0){
+				rem=60*abs(round(framediff[i]/60));
+				framediff[i]=framediff[i]+rem;
+			}
+		}
+	
+		//Array.print(framediff);
+		Array.getStatistics(framediff, mean);
+		medianframediff=Median(framediff);
+		
+		var frameinterval=medianframediff;
+		
+		print("Video frame time difference is: " + medianframediff + " seconds");
+	
+	}
 
 ////////////////////// Split fff -> jpegls and remove extra files approach //////////////////////
 
-///// After creating the fff files, an alternative to using exiftool combining to thermalvid.raw is to re-split the fff files and then filter
-///// out the extra generated files as shown in the next ~20 lines
-//// The reason for this is with large CSQ files (>5000 frames) - exiftool can't handle the stream for some reason, so the perl split.pl script is the
-//// only viable solution.
-//// The split.pl script simply splits a file whereever the magic byte sequence occurs, which for an FFF file means that a short file is created that is
-//// mostly header info about the image, and the second file split off is the jpegls image data
+	///// After creating the fff files, an alternative to using exiftool combining to thermalvid.raw is to re-split the fff files and then filter
+	///// out the extra generated files as shown in the next ~20 lines
+	//// The reason for this is with large CSQ files (>5000 frames) - exiftool can't handle the stream for some reason, so the perl split.pl script is the
+	//// only viable solution.
+	//// The split.pl script simply splits a file whereever the magic byte sequence occurs, which for an FFF file means that a short file is created that is
+	//// mostly header info about the image, and the second file split off is the jpegls image data
+	
+	//// Note: this section subsequently caused issues with csq files that had errors in them, so the current code by-passes this section and uses the 
+	//// Thermalvid.raw approach until further notice.
+
 
 	if(vidtype=="csq"){
 		
 		fff_files = getFileList(tempfolder);
-	
+		
+		if(fff_files[0]=="datetime.txt"){
+			fff_files=Array.slice(fff_files,1);
+		}
+		
 		print("Splitting fff files into jpegls files by looping through all files using:");
-		print(perl + perlsplit + "-i " + tempfolder + File.separator + fff_files[0] + " -o " + filedir + File.separator + "temp " +  "-b " + fff_files[0] + ". " + "-p " + "jpegls " + "-x " + "jpegls " + "-s " + "y");
-		
-		
+		fff_file = replace(fff_files[0], "\.fff", "");
+		print(perl + " " + perlsplit + " -i " + tempfolder + File.separator + fff_files[0] + " -o " + filedir + File.separator + "temp " +  "-b " + fff_file + " -p " + "jpegls " + "-x " + "jpegls " + "-s " + "y");
+				
 		for(i=0; i<fff_files.length; i++){
 			showProgress(i/fff_files.length);
-			exec(perl, perlsplit, "-i", tempfolder + File.separator + fff_files[i], "-o", filedir + File.separator + "temp", "-b", fff_files[i] + ".", "-p", "jpegls", "-x", "jpegls", "-s", "y");
+			fff_file = replace(fff_files[i], "\.fff", "");
+			exec(perl, perlsplit, "-i", tempfolder + File.separator + fff_files[i], "-o", filedir + File.separator + "temp", "-b", fff_file, "-p", "jpegls", "-x", "jpegls", "-s", "y");
 		}
 
 		// Use to troubleshoot the conversion process
@@ -1728,7 +2012,6 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 		print("The number of .JPEGLS files in the temporary folder is: ", jpeglsfilesintempfolder);
 		print("Use this number to troubleshoot if each command line step is working. The number of files should relate to the number of video frames.");
 
-		
 		// I added an option to the perl script so that it skips exporting data before the magicbyte, allowing for only jpegls images to be split off, so these fff checks are unnecessary now:
 		//fileswithfff=GetFileListFilter(tempfolder, 3, "FFF");
 		
@@ -1739,36 +2022,48 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 		//	x=File.delete(fileswithfff[i]);
 		//}
 
-		jpeglsfilelist=getFileList(tempfolder);
-		//Array.print(jpeglsfilelist);
+		//jpeglsfilelist=getFileList(tempfolder);  // assumes this list of jpegls files is automatically sorted.
+		// what the loop below will do is to examine the array of jpegls file names and rename them to frame000001.jpegls.
+		// to speed up code, I have to assume these files are properly sorted.
+		jpeglsfilelist=GetFileListByExtension(tempfolder, "jpegls");  // assumes this list of jpegls files is automatically sorted.
 		for(i=0; i<jpeglsfilelist.length; i++){
+			//print(jpeglsfilelist[i]);
 			showProgress(i/jpeglsfilelist.length);
 			filepath=tempfolder + File.separator + jpeglsfilelist[i];
-			newpath=replace(filepath, ".fff.00001", "");
+			stringcounter = "" + i + 1;
+			framename = "frame" + leadzero(stringcounter, 6) + ".jpegls"; 
+			//newpath=replace(filepath, "000001\.jpegls", "\.jpegls");
+			newpath=tempfolder + File.separator + framename;
+			//print(newpath);
 			x=File.rename(filepath, newpath);
 		}
 	}
 	
 ////////////////// ^ Split fff -> jpegls or tiff and remove extra files approach ^ //////////////////////
 
-
-
+ 
+ 
+ 
 
 ////////////////// Thermalvid.raw approach //////////////////////
 
 // SEQ files may be oddly formatted, so we'll use Exiftool to generate the thermalvid.raw file.
-// Note: may not work on files larger than 6000 frames
 
 	if(vidtype=="seq"){
 				
 	// Combine fff files into thermalvid.raw using exiftool raw binary extraction function
 	// Difficulty getting the piping (> or |) to work with the default exec command. 
 	// See: http://imagej.1557.x6.nabble.com/macro-Redirection-in-exec-UNIX-binary-td3687463.html
-	//rawcombinecmd = exiftoolpath + exiftool +  " -b -RawThermalImage " + tempfolder + File.separator + "*.fff > " + filedir + File.separator + "thermalvid.raw";
-
-	rawcombinecmd = exiftoolpath + exiftool +  " -b -r -fast -P -sort -RawThermalImage " + tempfolder + File.separator + "*.fff > " + tempfolder + File.separator + "thermalvid.raw";
+	
+	//rawcombinecmd = exiftoolpath + exiftool +  " -b -r -fast -P -sort -RawThermalImage " + tempfolder + File.separator + "*.fff > " + tempfolder + File.separator + "thermalvid.raw";
+	// previously, the code below would not work with large number of fff files.  I had to remove the "*.fff" part and force exiftool to operate only on the folder recursively:
+	
+	rawcombinecmd = exiftoolpath + exiftool +  " -b -r -fast -P -sort -RawThermalImage " + tempfolder + File.separator +  "*.fff > " + tempfolder + File.separator + "thermalvid.raw";
+	//rawcombinecmd = exiftoolpath + exiftool +  " -b -r -fast -P -RawThermalImage " + tempfolder + " > " + tempfolder + File.separator + "thermalvid.raw";
+	
 	print("Combining the fff files into a thermalvid.raw file with: ");
 	print(rawcombinecmd);
+	print("Please note that this step can be slow for large files, and there is no way to indicate progress");
 	
 	if(OS=="Mac OS X"){
 		exec("/bin/sh", "-c", rawcombinecmd);	
@@ -1799,6 +2094,13 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 		tifffilesintempfolder=CountFilesByExtension(tempfolder, ".tiff");
 		print("The number of .TIFF files in the temporary folder is: ", tifffilesintempfolder);
 		print("Use this number to troubleshoot if each command line step is working. The number of files should relate to the number of video frames.");
+		
+		if(ffffilesintempfolder - tifffilesintempfolder>0){
+			print(" ------- WARNING -------");
+			print("The number of extracted / converted frames is fewer than the number of detected FLIR FFF headers");
+			print("This likely means that there are some frames in the video that contain an error");
+			print("These frames have been skipped");
+		}
 	}
 	
 	if(vidtype=="csq"){
@@ -1808,6 +2110,13 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 		jpeglsfilesintempfolder=CountFilesByExtension(tempfolder, ".jpegls");
 		print("The number of JPEGLS files in the temporary folder is: ", jpeglsfilesintempfolder);
 		print("Use this number to troubleshoot if each command line step is working. The number of files should relate to the number of video frames.");
+		
+		if(ffffilesintempfolder - jpeglsfilesintempfolder>0){
+			print(" ------- WARNING -------");
+			print("The number of extracted / converted frames is fewer than the number of detected FLIR FFF headers");
+			print("This likely means that there are some frames in the video that contain an error");
+			print("These frames have been skipped");
+		}
 
 	}
 
@@ -1819,21 +2128,25 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 
 // Execute the ffmpeg command to assimilate all the image (TIFF or JPEGLS or PNG?) files into one avi file
 	
+	// determine play back rate, playbackrate
+	playbackrate=parseInt("" + 1/frameinterval*framestep);
+    //	print(playbackrate);
+	
 	if(copycodec=="copy"){
 		outcodec="copy";
 	}
 	
 	print("Combining the " + RawThermalType + " files into " + outcodec + " files ready for import with: ");
-	tiffcombinecmd = ffmpeg + " -f" + " image2" + " -vcodec" + " " + RawThermalType + " -r" + " 30" + " -i " + tempfolder + File.separator + "frame%05d." + RawThermalType + " -pix_fmt " + pixfmt + " -vcodec " + outcodec + " " + filedir + File.separator + fileout + " -y";   
+	tiffcombinecmd = ffmpeg + " -f" + " image2" + " -vcodec" + " " + RawThermalType + " -r" + " " + playbackrate + " -i " + tempfolder + File.separator + "frame%06d." + RawThermalType + " -pix_fmt " + pixfmt + " -vcodec " + outcodec + " " + filedir + File.separator + fileout + " -y";   
     print(tiffcombinecmd); 
 
 	if(outcodec=="jpegls"){
 		// for recoding to jpegls, setting pred to 2 usually yields the smallest file size
 		// but no saving is generated from a CSQ file where the jpegls compression is already optimal, so it is better simply to set -vodec to copy
-		exec(ffmpeg, "-f", "image2", "-vcodec", RawThermalType, "-r", "30", "-i", tempfolder + File.separator + "frame%05d." + RawThermalType, "-pix_fmt", pixfmt, "-vcodec", outcodec, "-pred", "2",  filedir + File.separator + fileout, "-y");
+		exec(ffmpeg, "-f", "image2", "-vcodec", RawThermalType, "-r", playbackrate, "-i", tempfolder + File.separator + "frame%06d." + RawThermalType, "-pix_fmt", pixfmt, "-vcodec", outcodec, "-pred", "2",  filedir + File.separator + fileout, "-y");
 	}
 	else{
- 		exec(ffmpeg, "-f", "image2", "-vcodec", RawThermalType, "-r", "30", "-i", tempfolder + File.separator + "frame%05d." + RawThermalType, "-pix_fmt", pixfmt, "-vcodec", outcodec, filedir + File.separator + fileout, "-y");
+ 		exec(ffmpeg, "-f", "image2", "-vcodec", RawThermalType, "-r", playbackrate, "-i", tempfolder + File.separator + "frame%06d." + RawThermalType, "-pix_fmt", pixfmt, "-vcodec", outcodec, filedir + File.separator + fileout, "-y");
 	}
 
 	// Use to troubleshoot the conversion process
@@ -1842,26 +2155,15 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	print("Use this number to troubleshoot if each command line step is working.");
 	print("The number of files should be the sum of the number of .FFF, .RAW, plus the .TIFF or .JPEGLS files generated from the extraction process.");
 	
-	templist = getFileList(tempfolder);
-	for (i = 0; i < templist.length; i++){
-      tempfilesdelete_success=File.delete(tempfolder + File.separator + templist[i]);	
-	}	
 	
-	thermalviddelete_success=File.delete(filedir + File.separator + "thermalvid.raw");
-	tempfolderdelete_success=File.delete(filedir + File.separator + "temp" + File.separator );
-
-	print("All these temporary files are deleted upon completion of the conversion.");
-
-	//if(tempfilesdelete_success + tempfolderdelete_success ==2){
-	//	print("Temporary files and folder deleted");
-	//}
+	deletetempfolder(tempfolder);
 
 
 	if(outtype=="png"){
 		print("Your converted file(s) should be located in the following folder: ", outputfolder);
-		//print(outputfolder + File.Separator + File.nameWithoutExtension + "00001.png");
+		//print(outputfolder + File.Separator + File.nameWithoutExtension + "000001.png");
 			
-		if(File.exists(outputfolder + File.separator + File.nameWithoutExtension + "_00001.png")==0){
+		if(File.exists(outputfolder + File.separator + File.nameWithoutExtension + "_000001.png")==0){
 			exit("No .PNG files exist at that location. Please check steps above to see where conversion is failing. ");	
 		}
 		
@@ -1890,41 +2192,64 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 		print("\nImporting 16-bit grayscale AVI file");
 		ffmpegimportarguments = "choose=[" + filedir + File.separator + fileout + "]" + " first_frame=0 last_frame=-1";
 		
-		if(usevirtual==1){
+		if(usevirtual==1  && addtimestamp==0){
 		   ffmpegimportarguments = "choose=[" + filedir + File.separator + fileout + "]" + " use_virtual_stack first_frame=0 last_frame=-1";
+		}
+
+		if(usevirtual==1  && addtimestamp==1){
+			print("Warning: Time stamps cannot be added to virtual stacks. Your video has been imported as a normal stack to add time stamps");
 		}
 
 		print(ffmpegimportarguments);
 		
 		run("Movie (FFMPEG)...", ffmpegimportarguments);
+		
 	}
 
-	print("Adding file time origin as slice label");
-	setBatchMode(true);
-	for (i=1; i<=nSlices; i++) { 
-		setSlice(i);
-		//slicelabel= dateoriginal + "_" + timeoriginal[i] + tz;
-		slicelabel=dateoriginal[i-1] + " " + timeoriginal[i-1] + " " + tz[i-1];
-		setMetadata("Label", slicelabel);
-		//Property.setSliceLabel(string, slice)
+	if(addtimestamp==1){
+		print("Adding date/time origin as slice label.");
+		setBatchMode(true);
+		for (i=1; i<=nSlices; i++) { 
+			setSlice(i);
+   			showProgress(i/nSlices);
+			//slicelabel= dateoriginal + "_" + timeoriginal[i] + tz;
+			slicelabel=dateoriginal[i-1] + " " + timeoriginal[i-1] + " " + tz[i-1];
+			setMetadata("Label", slicelabel);
+			//Property.setSliceLabel(string, slice)
+		}
+		setBatchMode(false);
+	
+		// Set frame interval to stack
+		frameinterval=medianframediff; 	
+		call("ij.Prefs.set", "frameinterval.persistent", toString(frameinterval)); 
+		//imageproperties="channels=1 frames=1 pixel_width=1.0000 pixel_height=1.0000 voxel_depth=1.0000 frame=[" + frameinterval + " sec\] global";
+		//run("Properties...", imageproperties);
 	}
-	setBatchMode(false);
 	
-	// Set frame interval to stack
-	Stack.setFrameInterval(medianframediff); // sets the frame rate
+	getDateAndTime(endyear, endmonth, enddayOfWeek, enddayOfMonth, endhour, endminute, endsecond, endmsec);
+	elapsedminutes = (endhour-starthour)*60 + (endminute-startminute) + (endsecond-startsecond)/60 + (endmsec-startmsec)/(60*1000);
+	print("The number of minutes to process your video:", elapsedminutes);	
+	print("Done Importing Video");
 	
-	//run("Raw2Temp Tool");
+	// set frame interval
+	var frameinterval=medianframediff;
+	//Stack.setFrameInterval(frameinterval + " sec");
+	call("ij.Prefs.set", "frameinterval.persistent", toString(frameinterval)); 
+	//imageproperties="channels=1 frames=1 pixel_width=1.0000 pixel_height=1.0000 voxel_depth=1.0000 frame=[" + frameinterval + " sec\] global";
+	//run("Properties...", imageproperties);
 	
 	if(converttotemperature==1){
 		print("Converting file to temperature");
 		Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, defaultpalette, "Yes", "Fast", imagetemperaturemin, imagetemperaturemax);	
 	}
-
-	print("Done Importing Video");
-	print("\n");
 	
+	run("Animation Options...", "speed=30");
+	
+	print("\n");
+	//	Stack.getFrameInterval();
 }
-
+ 	
+     
 function ImportFFmpegAVI(){
 	AVIfile=File.openDialog("FFmpeg AVI File");
 	ffmpegchoose="choose=[" + AVIfile + "]" + " use_virtual_stack first_frame=0 last_frame=-1";
@@ -2150,7 +2475,8 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 		//Fit.plot();
 
 			
-		print("Temperature was estimated using a 4th order polynomial on a restricted range of the data (655 data points evenly spanning a possible range of 65535 data points).");
+		print("To reduce computational time, temperature was estimated using a 4th order polynomial on a restricted range of the data");
+		print("Nominally, 655 data points evenly spanning a possible range of 65535 data points were used to contruct the following curve:");
 		print(formula);
 		print("where y = Temperature, x = Raw 16 bit value, and a,b,c,d,e are the coefficients:");
 		print("a = " + Fit.p(0));
@@ -2162,9 +2488,10 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 		print("This approximates the Sakuma-Hattori equation (used for estimating Planck's law for instruments with non-finite bandwidth) across a limited temperature range");
 		print("The root mean square of the error from polynomial predicted temperature using the fast calculation is:", rms_resid, "degrees C");
 		print("The maximum mathematical error detected using the polynomial fit is:", max, "degrees C");
-		print("Extreme temperatures are likely driving these errors.");
-		print("If this error is too high, re-run the Raw2Temp Macro Tool (R->T icon) with fast calculation setting more stringent image minimum and maximum, or select the Slow calculation");
+		print("Errors will be highest at the extreme ends of the temperature ranges.");
+		print("If this error is too high, re-run the Raw2Temp Macro Tool (R->T icon) with the fast calculation, setting more stringent image minimum and maximum, or select the Slow calculation");
 		print("For example, if the max residual error or the root mean square is greater than 0.1 degrees C, you probably should use the Slow calculation.");
+
 
 		//File.saveString(s, "/Users/GlennTattersall/Desktop/calibration.txt");
 	
@@ -3069,6 +3396,8 @@ function StackCumulativeDiffSummation(interval, dataType, windowType, detrend, r
 		StackDifference();	
 	}
 	
+	dt=interval;
+	
 	//run("8-bit");
 	//run("Stack Difference", "gap=1"); // default provides absolute difference, no negative numbers
 	run("Enhance Contrast", "saturated=0.35"); //   
@@ -3082,7 +3411,6 @@ function StackCumulativeDiffSummation(interval, dataType, windowType, detrend, r
 	rms_data=newArray(ns);
 	w = getWidth();
 	h = getHeight();
-	
 	
 	// obtain the mean and sd of the difference image.  each frame's values are summarised
 	for(i=0; i<ns; i++){
@@ -3150,7 +3478,14 @@ function StackCumulativeDiffSummation(interval, dataType, windowType, detrend, r
 
 	// Put values into the Results Window
 	run("Clear Results");
-	  
+
+	// Define a time variable
+	Time=Array.getSequence(ns);
+	for (i = 0; i < ns; i++) {
+		Time[i]=Time[i]*interval;
+		setResult("Elapsed Time", i, Time[i]);
+	}
+	
 	    for (i=0; i<ns; i++) {
 	    	setResult("Slice", i, i+1);
 	    	setResult("RMS", i, rms_data[i]);  // removed from above since this is far too slow to calculate
@@ -3180,7 +3515,6 @@ function StackCumulativeDiffSummation(interval, dataType, windowType, detrend, r
     	dataname="Cumulative CV"; 
     }
 
-	
 	// because the first two values of data are 0, remove these before running spectral analysis
 	//data=Array.slice(data,2,data.length);
 	
@@ -3335,6 +3669,12 @@ macro "Import Menu Tool - C037T0b11FT6b09IT9b09LTeb09E" {
 //macro "Raw Import Mikron RTV Action Tool - C000D00D01D02D03D04D05D06D09D0aD0bD0cD0dD0eD0fD10D13D19D1cD20D23D24D25D29D2cD2dD2eD30D31D32D33D35D36D39D3aD3bD3cD3eD3fD54D55D56D59D61D62D63D64D69D70D71D74D76D77D79D7aD7bD7cD7dD7eD7fD81D82D83D84D89D94D95D96D99Db0Db1Db2Db3Db9DbaDbbDc3Dc4Dc5Dc6DcbDccDcdDd1Dd2Dd3Dd4DddDdeDdfDe3De4De5De6DebDecDedDf0Df1Df2Df3Df9DfaDfbC000C111C222C333C444C555C666C777C888C999D67D78D87C999CaaaCbbbCcccCdddCeeeCfff" {
 //	RawImportMikronRTV();
 //}
+
+macro "Check Installations [C]" {
+	InstallChecks();
+}
+
+macro "-" {} //menu divider
 
 macro "Raw Import Mikron RTV" {
 	RawImportMikronRTV();
@@ -4595,12 +4935,11 @@ macro "ROI on Entire Stack [9]" {
 	Dialog.addNumber("Highpass filter: set number of samples for moving average (set to 0 to ignore): ", 0);
 	Dialog.addCheckbox("Linear Detrend data before Spectral Analysis: ", 1);
 	Dialog.addCheckbox("Remove mean from data before Spectral Analysis: ", 1);
-	
 	Dialog.show();
+	
 	//x=getValue("Mean");
 	//print(x);
 	//roiManager("select", 0);
-	
 	
 	dt=Dialog.getNumber();
 	dataType=Dialog.getChoice();
@@ -4610,33 +4949,37 @@ macro "ROI on Entire Stack [9]" {
 	detrend=Dialog.getCheckbox();
 	removemean=Dialog.getCheckbox();
 	
-
 	frameinterval=dt;
 
-	Stack.setFrameInterval(frameinterval);
+	Stack.setFrameInterval(frameinterval + " sec");
 	call("ij.Prefs.set", "frameinterval.persistent", toString(frameinterval)); 
+	imageproperties="channels=1 frames=1 pixel_width=1.0000 pixel_height=1.0000 voxel_depth=1.0000 frame=[" + frameinterval + " sec\] global";
+	run("Properties...", imageproperties);
 	
 	run("Clear Results");
-	run("Set Measurements...", "mean standard modal min median center skewness kurtosis display redirect=None decimal=9");
+	run("Set Measurements...", "stack mean standard modal min median center skewness kurtosis stack display redirect=None decimal=9");
 	run("ROI Manager...");
 	roiManager("reset");
 	roiManager("Add");
-	//run("Select All"); // select entire image frame and add as a second ROI 
-	//roiManager("Add");
 	roiManager("Show All");
 	roiManager("Multi Measure");
 	
+	data=newArray(nSlices);
+	x=newArray(nSlices);
+	Time=Array.getSequence(nSlices);
+	databackground=newArray(nSlices);
+	
+	// Define a time variable
+	for (i = 0; i < nSlices; i++) {
+		Time[i]=Time[i]*frameinterval;
+		setResult("Elapsed Time", i, Time[i]);
+	}
 	
 	// rename Label values to be the Slice Labels
 	for (i=1; i<=nSlices; i++) { 
 		setSlice(i);
 		setResult("Label", i-1, getMetadata("Label"));
 	}
-	
-	data=newArray(nSlices);
-	x=newArray(nSlices);
-	Time=Array.getSequence(nSlices);
-	databackground=newArray(nSlices);
 	
 	for(n=0; n<nSlices; n++){
 		if(dataType=="Mean"){
@@ -4692,7 +5035,7 @@ macro "ROI on Entire Stack [9]" {
 			dataname="ROI Kurtosis";
 		}		
 	}
-	
+
 	originaldata=newArray(nSlices);
 	for (i = 0; i < nSlices; i++) {
 		Time[i]=Time[i]*frameinterval;
@@ -4747,10 +5090,7 @@ macro "ROI on Entire Stack [9]" {
 		run("Line Width...", "line=1"); // return to default
 	}
 	
-	
-	
 	spectralanalysis(data, dataname, windowType, dt, detrend, removemean);
-	
 	
 	saveAs("Results", desktopdir + File.separator + "ROI_Stack_Results.csv");
 }
@@ -4773,11 +5113,12 @@ macro "Cumulative Difference Sum on Stack [0]"{
 	if(dt==0){
 		dt=frameinterval;
 	}
+	
 	Dialog.create("Cumulative Difference Sum Analysis");
 	Dialog.addMessage("This function works on stacks first by subtracting the difference in pixel values between frames,\ncreating an absolute value difference stack n-1 frames in length.");
 	Dialog.addMessage("Then all pixels from each frame are examined for the mean and standard deviation per frame,\nstored to the results window, after which a cumulative value is calculated.");
 	Dialog.addMessage("This cumulative absolute difference value is then detrended and normalised\nto remove mean value prior to a discrete fourier analysis to return freuquency components.");
-	Dialog.addChoice("Is your image stack already a difference image? (If no, a difference stack will be calculated", newArray("Yes", "No"));
+	Dialog.addChoice("Is your image stack already a difference image? (If no, a difference stack will be calculated", newArray("No", "Yes"));
 	Dialog.addMessage("The user should provide time interval in seconds for the image stack if value below is blank or incorrect.");
 	Dialog.addNumber("Seconds between video frames: ", dt);
 	Dialog.addChoice("Perform spectral analysis on mean or sd: ", newArray("sd", "mean", "cv"));
@@ -4794,8 +5135,10 @@ macro "Cumulative Difference Sum on Stack [0]"{
 	removemean=Dialog.getCheckbox();
 
 	frameinterval=dt;
-	Stack.setFrameInterval(frameinterval);
+	Stack.setFrameInterval(frameinterval + " sec");
 	call("ij.Prefs.set", "frameinterval.persistent", toString(frameinterval)); 
+	imageproperties="channels=1 frames=1 pixel_width=1.0000 pixel_height=1.0000 voxel_depth=1.0000 frame=[" + frameinterval + " sec\] global";
+	run("Properties...", imageproperties);
 	
 	StackCumulativeDiffSummation(dt, dataType, windowType, detrend, removemean, isdifference);
 	

@@ -111,7 +111,7 @@ if ($skip eq "y"){
         #print $i;
         # then save 
         for (my $i = 0; $i<$len; $i++) {
-            $outfilename = ">$folder/$outfilebase" . sprintf("%05d",++$n) . $outext;
+            $outfilename = ">$folder/$outfilebase" . sprintf("%06d",++$n) . $outext;
             open(OUT, $outfilename);
             binmode(OUT, ":raw");
             print OUT $content[$ind[$i]];
@@ -124,7 +124,7 @@ if ($skip eq "y"){
   
     # Split infilename based on $pat
     for my $content (split(/(?=$pat)/, $file)) {
-        $outfilename = ">$folder/$outfilebase" . sprintf("%05d",++$n) . $outext;
+        $outfilename = ">$folder/$outfilebase" . sprintf("%06d",++$n) . $outext;
         open(OUT, $outfilename);
         binmode(OUT, ":raw");
         print OUT $content;
