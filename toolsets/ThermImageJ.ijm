@@ -2,15 +2,13 @@
 ////                                                                                               ////
 ////    This ImageJ toolset allows to access ImageJ macros for working with thermal images.        ////
 ////        Main Features: import, conversion, and transformation of thermal images.               ////
-////                           Requires: exiftool, ffmpeg, perl                                    ////
+////                           Requires: exiftool, ffmpeg, perl, xxd                               ////
 ////                                Glenn J. Tattersall                                            ////
-////                               June, 2023 - Version 2.9                                        ////
-////            - Highlights: added time stamps to slices in SEQ, CSQ imports                      ////
-////            - Highlights: added a Check Installation Macro to help with pathing issues         ////
-////            - Highlights: added a frame skipping option for importing SEQ and CSQ files        ////
+////                               Feb, 2024 - Version 2.9.2                                       ////
+////            - Highlights: fixed Frame Start Byte Macro to work with PC better                  ////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
+ 
 var luts = getLutMenu();
 var lCmds = newMenu("LUT Menu Tool", luts);
 var palettetypes=newArray("Grays", "Ironbow", "Rainbow", "Spectrum", "Thermal", "Yellow", "Yellow Hot", "Green Fire Blue", "Red/Green", "5 Ramps", "6 Shades");
@@ -56,7 +54,10 @@ var imagetemperaturemax=parseInt(call("ij.Prefs.get", "imagetemperaturemax.persi
 var usevirtual=parseInt(call("ij.Prefs.get", "usevirtual.persistent","1")); 
 var addtimestamp=parseInt(call("ij.Prefs.get", "addtimestamp.persistent","0")); 
 var converttotemperature=parseInt(call("ij.Prefs.get", "converttotemperature.persistent","1")); 
-
+var deletetempfiles=parseInt(call("ij.Prefs.get", "deletetempfiles.persistent","1")); 
+var offsetbyte=parseInt(call("ij.Prefs.get", "offsetbyte.persistent","1372")); 
+var gapbytes=parseInt(call("ij.Prefs.get", "gapbytes.persistent","1424")); 
+var nframes=parseInt(call("ij.Prefs.get", "nframes.persistent","20000")); 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 ////                                                                                               ////
@@ -883,16 +884,7 @@ function deletetempfolder(tempfolder){
 
 
 
-// Print the output array
-for (i = 0; i < lengthOf(outputArray); i++) {
-  print(outputArray[i]);
-}
-
-
-
-
 // function to import an rtv file using imageJ raw import option
-
 function RawImportMikronRTV() {
 
 	print("\n------ Running RawImportRTV function ------");
@@ -969,8 +961,7 @@ function RawImportMikronRTV() {
 }
 
 
-// function to import an rtv file using imageJ raw import option
-
+// function to import an rtv/sit file using imageJ raw import option
 function RawImportMikronSIT() {
 
 	print("\n------ Running RawImportMikronSIT function ------");
@@ -1047,26 +1038,27 @@ function RawImportFLIRSEQ() {
 	
 	print("\n------ Running RawImporFLIRSEQ function ------");
 	
-	var offsetbyte = 1372; 
+	//var offsetbyte = 1372; 
 	// offsetbyte is 1540528 for SEQ files recorded to a FLIR SC660
 	// offsetbyte is 1372 for SEQ files recorded to computer (works for at least two diff cameras)
 	// offsetbyte is 1542956 or 1540480 for SEQ files recorded to a FLIR SC640
-	var gapbytes = 1424;
+	//var gapbytes = 1424;
 	// gapbytes is 3020 for direct SEQ recorded files
 	// gapbytes is 1424 for thermacam researcher pro captured seq files
-	var nframes = 10000;
-	var imagewidth = 640;
-	var imageheight = 480;
+	//var nframes = 10000;
+	//var imagewidth = 640;
+	//var imageheight = 480;
 	//var converttotemperature = 1; // now is a persistent variable
 	//var usevirtual = 0;
 	var minpix=1;
 	var maxpix=65535;
 	
 	//Create Dialog Box	
-	Dialog.create("Information for FLIR SEQ Video Import"); 
-	Dialog.addMessage("This macro directly imports the RAW pixel data from a SEQ file");
-	Dialog.addMessage("The user must input the starting offset bytes and frame gaps");
-	Dialog.addMessage("Use the Convert & Import FLIR SEQ macro if you do not have this information");
+	Dialog.create("RAW import of FLIR SEQ File"); 
+	Dialog.addMessage("This macro directly imports the RAW pixel data from a SEQ file\n assuming the user knows the offset and frame gap byte information.");
+	Dialog.addMessage("The user must input the starting offset bytes and frame gaps.");
+	Dialog.addMessage("You may first try to use the Frame Byte Start macro estimate what these values are\nalthough there is no guarantee this will work for all SEQ files.");
+	Dialog.addMessage("Please Use the Import FLIR SEQ Macro if you do not have accurate information on the start and frame gap bytes.");
 	Dialog.addMessage("\n");
 	Dialog.addNumber("Offset Bytes", offsetbyte, 0, 8, "bytes"); 
 	Dialog.addNumber("Gaps Between Frames:", gapbytes, 0, 8, "bytes");
@@ -1086,15 +1078,35 @@ function RawImportFLIRSEQ() {
 	var converttotemperature = Dialog.getCheckbox();
 	var usevirtual = Dialog.getCheckbox();
 	
+	call("ij.Prefs.set", "imagewidth.persistent",toString(imagewidth)); 
+	call("ij.Prefs.set", "imageheight.persistent",toString(imageheight)); 
 	call("ij.Prefs.set", "usevirtual.persistent",toString(usevirtual)); 
+	call("ij.Prefs.set", "offsetbyte.persistent",toString(offsetbyte)); 
+	call("ij.Prefs.set", "gapbytes.persistent",toString(gapbytes)); 
+	call("ij.Prefs.set", "nframes.persistent",toString(nframes)); 
 	call("ij.Prefs.set", "converttotemperature.persistent",toString(converttotemperature)); 
 
 	filepath=File.openDialog("Select a File"); 
-	file=File.openAsString(filepath); 
+	
+	//file=File.openAsString(filepath); 
+	
 	print("Loading: ", filepath);
 	print("\n");
-
-	run("Raw...", "open=[filepath] image=[16-bit Unsigned] width=imagewidth height=imageheight offset=offsetbyte number=nframes gap=gapbytes little-endian use=usevirtual");
+	
+	if(usevirtual==1){
+		var rawimportoptions = "open=[" + filepath + "] image=[16-bit Unsigned] width=" + imagewidth + " height=" + imageheight + " offset=" + offsetbyte + " number=" + nframes + " gap=" + gapbytes + " little-endian use";	
+	}
+	if(usevirtual==0){
+		var rawimportoptions = "open=[" + filepath + "] image=[16-bit Unsigned] width=" + imagewidth + " height=" + imageheight + " offset=" + offsetbyte + " number=" + nframes + " gap=" + gapbytes + " little-endian";	
+	}
+	
+	//print(rawimportoptions);
+	
+	run("Raw...", rawimportoptions);
+	
+	if(File.exists(filepath)){
+		flirvals=flirvalues(filepath, "No");
+	}
 	
 	if(OS=="Mac OS X"){		
 		flirvals=exec(exiftoolpathOSX + exiftoolOSX,  "-Planck*", "-*AtmosphericTrans*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
@@ -1155,10 +1167,10 @@ function RawImportFLIRSEQ() {
 		print("Relative Humidity: ", d2s(RH,2));
 		print("\n");
 	
-	Stack.getStatistics(count, mean, min, max, std);
-		var minpix=min;
-		var maxpix=max;
-		setMinAndMax(minpix, maxpix);
+	//Stack.getStatistics(count, mean, min, max, std);
+	//	var minpix=min;
+	//	var maxpix=max;
+	//	setMinAndMax(minpix, maxpix);
 	
 	if(converttotemperature==1){
 		print("Converting file to temperature");
@@ -1593,17 +1605,19 @@ function ImportConvertFLIRSEQ(){
 	Dialog.create("Select a FLIR SEQ File");
 	Dialog.addMessage("-- Warning: Before selecting your file, please remove spaces in the file or folder name --");
 	Dialog.addMessage("Define parameters for Video Import");
-	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
-	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
-	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files\nwill be created for each SEQ frame");
+	Dialog.addMessage("If you choose output file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
+	Dialog.addMessage("If you choose output file type 'PNG', a separate PNG file\nwill be created for each SEQ frame");
+	Dialog.addMessage("If you choose output file type 'TIFF', a separate TIFF file\nwill be created for each SEQ frame");
 	Dialog.addChoice("Output file type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
 	Dialog.addChoice("Video image encoding (ignored if choosing image above)", newArray("jpegls", "png"), "jpegls");
-	Dialog.addNumber("Number of frames to skip on import. Use 1 for all frames (default), 2 to skip every other frame.", 1);
+	Dialog.addNumber("Number of frames to skip. Use 1 to import without skipping, 2 to skip every other frame,...", 1);
+	Dialog.addMessage("The choices below should be remembered the next time you run this function.");
 	Dialog.addCheckbox("Convert to Temperature on Import", converttotemperature);
-	Dialog.addMessage("Unselect Convert to Temperature for faster loading.\nThe imported file will be a 16-bit grayscale");
+	Dialog.addMessage("Unselect Convert to Temperature for faster loading.\nThe imported file will be a 16-bit grayscale.");
 	Dialog.addCheckbox("Add video frame time stamp to slice labels (choice is remembered on relaunch).", addtimestamp);
 	Dialog.addCheckbox("Use virtual stack for avi import (choice is remembered on relaunch).", usevirtual);
-	Dialog.addMessage("Select Virtualstack for faster loading, but cannot add time stamps to image stack.");
+	Dialog.addMessage("Select virtualstack for faster loading, but cannot add time stamps to image stack.\n");
+	Dialog.addCheckbox("Delete the temporary files generated during conversion.", deletetempfiles);
 	Dialog.show();
 	
 	var outtypechoice=Dialog.getChoice();
@@ -1612,11 +1626,13 @@ function ImportConvertFLIRSEQ(){
 	var converttotemperature = Dialog.getCheckbox();
 	var addtimestamp = Dialog.getCheckbox();
 	var usevirtual = Dialog.getCheckbox();	
+	var deletetempfiles = Dialog.getCheckbox();
 	var copycodec="no";
 
 	call("ij.Prefs.set", "usevirtual.persistent",toString(usevirtual)); 
 	call("ij.Prefs.set", "addtimestamp.persistent",toString(addtimestamp)); 
 	call("ij.Prefs.set", "converttotemperature.persistent",toString(converttotemperature)); 
+	call("ij.Prefs.set", "deletetempfiles.persistent",toString(converttotemperature)); 
 	
 	// ffmpeg copy codec with tiff file creates a corrupted avi, so best to simply use ffmpeg to re-encode
 	if(encodetypechoice=="tiff"){
@@ -1641,7 +1657,7 @@ function ImportConvertFLIRSEQ(){
 		var outcodec="tiff";
 	}
 	
-	ConvertFLIRVideo("seq", outtype, outcodec, converttotemperature, usevirtual, copycodec, addtimestamp);
+	ConvertFLIRVideo("seq", outtype, outcodec, converttotemperature, usevirtual, copycodec, addtimestamp, deletetempfiles);
 }
 
 
@@ -1654,17 +1670,19 @@ function ImportConvertFLIRCSQ(){
 	Dialog.create("Select a FLIR CSQ File");
 	Dialog.addMessage("-- Warning: Before selecting your file, please remove spaces in the file or folder name --");
 	Dialog.addMessage("Define parameters for Video Import");
-	Dialog.addMessage("If you choose file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
-	Dialog.addMessage("If you choose file type 'PNG', a separate PNG files\nwill be created for each SEQ frame");
-	Dialog.addMessage("If you choose file type 'TIFF', a separate TIFF files\nwill be created for each SEQ frame");
+	Dialog.addMessage("If you choose output file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
+	Dialog.addMessage("If you choose output file type 'PNG', a separate PNG file\nwill be created for each CSQ frame");
+	Dialog.addMessage("If you choose output file type 'TIFF', a separate TIFF file\nwill be created for each CSQ frame");
 	Dialog.addChoice("Output File Type (avi, png, tiff)", newArray("avi", "png", "tiff"), "avi");
 	Dialog.addChoice("Video Image Encoding (ignored if choosing file)", newArray("jpegls", "png"), "jpegls");
-	Dialog.addNumber("Number of frames to skip on import. Use 1 for all frames (default), 2 to skip every other frame.", 1);
+	Dialog.addNumber("Number of frames to skip. Use 1 to import without skipping, 2 to skip every other frame,...", 1);
+	Dialog.addMessage("The choices below should be remembered the next time you run this function.");
 	Dialog.addCheckbox("Convert to Temperature on Import", converttotemperature);
-	Dialog.addMessage("Unselect Convert to Temperature for faster loading.\nThe imported file will be a 16-bit grayscale");
+	Dialog.addMessage("Unselect Convert to Temperature for faster loading.\nThe imported file will be a 16-bit grayscale.\n");
 	Dialog.addCheckbox("Add video frame time stamp to slice labels (choice is remembered on relaunch).", addtimestamp);
 	Dialog.addCheckbox("Use virtual stack for avi import (choice is remembered on relaunch).", usevirtual);
-	Dialog.addMessage("Select Virtualstack for faster loading, but cannot add time stamps to image stack.");
+	Dialog.addMessage("Select Virtualstack for faster loading, but cannot add time stamps to image stack.\n");
+	Dialog.addCheckbox("Delete the temporary files generated during conversion.", deletetempfiles);
 	Dialog.show();
 	
 	var outtypechoice=Dialog.getChoice();
@@ -1673,12 +1691,15 @@ function ImportConvertFLIRCSQ(){
 	var converttotemperature = Dialog.getCheckbox();
 	var addtimestamp = Dialog.getCheckbox();
 	var usevirtual = Dialog.getCheckbox();
+	var deletetempfiles = Dialog.getCheckbox();
 	var copycodec="no";
+	
 	
 	call("ij.Prefs.set", "usevirtual.persistent",toString(usevirtual)); 
 	call("ij.Prefs.set", "addtimestamp.persistent",toString(addtimestamp)); 
 	call("ij.Prefs.set", "converttotemperature.persistent",toString(converttotemperature)); 
-
+	call("ij.Prefs.set", "deletetempfiles.persistent",toString(converttotemperature)); 
+	
 	if(outtypechoice=="avi"){
 		var outtype="avi";
 		var outcodec=encodetypechoice;
@@ -1697,10 +1718,10 @@ function ImportConvertFLIRCSQ(){
 		var outcodec="tiff";
 	}
 
-	ConvertFLIRVideo("csq", outtype, outcodec, converttotemperature, usevirtual, copycodec, addtimestamp);	
+	ConvertFLIRVideo("csq", outtype, outcodec, converttotemperature, usevirtual, copycodec, addtimestamp, deletetempfiles);	
 }
 
-function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usevirtual, copycodec, addtimestamp) {
+function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usevirtual, copycodec, addtimestamp, deletetempfiles) {
 
     getDateAndTime(startyear, startmonth, startdayOfWeek, startdayOfMonth, starthour, startminute, startsecond, startmsec);
 	
@@ -1771,6 +1792,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	// Use to troubleshoot the conversion process
 	print("Removing old files that may be in the following temporary folder: " + tempfolder);
 	
+	// call the deletetempfolder function to remove temporary files
 	deletetempfolder(tempfolder);
 	
 //	filesintempfolder=getFileList(tempfolder);
@@ -2058,7 +2080,8 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	//rawcombinecmd = exiftoolpath + exiftool +  " -b -r -fast -P -sort -RawThermalImage " + tempfolder + File.separator + "*.fff > " + tempfolder + File.separator + "thermalvid.raw";
 	// previously, the code below would not work with large number of fff files.  I had to remove the "*.fff" part and force exiftool to operate only on the folder recursively:
 	
-	rawcombinecmd = exiftoolpath + exiftool +  " -b -r -fast -P -sort -RawThermalImage " + tempfolder + File.separator +  "*.fff > " + tempfolder + File.separator + "thermalvid.raw";
+	rawcombinecmd = exiftoolpath + exiftool +  " -b -RawThermalImage " + tempfolder + File.separator +  "*.fff > " + tempfolder + File.separator + "thermalvid.raw";
+	rawcombinecmd = exiftoolpath + exiftool +  " -b -RawThermalImage " + tempfolder + File.separator +  " > " + tempfolder + File.separator + "thermalvid.raw";
 	//rawcombinecmd = exiftoolpath + exiftool +  " -b -r -fast -P -RawThermalImage " + tempfolder + " > " + tempfolder + File.separator + "thermalvid.raw";
 	
 	print("Combining the fff files into a thermalvid.raw file with: ");
@@ -2129,8 +2152,9 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 // Execute the ffmpeg command to assimilate all the image (TIFF or JPEGLS or PNG?) files into one avi file
 	
 	// determine play back rate, playbackrate
-	playbackrate=parseInt("" + 1/frameinterval*framestep);
-    //	print(playbackrate);
+	// print(1/1/frameinterval*framestep);
+	playbackrate=parseFloat("" + 1/frameinterval*framestep);
+    //print(playbackrate);
 	
 	if(copycodec=="copy"){
 		outcodec="copy";
@@ -2155,8 +2179,9 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	print("Use this number to troubleshoot if each command line step is working.");
 	print("The number of files should be the sum of the number of .FFF, .RAW, plus the .TIFF or .JPEGLS files generated from the extraction process.");
 	
-	
-	deletetempfolder(tempfolder);
+	if(deletetempfiles==1){
+		deletetempfolder(tempfolder);	
+	}
 
 
 	if(outtype=="png"){
@@ -2249,7 +2274,7 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	//	Stack.getFrameInterval();
 }
  	
-     
+// after having converted a SEQ or CSQ file into a 16-but AVI, import it as a virtualstack     
 function ImportFFmpegAVI(){
 	AVIfile=File.openDialog("FFmpeg AVI File");
 	ffmpegchoose="choose=[" + AVIfile + "]" + " use_virtual_stack first_frame=0 last_frame=-1";
@@ -3339,11 +3364,6 @@ function addvaluelocation(type, label, colour, fontsize) {
 
 
 
-
-
-
-
-
 function StackDifference(){
 
 	activewindow=getInfo("window.title");
@@ -3795,9 +3815,23 @@ macro "Frame Start Byte"{
 	
 	if(substring(OS, 0, 5)=="Windo"){
 		
+		// check if xxd is installed, if it is then run similar code as OSX and Linux
+		checkxxd=exec("where xxd.exe");
+		
+		if(lengthOf(checkxxd)>0){
+			print("Detected Operating System: " + OS);
+			print("Using the following bash command: ");
+			print(command);
+			res=exec("cmd", "/c", command);
+			print("Cleaning up hex output");
+			res=replace(res, "\n", "");
+		}
+	
+		if(lengthOf(checkxxd)==0){
+			
 		checkpwsh=exec("where pwsh.exe");
 		if(lengthOf(checkpwsh)==0){
-			exit("Powershell Core 6 (pwsh.exe) not found.\nPlease install from github.com/powershell and try again.");
+			exit("Neither xxd.exe nor Powershell Core 6 (pwsh.exe) can be found.\nPlease install from github.com/powershell and try again.\nA version of xxd for windows can be found at: https://sourceforge.net/projects/xxd-for-windows/");
 		}
 	
 		command="Format-Hex -Path " + filepath + " " + "-Count " + searchlength;
@@ -3838,7 +3872,8 @@ macro "Frame Start Byte"{
 		
 		//command="Get-Content " + filepath + " " + "-ReadCount " + "200000 " + "-Encoding " + "byte " + "-TotalCount " + imagewidth*imageheight*2*2;
 	}
-		
+	}
+
 	ind=newArray(100); // ind will be the index of byte positions where magicbyte is found
 	newres=res;
 	j=0; // counter index for use in next loop. each j refers to index of magic byte detection
@@ -4241,6 +4276,120 @@ macro "Estimate Camera Spot Size [S]" {
 
 
 macro "-" {} //menu divider
+
+
+macro "Denote Image as Upright [u]" { // 
+
+	if(defaultroifilename=="") {
+		roifilename=getTitle() + "_roi_results.csv";
+	}
+	
+	columnlabel="Posture";
+	outcome="Upright";
+	filename=getTitle; 
+
+	updateResults();
+
+	rownum=getSliceNumber()-1;
+	
+	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
+	for (i=0; i<getSliceNumber(); i++) { 	
+		setResult("Filename", i, "");
+	}
+
+	setResult("Filename", rownum, filename);
+	setResult("SliceLabel", rownum, getMetadata("label"));
+	setResult("Slice", rownum, getSliceNumber());
+	setResult(columnlabel, rownum, outcome);	
+	
+	updateResults();
+	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
+}
+
+
+macro "Denote Image as Prone [p]" { // 
+
+	if(defaultroifilename=="") {
+		roifilename=getTitle() + "_roi_results.csv";
+	}
+	
+	columnlabel="Posture";
+	outcome="Prone";
+	filename=getTitle; 
+	updateResults();
+
+	rownum=getSliceNumber()-1;
+	
+	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
+	for (i=0; i<getSliceNumber(); i++) { 	
+		setResult("Filename", i, "");
+	}
+
+	setResult("Filename", rownum, filename);
+	setResult("SliceLabel", rownum, getMetadata("label"));
+	setResult("Slice", rownum, getSliceNumber());
+	setResult(columnlabel, rownum, outcome);	
+	
+	updateResults();
+	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
+}
+
+
+macro "Denote Image Quality as Good [g]" { // 
+
+	if(defaultroifilename=="") {
+		roifilename=getTitle() + "_roi_results.csv";
+	}
+	
+	columnlabel="ImageQuality";
+	outcome="Good";
+	filename=getTitle; 
+	updateResults();
+
+	rownum=getSliceNumber()-1;
+	
+	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
+	for (i=0; i<getSliceNumber(); i++) { 	
+		setResult("Filename", i, "");
+	}
+
+	setResult("Filename", rownum, filename);
+	setResult("SliceLabel", rownum, getMetadata("label"));
+	setResult("Slice", rownum, getSliceNumber());
+	setResult(columnlabel, rownum, outcome);	
+	
+	updateResults();
+	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
+}
+
+
+macro "Denote Image Quality as Bad [b]" { // 
+
+	if(defaultroifilename=="") {
+		roifilename=getTitle() + "_roi_results.csv";
+	}
+	
+	roilabel="ImageQuality";
+	outcome="Bad";
+	filename=getTitle; 
+	updateResults();
+
+	rownum=getSliceNumber()-1;
+	
+	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
+	for (i=0; i<getSliceNumber(); i++) { 	
+		setResult("Filename", i, "");
+	}
+
+	setResult("Filename", rownum, filename);
+	setResult("SliceLabel", rownum, getMetadata("label"));
+	setResult("Slice", rownum, getSliceNumber());
+	setResult(roilabel, rownum, outcome);	
+	
+	updateResults();
+	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
+}
+
 
 macro "ROI d Results [d]" { // 
 
@@ -4822,7 +4971,7 @@ macro "ROI 7 Results [7]" { //
 
 macro "-" {} //menu divider
 
-macro "Extract ROI Pixel Values [p]"{
+macro "Extract ROI Pixel Values [x]"{
 	
 // http://imagej.1557.x6.nabble.com/Extracts-individual-pixel-values-from-a-selection-or-RIO-td5020121.html
 	

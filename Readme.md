@@ -57,6 +57,12 @@ similar tools but more emphasis on biological heat transfer analysis.
 - Byte swapper plugin.
   - Download instructions:
     <https://imagej.nih.gov/ij/plugins/swapper.html>
+- xxd (command line utility should already be part of OSX and Unix
+  systems)
+  - A windows version can be downloaded from:
+    <https://sourceforge.net/projects/xxd-for-windows/> or sourced from
+    the exe folder provided at:
+    <https://github.com/gtatters/ThermimageJ/exe>
 
 ### ThermImageJ Downloads from this Github site
 
@@ -125,7 +131,7 @@ exiftool -ver
 which exiftool
 ```
 
-    ## 12.26
+    ## 12.62
     ## /usr/local/bin/exiftool
 
 If you see a version number (probably \> 10) and no error, then exiftool
@@ -140,16 +146,16 @@ which perl
 ```
 
     ## 
-    ## This is perl 5, version 34, subversion 0 (v5.34.0) built for darwin-thread-multi-2level
+    ## This is perl 5, version 38, subversion 0 (v5.38.0) built for darwin-thread-multi-2level
     ## 
-    ## Copyright 1987-2021, Larry Wall
+    ## Copyright 1987-2023, Larry Wall
     ## 
     ## Perl may be copied only under the terms of either the Artistic License or the
     ## GNU General Public License, which may be found in the Perl 5 source kit.
     ## 
     ## Complete documentation for Perl, including FAQ lists, should be found on
     ## this system using "man perl" or "perldoc perl".  If you have access to the
-    ## Internet, point your browser at http://www.perl.org/, the Perl Home Page.
+    ## Internet, point your browser at https://www.perl.org/, the Perl Home Page.
     ## 
     ## /usr/local/bin/perl
 
@@ -185,17 +191,17 @@ ffmpeg -version
 which ffmpeg
 ```
 
-    ## ffmpeg version 5.0.1 Copyright (c) 2000-2022 the FFmpeg developers
-    ## built with Apple clang version 13.0.0 (clang-1300.0.29.30)
-    ## configuration: --prefix=/usr/local/Cellar/ffmpeg/5.0.1_2 --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libbluray --enable-libdav1d --enable-libmp3lame --enable-libopus --enable-librav1e --enable-librist --enable-librubberband --enable-libsnappy --enable-libsrt --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvmaf --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libspeex --enable-libsoxr --enable-libzmq --enable-libzimg --disable-libjack --disable-indev=jack --enable-videotoolbox
-    ## libavutil      57. 17.100 / 57. 17.100
-    ## libavcodec     59. 18.100 / 59. 18.100
-    ## libavformat    59. 16.100 / 59. 16.100
-    ## libavdevice    59.  4.100 / 59.  4.100
-    ## libavfilter     8. 24.100 /  8. 24.100
-    ## libswscale      6.  4.100 /  6.  4.100
-    ## libswresample   4.  3.100 /  4.  3.100
-    ## libpostproc    56.  3.100 / 56.  3.100
+    ## ffmpeg version 6.1.1 Copyright (c) 2000-2023 the FFmpeg developers
+    ## built with Apple clang version 15.0.0 (clang-1500.1.0.2.5)
+    ## configuration: --prefix=/usr/local/Cellar/ffmpeg/6.1.1_2 --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags='-Wl,-ld_classic' --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libaribb24 --enable-libbluray --enable-libdav1d --enable-libharfbuzz --enable-libjxl --enable-libmp3lame --enable-libopus --enable-librav1e --enable-librist --enable-librubberband --enable-libsnappy --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvmaf --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libopenvino --enable-libspeex --enable-libsoxr --enable-libzmq --enable-libzimg --disable-libjack --disable-indev=jack --enable-videotoolbox --enable-audiotoolbox
+    ## libavutil      58. 29.100 / 58. 29.100
+    ## libavcodec     60. 31.102 / 60. 31.102
+    ## libavformat    60. 16.100 / 60. 16.100
+    ## libavdevice    60.  3.100 / 60.  3.100
+    ## libavfilter     9. 12.100 /  9. 12.100
+    ## libswscale      7.  5.100 /  7.  5.100
+    ## libswresample   4. 12.100 /  4. 12.100
+    ## libpostproc    57.  3.100 / 57.  3.100
     ## /usr/local/bin/ffmpeg
 
 ## Setting and verifying paths to command line tools
@@ -602,7 +608,7 @@ See this screen capture demonstrating basic functions here:
 ## Performance, Speed, File Size Limits, and Caveats
 
 - The maximum number of video frames (i.e. stacks) will limited by the
-  CPU and RAM, but success with videos and image stacks of up to \~1000
+  CPU and RAM, but success with videos and image stacks of up to ~1000
   frames has been tested.
 - Due to memory limits in FIJI, delay converting larger video files to
   temperature until the files have been otherwise processed. The memory
