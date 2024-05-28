@@ -4,11 +4,101 @@
 ////        Main Features: import, conversion, and transformation of thermal images.               ////
 ////                           Requires: exiftool, ffmpeg, perl, xxd                               ////
 ////                                Glenn J. Tattersall                                            ////
-////                               Feb, 2024 - Version 2.9.2                                       ////
-////            - Highlights: fixed Frame Start Byte Macro to work with PC better                  ////
+////                               May, 2024 - Version 3.0                            	           ////
+////            - Highlights: fixed Frame Start Byte Macro to work with PC better,                 ////
+////							fixes to hotkeys, edits to create 10 ROIs						   ////	
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
- 
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+////                                                                                               ////
+////      User should verify the following path locations for their operating system:              ////
+////                                                                                               ////
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Customised Path Locations for Command Line Tools
+// There is no easy approach to adding essential command line tools to the FIJI path, so 
+// each user should customise the following 4 variables to be pointing toward the appropriate intallation
+// location for your respective operating system.
+// These path variables can be changed depending on where you have installed perl, ffmpeg and exiftool.
+// But these are the recommended folder locations where functionality has been tested
+
+// OSX Users verify these settings:									 // <- VERIFY THIS
+var perlpathOSX="/usr/bin/";    	 								// or "/usr/local/bin"
+var exiftoolpathOSX="/usr/local/bin/";			
+var exiftoolOSX="exiftool";
+var ffmpegpathOSX="/usr/local/bin/";
+
+// Linux Users verify these settings:								 // <- VERIFY THIS
+var perlpathLinux="/usr/bin/";
+var exiftoolpathLinux="/usr/bin/";
+var exiftoolLinux="exiftool";
+var ffmpegpathLinux="/usr/bin/";
+
+// Windows Users verify these settings:								 // <- VERIFY THIS
+var perlpathWindows="c:/Perl64/bin/"; 			 // this might be c:/Perl/perl/bin or c:/Perl64/perl/bin
+var exiftoolpathWindows="c:/windows/"; 			 // recommended location: c:/windows folder
+var exiftoolWindows="exiftool.exe";
+var ffmpegpathWindows="c:/FFmpeg/bin/";			 // ffmpeg.exe should be in c:/FFmpeg/bin folder
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+////                                                                                               ////
+////      There are 10 possible short cut ROI macros. Customise the names below to your preference ////
+////       			 Each short-cut is activated by one of the keys: 1,2,3,......0                 ////
+////                                                                                               ////
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Customise Region of Interest Macro Names
+// related to above, there are currently 6 numbered ROI extraction routines.  
+// Give labels to them here which will be saved in the ROI file.
+var ROI1="Bill";
+var ROI2="Tarsus";
+var ROI3="Foot";
+var ROI4="Body";
+var ROI5="Eye";
+var ROI6="Ground";
+var ROI7="EyeRegion";
+var ROI8="Wing";
+var ROI9="Sky";
+var ROI10="Reflected"
+
+// Note: This is a sample of how you could re-name the 7 ROI names:
+// Simply remove the // in front of each variable name and reboot ImageJ
+//var ROI1="UpperBill";
+//var ROI2="LowerBill";
+//var ROI3="Head";
+//var ROI4="Back";
+//var ROI5="Belly";
+//var ROI6="Foot";
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+////                                                                                               ////
+////      User may choose to change the following path locations for their operating system:       ////
+////                                                                                               ////
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// The following will set the perl script path to the location of your ImageJ folder's scripts subfolder
+var perlscriptpath=getDirectory("imageJ") + "scripts" + File.separator;  			  // <- CHANGE THIS IF YOU COPY SPLIT.PL TO A DIFFERENT FOLDER
+
+// ROI commands will automatically save a ROI_Results file to user's desktop folder 
+var desktopdir= getInfo("user.home") + File.separator + "Desktop" + File.separator;  // <- CHANGE THIS IF YOU WANT ANALYSIS FILES SAVED SOMEWHERE ELSE
+
+// ROI exported file can be autonamed so as not to overwrite
+// leave defaultroifilename blank and a filename will be generated based on the current open image
+// otherwise set this to var defaultroifilename="ROI_Results.csv";
+var defaultroifilename="";  													     // <- CHANGE THIS IF YOU WANT A DIFFERENT DEFAULT FILENAME FOR ROI OUTPUTS	
+
+var macropath=getDirectory("macros");
+
+// full path to the split.pl script
+var perlsplit=perlscriptpath + "split.pl";	
+
+// Extract Operating system user is on.  
+// OS will be used in most macros calling command line tools
+var OS=getInfo("os.name");
+
+//setOption("ExpandableArrays", true);
+
+// Global Parameters
 var luts = getLutMenu();
 var lCmds = newMenu("LUT Menu Tool", luts);
 var palettetypes=newArray("Grays", "Ironbow", "Rainbow", "Spectrum", "Thermal", "Yellow", "Yellow Hot", "Green Fire Blue", "Red/Green", "5 Ramps", "6 Shades");
@@ -35,7 +125,7 @@ var PO = parseFloat(call("ij.Prefs.get", "PO.persistent","-5854"));
  
 var ATA1 = parseFloat(call("ij.Prefs.get", "ATA1.persistent","0.006569")); 
 var ATA2 = parseFloat(call("ij.Prefs.get", "ATA2.persistent","0.01262")); 
-var ATB1 = parseFloat(call("ij.Prefs.get", "ATB1.persistent","-0.002276")); 
+var ATB1 = parseFloat(call("ij.Prefs.get", "ATB1.persistent","-0.002276"));
 var ATB2 = parseFloat(call("ij.Prefs.get", "ATB2.persistent","-0.00667")); 
 var ATX = parseFloat(call("ij.Prefs.get", "ATX.persistent","1.9")); 
 var E = parseFloat(call("ij.Prefs.get", "E.persistent","0.95")); 
@@ -59,74 +149,66 @@ var offsetbyte=parseInt(call("ij.Prefs.get", "offsetbyte.persistent","1372"));
 var gapbytes=parseInt(call("ij.Prefs.get", "gapbytes.persistent","1424")); 
 var nframes=parseInt(call("ij.Prefs.get", "nframes.persistent","20000")); 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////
-////                                                                                               ////
-////      User should verify the following path locations for their operating system:              ////
-////                                                                                               ////
-///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// The following will set the perl script path to the location of your ImageJ folder's scripts subfolder
-var perlscriptpath=getDirectory("imageJ") + "scripts" + File.separator;  			  // <- VERIFY THIS
-
-// ROI commands will automatically save a ROI_Results file to user's desktop folder 
-var desktopdir= getInfo("user.home") + File.separator + "Desktop" + File.separator;  // <- VERIFY THIS
-
-// ROI exported file can be autonamed so as not to overwrite
-// leave defaultroifilename blank and a filename will be generated based on the current open image
-// otherwise set this to var defaultroifilename="ROI_Results.csv";
-var defaultroifilename="";  													     // <- VERIFY THIS	
-
-// related to above, there are currently 6 numbered ROI extraction routines.  
-// Give labels to them here which will be saved in the ROI file.
-var ROI1="Bill";
-var ROI2="Tarsus";
-var ROI3="Foot";
-var ROI4="Body";
-var ROI5="Eye";
-var ROI6="Ground";
-var ROI7="EyeRegion";
-
-// Note: This is a sample of how you could re-name the 6 ROI names:
-// Simply remove the // in front of each variable name and reboot ImageJ
-//var ROI1="UpperBill";
-//var ROI2="LowerBill";
-//var ROI3="Head";
-//var ROI4="Back";
-//var ROI5="Belly";
-//var ROI6="Foot";
-
-
-// full path to the split.pl script
-var perlsplit=perlscriptpath + "split.pl";	
-
-// Extract Operating system user is on.  
-// OS will be used in most macros calling command line tools
-var OS=getInfo("os.name");
-
-
-// These path variables can be changed depending on where you have installed perl, ffmpeg and exiftool.
-// But these are the recommended folder locations where functionality has been tested
-
-// OSX Users verify these settings:									 // <- VERIFY THIS
-var perlpathOSX="/usr/bin/";    	 // or var perlpathOSX="/usr/local/bin"
-var exiftoolpathOSX="/usr/local/bin/";
-var exiftoolOSX="exiftool";
-var ffmpegpathOSX="/usr/local/bin/";
-
-// Linux Users verify these settings:								 // <- VERIFY THIS
-var perlpathLinux="/usr/bin/";
-var exiftoolpathLinux="/usr/bin/";
-var exiftoolLinux="exiftool";
-var ffmpegpathLinux="/usr/bin/";
-
-// Windows Users verify these settings:								 // <- VERIFY THIS
-var perlpathWindows="c:/Perl64/bin/"; 			 // depending on what perl you installed this might be c:/Perl/perl/bin or c:/Perl64/perl/bin
-var exiftoolpathWindows="c:/windows/"; 			 // following exiftool.org recommended location to place exiftool.exe in c:/windows folder
-var exiftoolWindows="exiftool.exe";
-var ffmpegpathWindows="c:/FFmpeg/bin/";			 // after downloading a recent version of static ffmpeg, simply copy the 'bin' folder to c:/FFmpeg folder
 
 
 //////////////////////////////////////// Functions ///////////////////////////////////////////////
+
+// Searches typical folders for whether a specific program is installed.
+// Designed to help troubleshoot installations for users less familiar with folder designation nomenclature
+
+function WhereProgram(){
+	
+	programselect=newArray("exiftool", "perl", "ffmpeg", "xxd");
+	Dialog.create("Search Installation Locations"); 
+	Dialog.addMessage("This macro will search for the path for one of the essential command line programs.");
+	Dialog.addMessage("Select from exiftool, perl, ffmpeg, or xxd.");
+	Dialog.addChoice("Program", programselect);
+    Dialog.show();
+	
+	program=Dialog.getChoice();
+	
+	if(OS=="Mac OS X"){
+		command="export PATH=$PATH:/usr/local/bin:/opt/local/bin:/usr/bin:/usr/sbin; which " + program;
+		whereoutput=exec("/bin/sh", "-c", command);
+	}
+
+	if(OS=="Linux"){
+		command="export PATH=$PATH:/usr/local/bin:/opt/local/bin:/usr/bin:/usr/sbin; which " + program;
+		whereoutput=exec("/bin/sh", "-c", command);	
+	}
+	
+	if(substring(OS, 0, 5)=="Windo"){
+		program=program + ".exe";
+		additionalPaths = "%USERPROFILE%/Desktop;c:/windows;c:/windows/system32;c:/windows/system;c:/Perl64/bin;c:/Perl64/perl/bin;c:/Perl/perl/bin;c:/FFmpeg/bin;c:/Strawberry/perl/bin;C:/ActiveState/perl/bin";
+		// Construct the command for finding the program in the PATH
+		command = "where " + program;
+		// Execute the command using cmd.exe
+		whereoutput = exec("cmd.exe", "/c", "set PATH=%PATH%;" + additionalPaths + " && " + command);
+	}
+	
+	//print(whereoutput);
+	whereoutput=replace(whereoutput, "\\/n", "");
+	//print(whereoutput);
+	whereoutput=replace(whereoutput, program, "");
+	
+	if(whereoutput==""){
+		Dialog.create("Installation Location");
+		Dialog.addMessage(program + " cannot be found at any typical locations.");
+		Dialog.addMessage("Please consider re-installing " + program + " according to the installation instructions.");
+		Dialog.show()
+		print("Cannot find " + program + " installed in any typical path locations.");
+	}
+	else{
+		Dialog.create("Installation Location");
+		Dialog.addMessage(program + " is located in the following path:" + whereoutput);
+		Dialog.addMessage("Edit the Thermimage.ijm file (line 24-40) to change your path to the appropriate folder\nif this tool is not working properly.");
+		Dialog.show()
+		print(program + " is located in the following path:" + whereoutput);
+	}
+
+	return whereoutput;
+}
+
 
 function InstallChecks(){
 	
@@ -367,11 +449,41 @@ function leadzero(val, digits){
 	return newval;
 }
 
-// simple byte swap for 8 bit string representation.  ie. "8002" --> "0280"  
-function swap(val){
-	newval=substring(val, 2, 4) + substring(val, 0,2);
-	return newval;
+
+// for a 4 byte/32 bit integer, swap it so that it is the reverse endian order
+function swapEndian(intValue, numBytes) {
+    // Perform byte swapping based on the number of bytes
+    if (numBytes == 2) {
+        byte0 = (intValue >> 8) & 0xFF;
+        byte1 = intValue & 0xFF;
+        
+        // Reassemble in reversed order
+        return (byte1 << 8) | byte0;
+    } else if (numBytes == 4) {
+        byte0 = (intValue >> 24) & 0xFF;
+        byte1 = (intValue >> 16) & 0xFF;
+        byte2 = (intValue >> 8) & 0xFF;
+        byte3 = intValue & 0xFF;
+        
+        // Reassemble in reversed order
+        return (byte3 << 24) | (byte2 << 16) | (byte1 << 8) | byte0;
+    } else {
+        // Unsupported number of bytes
+        return NaN;
+    }
 }
+
+
+
+
+// simple byte swap for 8 bit string representation.  ie. "8002" --> "0280"
+// hexString is a string, representing the hexadecimal value
+function swapHex(hexString){
+	swappedValue=substring(hexString, 2, 4) + substring(hexString, 0, 2);
+	return swappedValue;	
+}
+
+
 
 // Simple math functions: Sum, SumXY, SumX2, SumY2, Pearson
 function Sum(ArrayX){
@@ -464,9 +576,8 @@ function cumsum(ArrayX){
 	return csum;
 }
 
-
+// calculate moving average of an Array.
 function movavg(ArrayX, n){
-	// calculate moving average of an Array.
 	// ArrayX is the array of data you want to average over.
 	// n is the number of samples.  Better to use odd numbers, like 3, 5, 7, etc.
 	len=ArrayX.length;
@@ -501,7 +612,7 @@ function movavg(ArrayX, n){
 }
 
 
-// faster calculation of median - approximate
+// faster calculation of median - but may only be approximate
 function MedianFast(){
 	getStatistics(area, mean, min, max, std, histogram);
 	pixelmin=min;
@@ -546,7 +657,7 @@ function percentile(ArrayX, P){
 	return pcntile;
 }
 
-// outlier remove
+// outlier remove from an array
 function removeoutliers(ArrayX){
 	qnt25=percentile(ArrayX, 0.25);
 	qnt75=percentile(ArrayX, 0.75);
@@ -573,15 +684,17 @@ function removeoutliers(ArrayX){
 // root mean square of an Array:
 function RMS(ArrayX){
 	len=ArrayX.length;
-	d2=newArray(len);
+	//print(len);
+	crossprod=newArray(len);
 	sum=0;
 	for(i=0; i<len; i++){
-		d2[i]=ArrayX[i]*ArrayX[i];
-		sum += d2[i];
+		crossprod[i]=ArrayX[i]*ArrayX[i];
+		sum += crossprod[i];
 	}
 	rms_data=sqrt(sum/len);	
 	return rms_data;
 }
+
 
 // Returns the current image pixel values as an array
 function getPixelArray(){
@@ -607,7 +720,6 @@ function getPixelArray(){
 
 
 // doSort will return the rank positions for the original array, where smallest values have rank zero
-
 function doSort(theArray){
 	sortedValues = Array.copy(theArray);
 	sortedValues=Array.sort(sortedValues);
@@ -854,7 +966,7 @@ function RemoveEveryNthFFF(directory, step){
    }
 }
 
-///RemoveEveryNthFFF("/Users/GlennTattersall/Desktop/test/", 1);
+///RemoveEveryNthFFF("~/Desktop/test/", 1);
 
 // put Atmospheric Trans constants into an array to pass fewer numbers to raw2temp, since ImageJ limits parameters to 20 or fewer
 function AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX){
@@ -882,6 +994,41 @@ function deletetempfolder(tempfolder){
 	}
 }
 
+// Checks if filesize is 0 bytes.  Returns 1 if this is true, returns 0 if this is false.
+// filenamewithpath should be supplied with full path for given operating system, preferrably without spaces
+// Function to be used to assess if a converted file is present in the folder but has no content, so it can then be
+// deleted.
+function CheckFileSizeZero(filenamewithpath){
+	
+	//filename="~/Desktop/temp/frame000002.jpegls";
+
+	command="if [ -s " + filenamewithpath + " ]; then echo 0; else echo 1; fi";
+	commandwin="for %I in (" + filenamewithpath + ") do @if %~zI GTR 0 (echo 0) else (echo 1)";
+	
+	if(OS=="Mac OS X"){
+		//print("Checking if filesize is zero, returns 1 if size=0");
+		//print("Using the following bash command: ");
+		//print(command);
+		res=exec("/bin/sh", "-c", command);
+	}
+
+	if(OS=="Linux"){
+		//print("Checking if filesize is zero, returns 1 if size=0");
+		//print("Using the following bash command: ");
+		//print(command);
+		res=exec("/bin/sh", "-c", command);
+	}
+
+	if(substring(OS, 0, 5)=="Windo"){
+		//print("Checking if filesize is zero, returns 1 if size=0");
+		//print("Using the following command: ");
+		//print(command);
+		res=exec("cmd", "/c", commandwin);
+	}
+
+return parseInt(res);
+
+}
 
 
 // function to import an rtv file using imageJ raw import option
@@ -1036,7 +1183,7 @@ function RawImportMikronSIT() {
 
 function RawImportFLIRSEQ() {
 	
-	print("\n------ Running RawImporFLIRSEQ function ------");
+	print("\n------ Running RawImportFLIRSEQ function ------");
 	
 	//var offsetbyte = 1372; 
 	// offsetbyte is 1540528 for SEQ files recorded to a FLIR SC660
@@ -1085,7 +1232,7 @@ function RawImportFLIRSEQ() {
 	call("ij.Prefs.set", "gapbytes.persistent",toString(gapbytes)); 
 	call("ij.Prefs.set", "nframes.persistent",toString(nframes)); 
 	call("ij.Prefs.set", "converttotemperature.persistent",toString(converttotemperature)); 
-
+	
 	filepath=File.openDialog("Select a File"); 
 	
 	//file=File.openAsString(filepath); 
@@ -1120,26 +1267,26 @@ function RawImportFLIRSEQ() {
 		flirvals=exec("cmd", "/c", exiftoolpathWindows + exiftoolWindows, "-Planck*", "-*AtmosphericTrans*", "-*Emissivity", "-*Distance", "-*Temperature", "-*Transmission",  "-*Humidity", "-*Height", "-*Width", "-*Original", "-*Date",  filepath);
 	}
 	
-        var PR1 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck R1"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck R1")) ));
-		var PB = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck B"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck B")) ));
-		var PF = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck F"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck F")) ));
-		var PO = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck O"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck O")) ));
-		var PR2 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck R2"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck R2")) ));
-		var ATA1 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans Alpha 1"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans Alpha 1")) ));
-		var ATA2 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans Alpha 2"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans Alpha 2")) ));
-		var ATB1 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans Beta 1"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans Beta 1")) ));
-		var ATB2 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans Beta 2"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans Beta 2")) ));
-		var ATX = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans X"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans X")) ));
-		var E = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Emissivity"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Emissivity")) ));
-		var OD = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Object Distance"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Object Distance")) ));
-		var RTemp = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Reflected Apparent Temperature"))+1, indexOf(flirvals, "C\n", indexOf(flirvals, "Reflected Apparent Temperature")) ));
-		var ATemp = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Temperature"))+1, indexOf(flirvals, "C\n", indexOf(flirvals, "Atmospheric Temperature")) ));
-		var IRWTemp = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "IR Window Temperature"))+1, indexOf(flirvals, "C\n", indexOf(flirvals, "IR Window Temperature")) ));
-		var IRT = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "IR Window Transmission"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "IR Window Transmission")) ));
-		var RH = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Relative Humidity"))+1, indexOf(flirvals, "%\n", indexOf(flirvals, "Relative Humidity")) ));
-		var imagewidth = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Width"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Width")) ));
-		var imageheight = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Height"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Height")) ));
-
+        PR1 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck R1"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck R1")) ));
+		PB = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck B"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck B")) ));
+		PF = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck F"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck F")) ));
+		PO = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck O"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck O")) ));
+		PR2 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Planck R2"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Planck R2")) ));
+		ATA1 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans Alpha 1"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans Alpha 1")) ));
+		ATA2 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans Alpha 2"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans Alpha 2")) ));
+		ATB1 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans Beta 1"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans Beta 1")) ));
+		ATB2 = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans Beta 2"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans Beta 2")) ));
+		ATX = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Trans X"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Atmospheric Trans X")) ));
+		E = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Emissivity"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Emissivity")) ));
+		OD = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Object Distance"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Object Distance")) ));
+		RTemp = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Reflected Apparent Temperature"))+1, indexOf(flirvals, "C\n", indexOf(flirvals, "Reflected Apparent Temperature")) ));
+		ATemp = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Atmospheric Temperature"))+1, indexOf(flirvals, "C\n", indexOf(flirvals, "Atmospheric Temperature")) ));
+		IRWTemp = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "IR Window Temperature"))+1, indexOf(flirvals, "C\n", indexOf(flirvals, "IR Window Temperature")) ));
+		IRT = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "IR Window Transmission"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "IR Window Transmission")) ));
+		RH = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Relative Humidity"))+1, indexOf(flirvals, "%\n", indexOf(flirvals, "Relative Humidity")) ));
+		imagewidth = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Width"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Width")) ));
+		imageheight = parseFloat(substring(flirvals, indexOf(flirvals, ":", indexOf(flirvals, "Height"))+1, indexOf(flirvals, "\n", indexOf(flirvals, "Height")) ));
+		
 		print("Camera Calibration Constants:");
 		//print(flirvals);
 		setFont("SansSerif", 12);
@@ -1167,20 +1314,101 @@ function RawImportFLIRSEQ() {
 		print("Relative Humidity: ", d2s(RH,2));
 		print("\n");
 	
-	//Stack.getStatistics(count, mean, min, max, std);
-	//	var minpix=min;
-	//	var maxpix=max;
-	//	setMinAndMax(minpix, maxpix);
+		//Stack.getStatistics(count, mean, min, max, std);
+		//	var minpix=min;
+		//	var maxpix=max;
+		//	setMinAndMax(minpix, maxpix);
 	
-	if(converttotemperature==1){
-		print("Converting file to temperature");
-		Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, defaultpalette, "Yes", "Fast", imagetemperaturemin, imagetemperaturemax);	
-	}
-
+		if(converttotemperature==1){
+			print("Converting file to temperature");
+			ObjectParameters=Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, defaultpalette, "Yes", "Fast", imagetemperaturemin, imagetemperaturemax);	
+			// after running raw2temp, the function will return the object parameter and flir values that were used
+    	
+    		// Commit objective parameters to memory
+    		ObjectCameraParameterPersist(ObjectParameters);
+    	
+		}
+		
+    	
 		print("Done");
 		print("\n");
 
 }
+
+
+function ObjectCameraParameterPersist(ObjectParameters){
+		Array.print(ObjectParameters);
+    	print("Committing object parameters and camera calibration constants to persistent memory");
+
+		PR1=ObjectParameters[0];
+    	PR2=ObjectParameters[1];
+    	PB=ObjectParameters[2];
+    	PF=ObjectParameters[3];
+    	PO=ObjectParameters[4];
+    	ATA1=ObjectParameters[5];
+    	ATA2=ObjectParameters[6];
+    	ATB1=ObjectParameters[7];
+    	ATB2=ObjectParameters[8];
+    	ATX=ObjectParameters[9];
+    	E=ObjectParameters[10];
+    	OD=ObjectParameters[11];
+    	RTemp=ObjectParameters[12];
+    	ATemp=ObjectParameters[13];
+    	IRWTemp=ObjectParameters[14];
+    	IRT=ObjectParameters[15];
+    	RH=ObjectParameters[16];
+    	
+    	setFont("SansSerif", 12);
+		print("Planck R1: ", d2s(PR1,9));
+		print("Planck R2: ", d2s(PR2,9));
+		print("Planck B: ", d2s(PB,9));
+		print("Planck F: ", d2s(PF,0));
+		print("Planck O: ", d2s(PO,0));	
+		print("Atmospheric Trans Alpha 1: ", d2s(ATA1,12));
+		print("Atmospheric Trans Alpha 2: ", d2s(ATA2,12));
+		print("Atmospheric Trans Beta 1: ", d2s(ATB1,12));
+		print("Atmospheric Trans Beta 2: ", d2s(ATB2,12));
+		print("Atmospheric Trans X: ", d2s(ATX,12));				
+		
+		print("\n");
+		print("Object Parameters:");
+		print("Emissivity: ", d2s(E,2));
+		print("Object Distance: ", d2s(OD,2));
+		print("Reflected Apparent Temperature: ", d2s(RTemp,2));
+		print("Atmospheric Temperature: ", d2s(ATemp,2));
+		print("IR Window Temperature: ", d2s(IRWTemp,2));
+		print("IR Window Transmission: ", d2s(IRT,3));
+		print("Relative Humidity: ", d2s(RH,2));
+		print("Thermal Image Width: ", imagewidth);
+		print("Thermal Image Height: ", imageheight);
+		print("\n");
+    
+        call("ij.Prefs.set", "imagetemperaturemin.persistent",toString(imagetemperaturemin)); 
+		call("ij.Prefs.set", "imagetemperaturemax.persistent",toString(imagetemperaturemax)); 
+		call("ij.Prefs.set", "imagewidth.persistent",toString(imagewidth)); 
+		call("ij.Prefs.set", "imageheight.persistent",toString(imageheight)); 
+		call("ij.Prefs.set", "PR1.persistent",toString(PR1)); 
+		call("ij.Prefs.set", "PB.persistent",toString(PB)); 
+		call("ij.Prefs.set", "PF.persistent",toString(PF)); 
+		call("ij.Prefs.set", "PR2.persistent",toString(PR2)); 
+		call("ij.Prefs.set", "PO.persistent",toString(PO));
+		call("ij.Prefs.set", "ATA1.persistent",toString(ATA1));
+		call("ij.Prefs.set", "ATA2.persistent",toString(ATA2));
+		call("ij.Prefs.set", "ATB1.persistent",toString(ATB1));
+		call("ij.Prefs.set", "ATB2.persistent",toString(ATB2));
+		call("ij.Prefs.set", "ATX.persistent",toString(ATX));
+		call("ij.Prefs.set", "E.persistent",toString(E)); 
+		call("ij.Prefs.set", "OD.persistent",toString(OD)); 
+		call("ij.Prefs.set", "RTemp.persistent",toString(RTemp)); 
+		call("ij.Prefs.set", "ATemp.persistent",toString(ATemp)); 
+		call("ij.Prefs.set", "IRWTemp.persistent",toString(IRWTemp)); 
+		call("ij.Prefs.set", "IRT.persistent",toString(IRT)); 
+		call("ij.Prefs.set", "RH.persistent",toString(RH)); 
+}
+    	
+		
+		
+		
 
 function ConvertImportFLIRJPG(ConvertWithDefault) {
 	
@@ -1353,8 +1581,7 @@ function ConvertImportFLIRJPG(ConvertWithDefault) {
 		var palettetype = defaultpalette;
 		var FastSlow="Slow";
 	}
-	
-	
+		
 	if(ConvertWithDefault=="no"){
 	
 	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
@@ -1367,6 +1594,20 @@ function ConvertImportFLIRJPG(ConvertWithDefault) {
 	Dialog.addChoice("Fast or\nSlow Calculation?", fastslowchoice, fastslowchoicedefault); 
 	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
  	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
+ 	 
+    Dialog.addMessage("Object Parameters:");
+    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
+    Dialog.addToSameRow();
+    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
+    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
+    Dialog.addToSameRow();
+    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
+    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
+    Dialog.addToSameRow();
+    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
+    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
+    Dialog.addChoice("Palette", palettetypes, defaultpalette);
+    
 	Dialog.addMessage("Camera Calibration Constants:");
 	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
 	Dialog.addToSameRow();
@@ -1382,44 +1623,33 @@ function ConvertImportFLIRJPG(ConvertWithDefault) {
     Dialog.addToSameRow();
     Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
     Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
-    
-    Dialog.addMessage("Object Parameters:");
-    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
-    Dialog.addToSameRow();
-    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
-    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
-    Dialog.addToSameRow();
-    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
-    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
-    Dialog.addToSameRow();
-    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
-    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addChoice("Palette", palettetypes, defaultpalette);
+   
 	Dialog.show();
 
-	var ByteOrder=Dialog.getChoice();
-	var FastSlow=Dialog.getChoice();
-	var imagetemperaturemin = Dialog.getNumber();
-	var imagetemperaturemax = Dialog.getNumber();
-	var PR1 = Dialog.getNumber();
-	var PR2 = Dialog.getNumber();
-	var PB = Dialog.getNumber();
-	var PF = Dialog.getNumber();
-	var PO = Dialog.getNumber();
-	var ATA1 =  Dialog.getNumber();
-	var ATA2 =  Dialog.getNumber();
-	var ATB1 =  Dialog.getNumber();
-	var ATB2 =  Dialog.getNumber();
-	var ATX =  Dialog.getNumber();
-	var E = Dialog.getNumber();
-	var OD = Dialog.getNumber();
-	var RTemp = Dialog.getNumber();
-	var ATemp = Dialog.getNumber();
-	var IRWTemp = Dialog.getNumber();
-	var IRT = Dialog.getNumber();
-	var RH = Dialog.getNumber();
-	var palettetype = Dialog.getChoice();
+	ByteOrder=Dialog.getChoice();
+	FastSlow=Dialog.getChoice();
+	imagetemperaturemin = Dialog.getNumber();
+	imagetemperaturemax = Dialog.getNumber();
+	E = Dialog.getNumber();
+	OD = Dialog.getNumber();
+	RTemp = Dialog.getNumber();
+	ATemp = Dialog.getNumber();
+	IRWTemp = Dialog.getNumber();
+	IRT = Dialog.getNumber();
+	RH = Dialog.getNumber();
+	palettetype = Dialog.getChoice();
 
+	PR1 = Dialog.getNumber();
+	PR2 = Dialog.getNumber();
+	PB = Dialog.getNumber();
+	PF = Dialog.getNumber();
+	PO = Dialog.getNumber();
+	ATA1 =  Dialog.getNumber();
+	ATA2 =  Dialog.getNumber();
+	ATB1 =  Dialog.getNumber();
+	ATB2 =  Dialog.getNumber();
+	ATX =  Dialog.getNumber();
+	
 	if(ByteOrder == "Swap"){
 		run("Byte Swapper");
 	}
@@ -1657,7 +1887,11 @@ function ImportConvertFLIRSEQ(){
 		var outcodec="tiff";
 	}
 	
-	ConvertFLIRVideo("seq", outtype, outcodec, converttotemperature, usevirtual, copycodec, addtimestamp, deletetempfiles);
+	ObjectParameters=ConvertFLIRVideo("seq", outtype, outcodec, converttotemperature, usevirtual, copycodec, addtimestamp, deletetempfiles);
+	
+	// Commit object parameters to memory
+    ObjectCameraParameterPersist(ObjectParameters);
+		
 }
 
 
@@ -1718,7 +1952,11 @@ function ImportConvertFLIRCSQ(){
 		var outcodec="tiff";
 	}
 
-	ConvertFLIRVideo("csq", outtype, outcodec, converttotemperature, usevirtual, copycodec, addtimestamp, deletetempfiles);	
+	ObjectParameters=ConvertFLIRVideo("csq", outtype, outcodec, converttotemperature, usevirtual, copycodec, addtimestamp, deletetempfiles);
+	
+	// Commit object parameters to memory
+    ObjectCameraParameterPersist(ObjectParameters);
+ 
 }
 
 function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usevirtual, copycodec, addtimestamp, deletetempfiles) {
@@ -1914,15 +2152,211 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	if(framestep > 1){
 		RemoveEveryNthFFF(tempfolder, framestep);		
 	}
-		
-	// Extract Date/Time Original from the .fff files    
 	
+
+	////////////////////// Split fff -> jpegls and remove extra files approach //////////////////////
+
+	///// After creating the fff files, an alternative to using exiftool combining to thermalvid.raw is to re-split the fff files and then filter
+	///// out the extra generated files as shown in the next ~20 lines
+	//// The reason for this is with large CSQ files (>5000 frames) - exiftool can't handle the stream for some reason, so the perl split.pl script is the
+	//// only viable solution.
+	//// The split.pl script simply splits a file whereever the magic byte sequence occurs, which for an FFF file means that a short file is created that is
+	//// mostly header info about the image, and the second file split off is the jpegls image data
+	
+	//// Note: this section subsequently caused issues with csq files that had errors in them, so the current code by-passes this section and uses the 
+	//// Thermalvid.raw approach until further notice.
+
+
+	if(vidtype=="csq"){
+		
+		fff_files = getFileList(tempfolder);
+		
+		if(fff_files[0]=="datetime.txt"){
+			fff_files=Array.slice(fff_files,1);
+		}
+		
+		print("Splitting fff files into jpegls files by looping through all files using:");
+		fff_file = replace(fff_files[0], "\.fff", "");
+		print(perl + " " + perlsplit + " -i " + tempfolder + File.separator + fff_files[0] + " -o " + filedir + File.separator + "temp " +  "-b " + fff_file + " -p " + "jpegls " + "-x " + "jpegls " + "-s " + "y");
+				
+		for(i=0; i<fff_files.length; i++){
+			showProgress(i/fff_files.length);
+			fff_file = replace(fff_files[i], "\.fff", "");
+			exec(perl, perlsplit, "-i", tempfolder + File.separator + fff_files[i], "-o", filedir + File.separator + "temp", "-b", fff_file, "-p", "jpegls", "-x", "jpegls", "-s", "y");
+		}
+
+		// Use to troubleshoot the conversion process
+		jpeglsfilesintempfolder=CountFilesByExtension(tempfolder, ".jpegls");
+		print("The number of .JPEGLS files in the temporary folder is: ", jpeglsfilesintempfolder);
+		print("Use this number to troubleshoot if each command line step is working. The number of files should relate to the number of video frames.");
+
+		// I added an option to the perl script so that it skips exporting data before the magicbyte, allowing for only jpegls images to be split off, so these fff checks are unnecessary now:
+		//fileswithfff=GetFileListFilter(tempfolder, 3, "FFF");
+		
+		//print("Deleting fff files");
+		
+		// delete any files that are simply fff header files derived from the split function
+		//for(i=0; i<fileswithfff.length; i++){
+		//	x=File.delete(fileswithfff[i]);
+		//}
+
+		//jpeglsfilelist=getFileList(tempfolder);  // assumes this list of jpegls files is automatically sorted.
+		// what the loop below will do is to examine the array of jpegls file names and rename them to frame000001.jpegls.
+		// to speed up code, I have to assume these files are properly sorted.
+		jpeglsfilelist=GetFileListByExtension(tempfolder, "jpegls");  // assumes this list of jpegls files is automatically sorted.
+		for(i=0; i<jpeglsfilelist.length; i++){
+			//print(jpeglsfilelist[i]);
+			showProgress(i/jpeglsfilelist.length);
+			filepath=tempfolder + File.separator + jpeglsfilelist[i];
+			stringcounter = "" + i + 1;
+			framename = "frame" + leadzero(stringcounter, 6) + ".jpegls"; 
+			//newpath=replace(filepath, "000001\.jpegls", "\.jpegls");
+			newpath=tempfolder + File.separator + framename;
+			//print(newpath);
+			x=File.rename(filepath, newpath);
+		}
+	}
+	
+	////////////////// ^ Split fff -> jpegls or tiff and remove extra files approach ^ //////////////////////
+
+ 
+ 	// Create an argument file that contains the full list of fff files, since the exiftool command cannot handle large numbers of files via the shell.
+	ffffilelist=GetFileListByExtension(tempfolder, "fff");
+	file=File.open(tempfolder + File.separator + "argfile.txt");
+	for(i=0; i<ffffilelist.length; i++){
+			showProgress(i/ffffilelist.length);
+			File.append(tempfolder + File.separator + ffffilelist[i], tempfolder + File.separator + "argfile.txt");
+		}
+ 
+	////////////////// Thermalvid.raw approach //////////////////////
+
+	// SEQ files may be oddly formatted, so we'll use Exiftool to generate the thermalvid.raw file.
+
+	if(vidtype=="seq"){
+				
+	// Combine fff files into thermalvid.raw using exiftool raw binary extraction function
+	// Difficulty getting the piping (> or |) to work with the default exec command. 
+	// See: http://imagej.1557.x6.nabble.com/macro-Redirection-in-exec-UNIX-binary-td3687463.html
+	
+	//rawcombinecmd = exiftoolpath + exiftool +  " -b -r -fast -P -sort -RawThermalImage " + tempfolder + File.separator + "*.fff > " + tempfolder + File.separator + "thermalvid.raw";
+	// previously, the code below would not work with large number of fff files.  I had to remove the "*.fff" part and force exiftool to operate only on the folder recursively:
+	
+	rawcombinecmd = exiftoolpath + exiftool +  " -b -RawThermalImage " + tempfolder + File.separator +  "*.fff > " + tempfolder + File.separator + "thermalvid.raw";
+	rawcombinecmd = exiftoolpath + exiftool +  " -b -RawThermalImage -@ " + tempfolder + File.separator +  "argfile.txt > " + tempfolder + File.separator + "thermalvid.raw";
+	//rawcombinecmd = exiftoolpath + exiftool +  " -b -RawThermalImage " + tempfolder + File.separator +  " > " + tempfolder + File.separator + "thermalvid.raw";
+	//rawcombinecmd = exiftoolpath + exiftool +  " -b -r -fast -P -RawThermalImage " + tempfolder + " > " + tempfolder + File.separator + "thermalvid.raw";
+	
+	print("Combining the fff files into a thermalvid.raw file with: ");
+	print(rawcombinecmd);
+	print("Please note that this step can be slow for large files, and there is no way to indicate progress");
+	
+	if(OS=="Mac OS X"){
+		exec("/bin/sh", "-c", rawcombinecmd);	
+	}
+
+	if(OS=="Linux"){
+		exec("/bin/sh", "-c", rawcombinecmd);		
+	}
+
+	if(substring(OS, 0, 5)=="Windo"){
+		exec("cmd", "/c", exiftoolpath + exiftoolWindows, "-b", "-RawThermalImage", tempfolder + File.separator + "*.fff", ">", tempfolder + File.separator + "thermalvid.raw");
+	}
+
+	// Use to troubleshoot the conversion process
+	thermalvidrawfilesintempfolder=CountFilesByExtension(tempfolder, ".raw");
+	print("The number of .RAW files in the temporary folder is: ", thermalvidrawfilesintempfolder);
+	print("Use this number to troubleshoot if each command line step is working. There should be 1 thermalvid.raw file if conversion was successful.");
+	
+	// Execute the split.pl script on thermalvid.raw to create tiff (or jpegls) files
+	splittiffexeccmd = perlpath + "perl " + perlsplit + " -i " + tempfolder + File.separator + "thermalvid.raw" + " -o " + filedir + "/temp -b frame -p " + RawThermalType + " -x " + RawThermalType;
+	print("Splitting the thermalvid.raw file into " + RawThermalType + " files with: ");
+	print(splittiffexeccmd);
+	
+	if(vidtype=="seq"){
+		exec(perl, perlsplit, "-i", tempfolder + File.separator + "thermalvid.raw", "-o", filedir + File.separator + "temp", "-b", "frame", "-p", "tiff", "-x", "tiff");
+		
+		// Use to troubleshoot the conversion process
+		tifffilesintempfolder=CountFilesByExtension(tempfolder, ".tiff");
+		print("The number of .TIFF files in the temporary folder is: ", tifffilesintempfolder);
+		print("Use this number to troubleshoot if each command line step is working. The number of files should relate to the number of video frames.");
+		
+		if(ffffilesintempfolder - tifffilesintempfolder>0){
+			print(" ------- WARNING -------");
+			print("The number of extracted / converted frames is fewer than the number of detected FLIR FFF headers");
+			print("This likely means that there are some frames in the video that contain an error");
+			print("These frames have been skipped");
+		}
+	}
+	
+	if(vidtype=="csq"){
+		exec(perl, perlsplit, "-i", tempfolder + File.separator + "thermalvid.raw", "-o", filedir + File.separator + "temp", "-b", "frame", "-p", "jpegls", "-x", "jpegls");
+		
+		// Use to troubleshoot the conversion process
+		jpeglsfilesintempfolder=CountFilesByExtension(tempfolder, ".jpegls");
+		print("The number of JPEGLS files in the temporary folder is: ", jpeglsfilesintempfolder);
+		print("Use this number to troubleshoot if each command line step is working. The number of files should relate to the number of video frames.");
+		
+		if(ffffilesintempfolder - jpeglsfilesintempfolder>0){
+			print(" ------- WARNING -------");
+			print("The number of extracted / converted frames is fewer than the number of detected FLIR FFF headers");
+			print("This likely means that there are some frames in the video that contain an error");
+			print("These frames have been skipped");
+		}
+
+	}
+
+}
+	
+	////////////////// ^ Thermalvid.raw approach ^ //////////////////////
+
+
+	// Check that the newly encoded files are all robust
+	// in some cases a jpegls or a tiff file may be created with zero bytes, and this will cause failure in the 
+	// subsequent conversion steps, so we need to remove these files until a better way to detect when these 
+	// errors will crop up.  Usually this happens with the first frame of some files when it appears that the
+	// file has been corrupted.	
+
+		if(vidtype=="seq"){
+			tifffilelist=GetFileListByExtension(tempfolder, "tiff");
+			for(i=0; i<tifffilelist.length; i++){
+				filenametocheck=tempfolder + File.separator + tifffilelist[i];
+				checkzeroresult=CheckFileSizeZero(filenametocheck);
+				
+				if(checkzeroresult==1){
+					filenameroot=replace(tifffilelist[i], "tiff", "");
+					print(filenameroot);
+					tifffiledelete=File.delete(tempfolder + File.separator + tifffilelist[i]);
+					ffffiledelete=File.delete(tempfolder + File.separator + filenameroot + "fff");
+					//print("Deleting tiff and fff file");
+				}
+			}
+		}
+
+		if(vidtype=="csq"){
+			jpeglsfilelist=GetFileListByExtension(tempfolder, "jpegls");
+			for(i=0; i<jpeglsfilelist.length; i++){
+				filenametocheck=tempfolder + File.separator + jpeglsfilelist[i];
+				checkzeroresult=CheckFileSizeZero(filenametocheck);
+				
+				if(checkzeroresult==1){
+					filenameroot=replace(jpeglsfilelist[i], "jpegls", "");
+					print(filenameroot);
+					jpeglsfiledelete=File.delete(tempfolder + File.separator + jpeglsfilelist[i]);
+					ffffiledelete=File.delete(tempfolder + File.separator + filenameroot + "fff");
+					//print("Deleting jpegls and fff file");
+				}
+			}
+		}
+
+
+
+// Extract Date/Time Original from the .fff files    
 	if(addtimestamp==1){
 		// The following does not work from inside fiji
 		//timefind = exiftoolpath + exiftool + " -DateTimeOriginal -s -r -T -f -fast " + tempfolder + " > " + tempfolder + File.separator + "datetime.txt";  
 		// the following does work, but exiftool cannot handle large numbers of files this way.
 		timefind = exiftoolpath + exiftool + " -DateTimeOriginal -s -r -T -f -fast " + tempfolder + File.separator + "*.fff" + " > " + tempfolder + File.separator + "datetime.txt"; // 
-		
+		timefind = exiftoolpath + exiftool + " -DateTimeOriginal -s -r -T -f -fast -@ " + tempfolder + File.separator + "argfile.txt" + " > " + tempfolder + File.separator + "datetime.txt"; // 
 		print("Extracting frame times with: ");
 		print(timefind);
 	
@@ -1997,156 +2431,6 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 		print("Video frame time difference is: " + medianframediff + " seconds");
 	
 	}
-
-////////////////////// Split fff -> jpegls and remove extra files approach //////////////////////
-
-	///// After creating the fff files, an alternative to using exiftool combining to thermalvid.raw is to re-split the fff files and then filter
-	///// out the extra generated files as shown in the next ~20 lines
-	//// The reason for this is with large CSQ files (>5000 frames) - exiftool can't handle the stream for some reason, so the perl split.pl script is the
-	//// only viable solution.
-	//// The split.pl script simply splits a file whereever the magic byte sequence occurs, which for an FFF file means that a short file is created that is
-	//// mostly header info about the image, and the second file split off is the jpegls image data
-	
-	//// Note: this section subsequently caused issues with csq files that had errors in them, so the current code by-passes this section and uses the 
-	//// Thermalvid.raw approach until further notice.
-
-
-	if(vidtype=="csq"){
-		
-		fff_files = getFileList(tempfolder);
-		
-		if(fff_files[0]=="datetime.txt"){
-			fff_files=Array.slice(fff_files,1);
-		}
-		
-		print("Splitting fff files into jpegls files by looping through all files using:");
-		fff_file = replace(fff_files[0], "\.fff", "");
-		print(perl + " " + perlsplit + " -i " + tempfolder + File.separator + fff_files[0] + " -o " + filedir + File.separator + "temp " +  "-b " + fff_file + " -p " + "jpegls " + "-x " + "jpegls " + "-s " + "y");
-				
-		for(i=0; i<fff_files.length; i++){
-			showProgress(i/fff_files.length);
-			fff_file = replace(fff_files[i], "\.fff", "");
-			exec(perl, perlsplit, "-i", tempfolder + File.separator + fff_files[i], "-o", filedir + File.separator + "temp", "-b", fff_file, "-p", "jpegls", "-x", "jpegls", "-s", "y");
-		}
-
-		// Use to troubleshoot the conversion process
-		jpeglsfilesintempfolder=CountFilesByExtension(tempfolder, ".jpegls");
-		print("The number of .JPEGLS files in the temporary folder is: ", jpeglsfilesintempfolder);
-		print("Use this number to troubleshoot if each command line step is working. The number of files should relate to the number of video frames.");
-
-		// I added an option to the perl script so that it skips exporting data before the magicbyte, allowing for only jpegls images to be split off, so these fff checks are unnecessary now:
-		//fileswithfff=GetFileListFilter(tempfolder, 3, "FFF");
-		
-		//print("Deleting fff files");
-		
-		// delete any files that are simply fff header files derived from the split function
-		//for(i=0; i<fileswithfff.length; i++){
-		//	x=File.delete(fileswithfff[i]);
-		//}
-
-		//jpeglsfilelist=getFileList(tempfolder);  // assumes this list of jpegls files is automatically sorted.
-		// what the loop below will do is to examine the array of jpegls file names and rename them to frame000001.jpegls.
-		// to speed up code, I have to assume these files are properly sorted.
-		jpeglsfilelist=GetFileListByExtension(tempfolder, "jpegls");  // assumes this list of jpegls files is automatically sorted.
-		for(i=0; i<jpeglsfilelist.length; i++){
-			//print(jpeglsfilelist[i]);
-			showProgress(i/jpeglsfilelist.length);
-			filepath=tempfolder + File.separator + jpeglsfilelist[i];
-			stringcounter = "" + i + 1;
-			framename = "frame" + leadzero(stringcounter, 6) + ".jpegls"; 
-			//newpath=replace(filepath, "000001\.jpegls", "\.jpegls");
-			newpath=tempfolder + File.separator + framename;
-			//print(newpath);
-			x=File.rename(filepath, newpath);
-		}
-	}
-	
-////////////////// ^ Split fff -> jpegls or tiff and remove extra files approach ^ //////////////////////
-
- 
- 
- 
-
-////////////////// Thermalvid.raw approach //////////////////////
-
-// SEQ files may be oddly formatted, so we'll use Exiftool to generate the thermalvid.raw file.
-
-	if(vidtype=="seq"){
-				
-	// Combine fff files into thermalvid.raw using exiftool raw binary extraction function
-	// Difficulty getting the piping (> or |) to work with the default exec command. 
-	// See: http://imagej.1557.x6.nabble.com/macro-Redirection-in-exec-UNIX-binary-td3687463.html
-	
-	//rawcombinecmd = exiftoolpath + exiftool +  " -b -r -fast -P -sort -RawThermalImage " + tempfolder + File.separator + "*.fff > " + tempfolder + File.separator + "thermalvid.raw";
-	// previously, the code below would not work with large number of fff files.  I had to remove the "*.fff" part and force exiftool to operate only on the folder recursively:
-	
-	rawcombinecmd = exiftoolpath + exiftool +  " -b -RawThermalImage " + tempfolder + File.separator +  "*.fff > " + tempfolder + File.separator + "thermalvid.raw";
-	rawcombinecmd = exiftoolpath + exiftool +  " -b -RawThermalImage " + tempfolder + File.separator +  " > " + tempfolder + File.separator + "thermalvid.raw";
-	//rawcombinecmd = exiftoolpath + exiftool +  " -b -r -fast -P -RawThermalImage " + tempfolder + " > " + tempfolder + File.separator + "thermalvid.raw";
-	
-	print("Combining the fff files into a thermalvid.raw file with: ");
-	print(rawcombinecmd);
-	print("Please note that this step can be slow for large files, and there is no way to indicate progress");
-	
-	if(OS=="Mac OS X"){
-		exec("/bin/sh", "-c", rawcombinecmd);	
-	}
-
-	if(OS=="Linux"){
-		exec("/bin/sh", "-c", rawcombinecmd);		
-	}
-
-	if(substring(OS, 0, 5)=="Windo"){
-		exec("cmd", "/c", exiftoolpath + exiftoolWindows, "-b", "-RawThermalImage", tempfolder + File.separator + "*.fff", ">", tempfolder + File.separator + "thermalvid.raw");
-	}
-
-	// Use to troubleshoot the conversion process
-	thermalvidrawfilesintempfolder=CountFilesByExtension(tempfolder, ".raw");
-	print("The number of .RAW files in the temporary folder is: ", thermalvidrawfilesintempfolder);
-	print("Use this number to troubleshoot if each command line step is working. There should be 1 thermalvid.raw file if conversion was successful.");
-	
-	// Execute the split.pl script on thermalvid.raw to create tiff (or jpegls) files
-	splittiffexeccmd = perlpath + "perl " + perlsplit + " -i " + tempfolder + File.separator + "thermalvid.raw" + " -o " + filedir + "/temp -b frame -p " + RawThermalType + " -x " + RawThermalType;
-	print("Splitting the thermalvid.raw file into " + RawThermalType + " files with: ");
-	print(splittiffexeccmd);
-	
-	if(vidtype=="seq"){
-		exec(perl, perlsplit, "-i", tempfolder + File.separator + "thermalvid.raw", "-o", filedir + File.separator + "temp", "-b", "frame", "-p", "tiff", "-x", "tiff");
-		
-		// Use to troubleshoot the conversion process
-		tifffilesintempfolder=CountFilesByExtension(tempfolder, ".tiff");
-		print("The number of .TIFF files in the temporary folder is: ", tifffilesintempfolder);
-		print("Use this number to troubleshoot if each command line step is working. The number of files should relate to the number of video frames.");
-		
-		if(ffffilesintempfolder - tifffilesintempfolder>0){
-			print(" ------- WARNING -------");
-			print("The number of extracted / converted frames is fewer than the number of detected FLIR FFF headers");
-			print("This likely means that there are some frames in the video that contain an error");
-			print("These frames have been skipped");
-		}
-	}
-	
-	if(vidtype=="csq"){
-		exec(perl, perlsplit, "-i", tempfolder + File.separator + "thermalvid.raw", "-o", filedir + File.separator + "temp", "-b", "frame", "-p", "jpegls", "-x", "jpegls");
-		
-		// Use to troubleshoot the conversion process
-		jpeglsfilesintempfolder=CountFilesByExtension(tempfolder, ".jpegls");
-		print("The number of JPEGLS files in the temporary folder is: ", jpeglsfilesintempfolder);
-		print("Use this number to troubleshoot if each command line step is working. The number of files should relate to the number of video frames.");
-		
-		if(ffffilesintempfolder - jpeglsfilesintempfolder>0){
-			print(" ------- WARNING -------");
-			print("The number of extracted / converted frames is fewer than the number of detected FLIR FFF headers");
-			print("This likely means that there are some frames in the video that contain an error");
-			print("These frames have been skipped");
-		}
-
-	}
-
-}
-
-	
-////////////////// ^ Thermalvid.raw approach ^ //////////////////////
 
 
 // Execute the ffmpeg command to assimilate all the image (TIFF or JPEGLS or PNG?) files into one avi file
@@ -2265,15 +2549,17 @@ function ConvertFLIRVideo(vidtype, outtype, outcodec, converttotemperature, usev
 	
 	if(converttotemperature==1){
 		print("Converting file to temperature");
-		Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, defaultpalette, "Yes", "Fast", imagetemperaturemin, imagetemperaturemax);	
+		ObjectParameters=Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, defaultpalette, "Yes", "Fast", imagetemperaturemin, imagetemperaturemax);	
 	}
 	
 	run("Animation Options...", "speed=30");
-	
 	print("\n");
 	//	Stack.getFrameInterval();
+	return ObjectParameters;
 }
- 	
+
+
+
 // after having converted a SEQ or CSQ file into a 16-but AVI, import it as a virtualstack     
 function ImportFFmpegAVI(){
 	AVIfile=File.openDialog("FFmpeg AVI File");
@@ -2301,7 +2587,7 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 		print("Cannot perform conversions on a virtual stack.  Duplicating stack first.\nThis is slow and it is recommended that you crop and edit first before using the slow calculation");
 		run("Duplicate...", "duplicate");
 	}
-	
+		
 	if(dialogprompt=="Yes"){
 		
 	byteorder=newArray("Default", "Swap");
@@ -2311,7 +2597,7 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 	
 	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
 	
-	Dialog.create("Verify Camera and Object Parameters");
+	Dialog.create("Verify Camera and Object Parameters Function");
 	Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
 	Dialog.addMessage("TIFF file pixel byte are usually little endian, PNG file pixel bytes are usually big endian");
 	Dialog.addChoice("Keep Default or Swap Byte Order?", byteorder, defaultbyteorder);
@@ -2350,33 +2636,53 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
   
 	Dialog.show();
 
-	var ByteOrder=Dialog.getChoice();
-	var FastSlow=Dialog.getChoice();
-	var imagetemperaturemin = Dialog.getNumber();
-	var imagetemperaturemax = Dialog.getNumber();
+	ByteOrder=Dialog.getChoice();
+	FastSlow=Dialog.getChoice();
+	imagetemperaturemin = Dialog.getNumber();
+	imagetemperaturemax = Dialog.getNumber();
 	
-	var E = Dialog.getNumber();
-	var OD = Dialog.getNumber();
-	var RTemp = Dialog.getNumber();
-	var ATemp = Dialog.getNumber();
-	var IRWTemp = Dialog.getNumber();
-	var IRT = Dialog.getNumber();
-	var RH = Dialog.getNumber();
-	var palettetype = Dialog.getChoice();
+	E = Dialog.getNumber();
+	OD = Dialog.getNumber();
+	RTemp = Dialog.getNumber();
+	ATemp = Dialog.getNumber();
+	IRWTemp = Dialog.getNumber();
+	IRT = Dialog.getNumber();
+	RH = Dialog.getNumber();
+	palettetype = Dialog.getChoice();
 
-	var PR1 = Dialog.getNumber();
-	var PR2 = Dialog.getNumber();
-	var PB = Dialog.getNumber();
-	var PF = Dialog.getNumber();
-	var PO = Dialog.getNumber();
-	var ATA1 = Dialog.getNumber();
-	var ATA2 = Dialog.getNumber();
-	var ATB1 = Dialog.getNumber();
-	var ATB2 = Dialog.getNumber();
-	var ATX = Dialog.getNumber();
-
+	PR1 = Dialog.getNumber();
+	PR2 = Dialog.getNumber();
+	PB = Dialog.getNumber();
+	PF = Dialog.getNumber();
+	PO = Dialog.getNumber();
+	ATA1 = Dialog.getNumber();
+	ATA2 = Dialog.getNumber();
+	ATB1 = Dialog.getNumber();
+	ATB2 = Dialog.getNumber();
+	ATX = Dialog.getNumber();
+	
+	
 	call("ij.Prefs.set", "imagetemperaturemin.persistent",toString(imagetemperaturemin)); 
 	call("ij.Prefs.set", "imagetemperaturemax.persistent",toString(imagetemperaturemax)); 
+	call("ij.Prefs.set", "PR1.persistent",toString(PR1)); 
+	call("ij.Prefs.set", "PB.persistent",toString(PB)); 
+	call("ij.Prefs.set", "PF.persistent",toString(PF)); 
+	call("ij.Prefs.set", "PR2.persistent",toString(PR2)); 
+	call("ij.Prefs.set", "PO.persistent",toString(PO));
+	call("ij.Prefs.set", "ATA1.persistent",toString(ATA1));
+	call("ij.Prefs.set", "ATA2.persistent",toString(ATA2));
+	call("ij.Prefs.set", "ATB1.persistent",toString(ATB1));
+	call("ij.Prefs.set", "ATB2.persistent",toString(ATB2));
+	call("ij.Prefs.set", "ATX.persistent",toString(ATX));
+	call("ij.Prefs.set", "E.persistent",toString(E)); 
+	call("ij.Prefs.set", "OD.persistent",toString(OD)); 
+	call("ij.Prefs.set", "RTemp.persistent",toString(RTemp)); 
+	call("ij.Prefs.set", "ATemp.persistent",toString(ATemp)); 
+	call("ij.Prefs.set", "IRWTemp.persistent",toString(IRWTemp)); 
+	call("ij.Prefs.set", "IRT.persistent",toString(IRT)); 
+	call("ij.Prefs.set", "RH.persistent",toString(RH)); 
+	call("ij.Prefs.set", "imagewidth.persistent",toString(imagewidth)); 
+	call("ij.Prefs.set", "imageheight.persistent",toString(imageheight)); 
 	
 	if(ByteOrder == "Swap"){
 		run("Byte Swapper");
@@ -2492,14 +2798,15 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 			predicted[i]=Fit.f(x[i]);
 			resid[i]=predicted[i]-y[i];
 		}
- 	
-		rms_resid=RMS(resid);
+ 		//print(resid.length);
+ 		
 		Array.getStatistics(resid, min, max, mean);
+		
+		rms_resid=RMS(resid);
 		
 		Fit.getEquation(3, name, formula);
 		//Fit.plot();
 
-			
 		print("To reduce computational time, temperature was estimated using a 4th order polynomial on a restricted range of the data");
 		print("Nominally, 655 data points evenly spanning a possible range of 65535 data points were used to contruct the following curve:");
 		print(formula);
@@ -2581,8 +2888,14 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 	//end=getTime();
 	//timediff=end-start;
 	//print(timediff);
+
+	output=newArray(19);
+	output=newArray(PR1, PR2, PB, PF, PO, ATA1, ATA2, ATB1, ATB2, ATX, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, imagewidth, imageheight);
 	
+	return output;	
+
 }
+
 
 // Added CalculateTransmittance and CalculateEmissivity May 2020
 
@@ -3137,8 +3450,8 @@ function flirvalues(filepath, printvalues){
         call("ij.Prefs.set", "PR1.persistent",toString(PR1)); 
 		call("ij.Prefs.set", "PB.persistent",toString(PB)); 
 		call("ij.Prefs.set", "PF.persistent",toString(PF)); 
-		call("ij.Prefs.set", "PR2.persistent",toString(PR2)); 
 		call("ij.Prefs.set", "PO.persistent",toString(PO));
+		call("ij.Prefs.set", "PR2.persistent",toString(PR2)); 
 		call("ij.Prefs.set", "ATA1.persistent",toString(ATA1));
 		call("ij.Prefs.set", "ATA2.persistent",toString(ATA2));
 		call("ij.Prefs.set", "ATB1.persistent",toString(ATB1));
@@ -3224,6 +3537,62 @@ function flirdate(filepath, printvalues){
 }
 
 
+function flirdistance(filepath, printvalues){
+
+	print("\n------ Running flirdistance function ------");
+	
+	if(OS=="Mac OS X"){
+		var perlpath=perlpathOSX;
+		var exiftoolpath=exiftoolpathOSX;
+		var exiftool=exiftoolOSX;
+		var ffmpegpath=ffmpegpathOSX;
+		flirdisttext=exiftoolpath + exiftool + " " + "'-FocusDistance'" + " " + filepath;
+		print("Command line code being executed (copy/paste into terminal window to test):");
+		print(flirdisttext);
+		flirdist=exec(exiftoolpath + exiftool, "-FocusDistance",  filepath);
+	}
+
+	if(OS=="Linux"){
+		var perlpath=perlpathLinux;
+		var exiftoolpath=exiftoolpathLinux;
+		var exiftool=exiftoolOSX;
+		var ffmpegpath=ffmpegpathLinux;
+		flirdisttext=exiftoolpath + exiftool + " " + "'-FocusDistance'" + " " + filepath;
+		print("Command line code being executed (copy/paste into terminal window to test):");
+		print(flirdisttext);
+		flirdist=exec(exiftoolpath + exiftool, "-FocusDistance",  filepath);
+	}
+	
+	if(substring(OS, 0, 5)=="Windo"){
+		var perlpath=perlpathWindows;
+		var exiftoolpath=exiftoolpathWindows;
+		var exiftool=exiftoolWindows;
+		var ffmpegpath=ffmpegpathWindows;
+		flirdisttext=exiftoolpath + exiftool + " " + "'-FocusDistance'" + " " + filepath;
+		print("Command line code being executed (copy/paste into terminal window to test):");
+		print(flirdisttext);
+		flirdist=exec("cmd", "/c", exiftoolpath + exiftool, "-FocusDistance",  filepath);
+	}
+
+   //	flirvals=exec(exiftoolpath + exiftool, "-*Original*",  filepath);
+
+    focusdistanceoriginal=substring(flirdist, indexOf(flirdist, ":")+1 );
+    
+		if(printvalues == "Yes"){
+			Dialog.create("Focus Distance Information:");
+			Dialog.addMessage("Focus Distance: " + focusdistanceoriginal);
+			Dialog.addMessage("Press OK to export results to Log window");
+			Dialog.show()
+
+			print("\n");
+			print("Focus Distance Information:");
+			setFont("SansSerif", 12);
+			print("Focus Distance: ", focusdistanceoriginal);
+			print("\n");
+		}
+
+		return focusdistanceoriginal;	
+}
 
 
 function addMeasurementLabel(type, units, decimals, colour, fontsize, addROI, drawx, drawy) {
@@ -3300,14 +3669,13 @@ function addvaluelocation(type, label, colour, fontsize) {
 	// type should be one of: Min or Max
 	// but will be converted to: mean min standard modal median skewness kurtosis
 
-	
 	n = nSlices;
 	getSelectionBounds(x, y, width, height);
 
      	 for (slice=1; slice<=n; slice++) {
      	 	//run("Clear Results");
         	showProgress(slice, n);
-        	print("Slice", slice);
+        	//print("Slice", slice);
          	setSlice(slice);
 		 	rownum=getSliceNumber()-1;
 		 	
@@ -3358,7 +3726,6 @@ function addvaluelocation(type, label, colour, fontsize) {
          	drawString(label, Xcoord, Ycoord);
          	      	
      	 }
-     
      
 }
 
@@ -3550,14 +3917,15 @@ function spectralanalysis(data, dataname, windowType, dt, detrend, removemean){
 	// windowType can be:  None, Hamming, Hann or Flattop
 	
 	len=data.length;
+	//print("Data is : " + len);
 	t=Array.getSequence(len);
 	frame=Array.getSequence(len);
-	d2=newArray(len);
+	datasquared=newArray(len);
 	sum=0;
 	for(i=0; i<len; i++){
 		t[i]=t[i]*dt; 
-		d2[i]=data[i]*data[i];
-		sum += d2[i];
+		datasquared[i]=data[i]*data[i];
+		sum += datasquared[i];
 		frame[i]=frame[i]+1;
 	}
 	rms_data=sqrt(sum/len);
@@ -3616,7 +3984,102 @@ function spectralanalysis(data, dataname, windowType, dt, detrend, removemean){
    
 }
 
+// returns hex byte readout from a file, where the reading frame 
+// is equal to the imagewidth * imageheight * 4, to ensure that at least 
+function ReadBytesFromFile(filepath, searchlength, offsetread){
+	
+	// create a search byte length that is at least 2 frames in length
+	// searchlength=imagewidth*imageheight*2*2;
+	
+	// command="xxd -p -l " + searchlength + " " + filepath + " | grep -aob " + magicbyte + " | head -n10";
+	command="xxd -g 1 -s " + offsetread + " -ps -l " + searchlength + " -aob " + filepath;
+	// use the bash xxd to hexdump "searchlength" amount of the begining of file and store this as a string variable
+	
+	if(OS=="Mac OS X"){
+		//print("Detected Operating System: " + OS);
+		//print("Using the following bash command: ");
+		//print(command);
+		res=exec("/bin/sh", "-c", command);
+		//print("Cleaning up hex output");
+		res=replace(res, "\n", "");
+	}
 
+	if(OS=="Linux"){
+		//print("Detected Operating System: " + OS);
+		//print("Using the following bash command: ");
+		//print(command);
+		res=exec("/bin/sh", "-c", command);
+		//print("Cleaning up hex output");
+		res=replace(res, "\n", "");
+	}
+
+	// Windows does not have xxd installed, so need an alternative - 
+	// Need to install powershell open source frmo github:
+	// https://github.com/powershell/powershell 
+	
+	if(substring(OS, 0, 5)=="Windo"){
+		
+		// check if xxd is installed, if it is then run similar code as OSX and Linux
+		checkxxd=exec("where xxd.exe");
+		
+		if(lengthOf(checkxxd)>0){
+			//print("Detected Operating System: " + OS);
+			//print("Using the following bash command: ");
+			//print(command);
+			res=exec("cmd", "/c", command);
+			//print("Cleaning up hex output");
+			res=replace(res, "\n", "");
+		}
+	
+		if(lengthOf(checkxxd)==0){
+			
+			checkpwsh=exec("where pwsh.exe");
+		
+			if(lengthOf(checkpwsh)==0){
+				exit("Neither xxd.exe nor Powershell Core 6 (pwsh.exe) can be found.\nPlease install from github.com/powershell and try again.\nA version of xxd for windows can be found at: https://sourceforge.net/projects/xxd-for-windows/");
+			}
+	
+			command="Format-Hex -Path " + filepath + " " + "-Count " + searchlength;
+		
+			//print("Detected Operating System: " + OS);
+			//print("Using the following powershell command: ");
+			//print(command);
+		
+			res=exec("pwsh", "-c", command);
+			//print(res);
+			resarray=split(res, "\n");
+			resarray=Array.deleteIndex(resarray, 0); resarray=Array.deleteIndex(resarray, 0);		
+			resarray=Array.deleteIndex(resarray, 0); resarray=Array.deleteIndex(resarray, 0);		
+			resarray=Array.deleteIndex(resarray, 0);
+		
+			//print("Cleaning up hex output");
+			res="";
+			start=20; // removes the first 20 char of the byte line
+			end=70;   // removes the unicode conversion at the end of each line
+			String.resetBuffer;
+			for(i=0; i<resarray.length; i++){
+				showProgress(i/resarray.length);
+				len=lengthOf(resarray[i]);
+			
+				if(len<end){
+					resarray=Array.deleteIndex(resarray, i);
+					i=resarray.length+1;
+				}
+				else {
+					resarray[i]=toLowerCase(substring(resarray[i], start, end));
+					String.append(resarray[i]); // working with string buffer much faster than concatenating text
+					//res = res + resarray[i];
+				}
+			}
+			res=String.buffer;
+			res=replace(res, " ", ""); 
+			print(res);
+		
+			//command="Get-Content " + filepath + " " + "-ReadCount " + "200000 " + "-Encoding " + "byte " + "-TotalCount " + imagewidth*imageheight*2*2;
+		}
+	}
+		return res;
+}
 
 // Call an R script: requires that you install Rserve http://www.rforge.net/Rserve/doc.html
 function callRScriptviaJavaScript(script) {
@@ -3633,24 +4096,324 @@ function callRScriptviaJavaScript(script) {
 
 
 
+// The next Six Functions are used in converting a 32 bit integer from FLIR files into a Date/Time Stamp:
+// function to determine if the year provided is a leap year or not
+function isLeapYear(year) {
+    // Adjusted leap year check without ternary operator
+    if ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+// Helper function to ensure two-digit formatting of date/time values
+// will return a leading zero for numbers less than 10
+function d2(n) {
+    n = Math.floor(n); // Ensure n is an integer
+    if (n < 10) {
+        return "0" + n;
+    } else {
+        return "" + n;
+    }
+}
+
+// function to convert unix epoch seconds into formatted Date and Time
+// in YYYY-MM-DD hh:mm:ss format
+// Usage: 
+//timestamphex=exec("/bin/sh", "-c", "xxd -s 1284 -g 1 -ps -l 4 ~/Desktop/DavidStoneFiles/temp/frame000007.fff");
+//timestampstring=replace(timestamphex, "\n", "");
+//timestampinteger=parseInt(timestampstring, 16);
+//timestamp=swapEndian(timestampinteger, 4);
+//ConvertEpochTimetoFullDateTime(timestamp);
+//ConvertEpochTimetoFullDateTime(947815708);
+function ConvertEpochTimetoFullDateTime(epochSeconds) {
+    // Epoch time in seconds (example)
+    // epochSeconds = 949630898;
+    // Usage: ConvertEpochTimetoFullDateTime(1709429135);
+    // Constants
+    secondsInMinute = 60;
+    minutesInHour = 60;
+    hoursInDay = 24;
+    startYear = 1970;
+    
+    // Month lengths in days
+    monthLengths = newArray(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31);
+    
+    // Calculate days
+    totalDays = epochSeconds / (hoursInDay * minutesInHour * secondsInMinute);
+    
+    // Calculate remaining seconds after extracting days
+    remainingSeconds = epochSeconds % (hoursInDay * minutesInHour * secondsInMinute);
+    
+    // Calculate hours from remaining seconds
+    hours = remainingSeconds / (minutesInHour * secondsInMinute);
+    
+    // Calculate remaining seconds after extracting hours
+    remainingSeconds = remainingSeconds % (minutesInHour * secondsInMinute);
+    
+    // Calculate minutes from remaining seconds
+    minutes = remainingSeconds / secondsInMinute;
+    
+    // Calculate remaining seconds
+    seconds = remainingSeconds % secondsInMinute;
+    
+    year = startYear;
+    month = 0;
+    
+    // Adjust for leap years and find the correct year
+    while (true) {
+        if (isLeapYear(year)) {
+            daysThisYear = 366;
+        } else {
+            daysThisYear = 365;
+        }
+        if (totalDays < daysThisYear) break;
+        totalDays = totalDays - daysThisYear;
+        year++;
+    }
+    
+    // Adjust February for leap year
+    if (isLeapYear(year)) {
+        monthLengths[1] = 29;
+    }
+    
+    // Find the correct month
+    for (i = 0; i < monthLengths.length; i++) {
+        if (totalDays < monthLengths[i]) {
+            month = i;
+            break;
+        }
+        totalDays = totalDays - monthLengths[i];
+    }
+    
+    // Remaining totalDays + 1 is the day of the month
+    day = totalDays + 1;
+    
+    // Format and print the date and time
+    datetimeString = "" + year + "-" + d2(month + 1) + "-" + d2(day) + " " + d2(hours) + ":" + d2(minutes) + ":" + d2(seconds);
+   // print("Date/Time: " + datetimeString);
+    
+    return datetimeString;
+}
 
 
+// Function to convert hours to HH:MM format
+// Example usage
+// number = -5.75;
+// result = hoursToHHMM(number);
+function hoursToHHMM(hours) {
+    // Determine sign
+    if (hours >= 0)
+        sign = "+";
+    else
+        sign = "-";
+
+    // Convert hours to absolute value
+    hours = abs(hours);
+
+    // Calculate hours and minutes
+    hh = floor(hours);
+    mm = round((hours - hh) * 60);
+
+    // Format HH:MM string
+    formattedTime = sign + IJ.pad(hh, 2) + ":" + IJ.pad(mm, 2);
+    
+    return formattedTime;
+}
+
+// for a 4 byte/32 bit integer, swap it so that it is the reverse endian order
+// intValue is an integer
+function swapEndian(intValue, numBytes) {
+    // Perform byte swapping based on the number of bytes
+    if (numBytes == 2) {
+        byte0 = (intValue >> 8) & 0xFF;
+        byte1 = intValue & 0xFF;
+        
+        // Reassemble in reversed order
+        return (byte1 << 8) | byte0;
+    } else if (numBytes == 4) {
+        byte0 = (intValue >> 24) & 0xFF;
+        byte1 = (intValue >> 16) & 0xFF;
+        byte2 = (intValue >> 8) & 0xFF;
+        byte3 = intValue & 0xFF;
+        
+        // Reassemble in reversed order
+        return (byte3 << 24) | (byte2 << 16) | (byte1 << 8) | byte0;
+    } else {
+        // Unsupported number of bytes
+        return NaN;
+    }
+}
+
+function swaphex(hexstring, numBytes){
+	if (numBytes==2){
+		byte0 = substring(hexstring, 0, 2);
+		byte1 = substring(hexstring, 2, 4);
+		reversebyte = byte1 + byte0;
+		return reversebyte;
+	} else if(numBytes==4){
+		byte0 = substring(hexstring, 0, 2);
+		byte1 = substring(hexstring, 2, 4);
+		byte2 = substring(hexstring, 4, 6);
+		byte3 = substring(hexstring, 6, 8);
+		reversebyte = byte3 + byte2 + byte1 + byte0;
+		return reversebyte;
+		
+	} else {
+		return NaN;
+	}
+}
+
+// Date Time Original Conversion code, as described in Exiftool
+function ExtractDateTimeInfoFromHex(timestamphex) {
+	
+	timestamphex=replace(timestamphex, "\n", "");
+	
+	datetimehex=substring(timestamphex, 0, 8);
+	datetimehex=swaphex(timestamphex, 4);
+	datetimeint=parseInt(datetimehex, 16);
+	//datetimeInt=swapEndian(datetimeint,4);
+	
+	millisechex=substring(timestamphex, 8, 12);
+	millisechex=swaphex(millisechex, 2);
+	millisecint=parseInt(millisechex,16);
+	millisecstr=toString(millisecint);
+	millisecstr=leadzero(millisecstr, 3);
+	//millisecint=swapEndian(millisecint,2);
+	
+	timezonehex=substring(timestamphex, 16, 20);
+	timezonehex=swaphex(timezonehex,2);
+	timezoneint=parseInt(timezonehex, 16);
+	//print(timezoneint);
+	//timezoneint=swapEndian(timezoneint, 2);
+
+	// Convert the decimal integer to a signed 16-bit integer
+	if (timezoneint > 32767) {
+    	// If the value is greater than the maximum positive signed 16-bit integer value (32767),
+    	// it means it's a negative value in two's complement representation
+    	timezoneint = timezoneint - 65536;
+	} 
+
+	timezoneint=-1*timezoneint/60; // convert timezone to hour
+	timezonestr=hoursToHHMM(timezoneint);
+	
+	datetimeString=ConvertEpochTimetoFullDateTime(datetimeint+timezoneint*3600);
+	datetimeString=datetimeString + "." + millisecstr + timezonestr;
+	
+	return datetimeString;
+}
 
 
+// using three detect byte positions describing potential offsets in 
+// FLIR video files, generate a complete sequence of possible byte offsets
+// for the length of the entire file
+// set returnindex to all, even, or odd
+function GenerateBytePatternSequence(FirstThree, l, returnIndex) {
+ 		
+ 	smalldiff = FirstThree[1] - FirstThree[0];  // small difference
+    largediff = FirstThree[2] - FirstThree[1];  // Large difference
+    
+    // Initialize counter and result array
+    result = newArray(3);
+    result[0] = FirstThree[0];
+    result[1] = FirstThree[1];
+    result[2] = FirstThree[2];
+    
+    // Generate next numbers until the largest number exceeds the limit
+    nextNumber = result[2];
+    n = 3;
+    while (nextNumber <= l) {
+        if (n % 2 == 0) {
+            nextNumber = nextNumber + largediff;
+        } else {
+            nextNumber = nextNumber + smalldiff;
+        }
+        if (nextNumber <= l) {
+            result[n] = nextNumber;
+            n++;
+        } else {
+            break;
+        }
+    }
+    
+    // Return every other value from the sequence based on the specified option
+    if (returnIndex=="even") {
+        newResult = newArray(result.length/2);
+        for (i = 0; i < result.length; i = i + 2) {
+            newResult[i/2] = result[i];
+        }
+    } else if(returnIndex=="odd") {
+        newResult = newArray(result.length/2);
+        for (i = 1; i < result.length; i = i + 2) {
+            newResult[(i-1)/2] = result[i];
+        }
+    } else if(returnIndex=="all"){
+    	newResult=result;
+    }
+    return newResult;
+}
 
 
+// detects the number of FFF headers in a FLIR video file and thus the number of frames in the video
+function FrameCountFLIRVideo(filepath) {
+		
+	if(OS=="Mac OS X"){
+		var perlpath=perlpathOSX;
+		var exiftoolpath=exiftoolpathOSX;
+		var exiftool=exiftoolOSX;
+		var ffmpegpath=ffmpegpathOSX;
+	}
 
+	if(OS=="Linux"){
+		var perlpath=perlpathLinux;
+		var exiftoolpath=exiftoolpathLinux;
+		var exiftool=exiftoolLinux;
+		var ffmpegpath=ffmpegpathLinux;
+	}
+	
+	if(substring(OS, 0, 5)=="Windo"){
+		var perlpath=perlpathWindows;
+		var exiftoolpath=exiftoolpathWindows;
+		var exiftool=exiftoolWindows;
+		var ffmpegpath=ffmpegpathWindows;
+	}
+	
+	var perl=perlpath+"perl";
+	
+	//command=" -0777 -ne 'print scalar(() = /\\x{46}\\x{46}\\x{46}\\x{00}\\x{52}\\x{54}/g)'";
+	//command=" -0777 " + "-ne " + "'$c = () = /\\x46\\x46\\x46\\x00\\x52\\x54/g; print $c'"; 
+	//perl -0777 -ne '$c = () = /\x46\x46\x46\x00\x52\x54/g; print $c' /Users/GlennTattersall/IRconvert/CSQfiles/IR_2019-06-23_0689.csq
+	//res=exec("/usr/bin/perl", "-0777 -ne 'my $c = () = /\x46\x46\x46\x00\x52\x54/g; printf $c' /Users/GlennTattersall/IRconvert/CSQfiles/IR_2019-06-23_0689.csq");
+	
+	// Making use of split.pl to count the # of FFF headers in a file, without splitting it
+	// use "perl split.pl filename -c y" to return an integer number that corresponds to the number of FFF headers 
 
+	if(OS=="Mac OS X"){
+		res=exec(perl, perlsplit, "-i", filepath, "-c", "yes");
+	}
 
+	if(OS=="Linux"){
+		res=exec(perl, perlsplit, "-i", filepath, "-c", "yes");
+	}
 
-
-
-
-
-
-
-
-
+	if(substring(OS, 0, 5)=="Windo"){
+		
+		// check if xxd is installed, if it is then run similar code as OSX and Linux
+		checkxxd=exec("where xxd.exe");
+		
+		if(lengthOf(checkxxd)>0){
+			res=exec(perl, perlsplit, "-i", filepath, "-c", "yes");
+		}
+	}
+	
+	res=replace(res, "The number of FFF headers is: ", "");
+	res=replace(res, "\n", "");
+	res=parseInt(res);
+	//print(res);
+	return res;
+	
+}
 
 
 
@@ -3690,7 +4453,11 @@ macro "Import Menu Tool - C037T0b11FT6b09IT9b09LTeb09E" {
 //	RawImportMikronRTV();
 //}
 
-macro "Check Installations [C]" {
+macro "Search Install Location"{
+	WhereProgram();
+}
+
+macro "Check Installations" {
 	InstallChecks();
 }
 
@@ -3747,11 +4514,9 @@ macro "Import 16-bit AVI [i]" {
 	ImportFFmpegAVI();
 }
 
-macro "Frame Start Byte"{
-	
-	//var imagewidth=640;
-	//var imageheight=480;
-	
+macro "-" {} //menu divider
+
+macro "Frame Start Byte [j]"{
 	Dialog.create("Magicbyte scan for pixel byte offset in FLIR SEQ Videos"); 
 	Dialog.addMessage("This macro will scan a FLIR video file (SEQ) for the offset byte\nposition '0200wwwwhhhh'\nwhere wwww and hhhh are the image width and height\nin 16-bit little endian hexadecimal.");
 	Dialog.addMessage("For example, magicbyte for a 640x480 camera: 02008002e001");
@@ -3760,7 +4525,8 @@ macro "Frame Start Byte"{
 	Dialog.addMessage("The function returns estimates for the offset and gap bytes\nnecessary for use with the Raw Import FLIR SEQ macro");
 	Dialog.addNumber("Image Width:", imagewidth, 0, 6, "pixels");
 	Dialog.addNumber("Image Height:", imageheight, 0, 6, "pixels");
-	Dialog.addMessage("Note: If running Windows, please install Powershell Core 6 from github:");
+	Dialog.addMessage("Note: If running Windows you may need to install xxd.exe in c:/windows, available from github.com/gtatters/ThermimageJ");
+	Dialog.addMessage("Alternatively, please install Powershell Core 6 from github:");
 	Dialog.addMessage("https://github.com/powershell/powershell"); 
     Dialog.show();
 
@@ -3775,105 +4541,21 @@ macro "Frame Start Byte"{
 	}
 	
 	if(lengthOf(custommagicbyte)==0){
-		magicbyte = "0200" + swap(width) + swap(height);	
+		magicbyte = "0200" + swapHex(width) + swapHex(height);	
 	}
 
 	call("ij.Prefs.set", "magicbyte.persistent", toString(magicbyte));
 	
 	filepath=File.openDialog("Select a File"); 
 	print("Magicbyte search");
-	print("Scanning: ", filepath, "for ", magicbyte);
+	print("Scanning: ", filepath, "for: ", magicbyte);
 
-	// create a search byte length that is at least 2 frames in length
+	// call ReadBytesFromFile function to return the first imagewidth*imageheight*2*2 bytes of data as a string
 	searchlength=imagewidth*imageheight*2*2;
-	
-	// command="xxd -p -l " + searchlength + " " + filepath + " | grep -aob " + magicbyte + " | head -n10";
-	command="xxd -g 1 -ps -l " + searchlength + " -aob " + filepath;
-	// use the bash xxd to hexdump "searchlength" amount of the begining of file and store this as a string variable
-	
-	if(OS=="Mac OS X"){
-		print("Detected Operating System: " + OS);
-		print("Using the following bash command: ");
-		print(command);
-		res=exec("/bin/sh", "-c", command);
-		print("Cleaning up hex output");
-		res=replace(res, "\n", "");
-	}
+	offsetread=0;
+	res=ReadBytesFromFile(filepath, searchlength, offsetread);
 
-	if(OS=="Linux"){
-		print("Detected Operating System: " + OS);
-		print("Using the following bash command: ");
-		print(command);
-		res=exec("/bin/sh", "-c", command);
-		print("Cleaning up hex output");
-		res=replace(res, "\n", "");
-	}
-
-	// Windows does not have xxd installed, so need an alternative - 
-	// Need to install powershell open source frmo github:
-	// https://github.com/powershell/powershell 
-	
-	if(substring(OS, 0, 5)=="Windo"){
-		
-		// check if xxd is installed, if it is then run similar code as OSX and Linux
-		checkxxd=exec("where xxd.exe");
-		
-		if(lengthOf(checkxxd)>0){
-			print("Detected Operating System: " + OS);
-			print("Using the following bash command: ");
-			print(command);
-			res=exec("cmd", "/c", command);
-			print("Cleaning up hex output");
-			res=replace(res, "\n", "");
-		}
-	
-		if(lengthOf(checkxxd)==0){
-			
-		checkpwsh=exec("where pwsh.exe");
-		if(lengthOf(checkpwsh)==0){
-			exit("Neither xxd.exe nor Powershell Core 6 (pwsh.exe) can be found.\nPlease install from github.com/powershell and try again.\nA version of xxd for windows can be found at: https://sourceforge.net/projects/xxd-for-windows/");
-		}
-	
-		command="Format-Hex -Path " + filepath + " " + "-Count " + searchlength;
-		
-		print("Detected Operating System: " + OS);
-		print("Using the following powershell command: ");
-		print(command);
-		
-		res=exec("pwsh", "-c", command);
-		//print(res);
-		resarray=split(res, "\n");
-		resarray=Array.deleteIndex(resarray, 0); resarray=Array.deleteIndex(resarray, 0);		
-		resarray=Array.deleteIndex(resarray, 0); resarray=Array.deleteIndex(resarray, 0);		
-		resarray=Array.deleteIndex(resarray, 0);
-		
-		print("Cleaning up hex output");
-		res="";
-		start=20; // removes the first 20 char of the byte line
-		end=70;   // removes the unicode conversion at the end of each line
-		String.resetBuffer;
-		for(i=0; i<resarray.length; i++){
-			showProgress(i/resarray.length);
-			len=lengthOf(resarray[i]);
-			
-			if(len<end){
-				resarray=Array.deleteIndex(resarray, i);
-				i=resarray.length+1;
-			}
-			else {
-				resarray[i]=toLowerCase(substring(resarray[i], start, end));
-				String.append(resarray[i]); // working with string buffer much faster than concatenating text
-				//res = res + resarray[i];
-			}
-		}
-		res=String.buffer;
-		res=replace(res, " ", ""); 
-		print(res);
-		
-		//command="Get-Content " + filepath + " " + "-ReadCount " + "200000 " + "-Encoding " + "byte " + "-TotalCount " + imagewidth*imageheight*2*2;
-	}
-	}
-
+	// now examine the bytes for the location of the magicbyte position
 	ind=newArray(100); // ind will be the index of byte positions where magicbyte is found
 	newres=res;
 	j=0; // counter index for use in next loop. each j refers to index of magic byte detection
@@ -3932,6 +4614,153 @@ macro "Frame Start Byte"{
 		exit("Magicbyte position unsuccessful.  Possibly too many magicbyte positions detected.  Please try a different magicbyte or use a Hex editor to search manually.");
 	}
 }
+
+
+macro "Find Time Stamps in FLIR Videos [t]"{
+	
+	print("\n");
+	print("-------------- Running Find Time Stamps in FLIR Videos Macro -------------");
+	Dialog.create("Time stamp extraction from FLIR SEQ Videos"); 
+	Dialog.addMessage("This macro will scan a FLIR video file (SEQ) for the offset byte\nposition '464646'.");
+	Dialog.addMessage("Last header search used: " + magicbyte);
+	Dialog.addString("Custom header search (leave blank if unknown):", "");
+	Dialog.addMessage("The function returns estimates for the offsets\n for use with certain FLIR Video files.");
+	Dialog.addNumber("Image Width:", imagewidth, 0, 6, "pixels");
+	Dialog.addNumber("Image Height:", imageheight, 0, 6, "pixels");
+	Dialog.addMessage("Note: If running Windows you may need to install xxd.exe in c:/windows, available from github.com/gtatters/ThermimageJ");
+	Dialog.addMessage("Alternatively, please install Powershell Core 6 from github:");
+	Dialog.addMessage("https://github.com/powershell/powershell"); 
+    Dialog.show();
+
+	custommagicbyte=Dialog.getString();
+	imagewidth=Dialog.getNumber();
+	imageheight=Dialog.getNumber();
+	width=leadzero(toString(toHex(imagewidth)), 4);
+	height=leadzero(toString(toHex(imageheight)), 4);
+	
+	if(lengthOf(custommagicbyte)>0){
+		magicbyte=custommagicbyte;
+	}
+	
+	if(lengthOf(custommagicbyte)==0){
+		magicbyte = "0200" + swapHex(width) + swapHex(height);	
+	}
+
+	call("ij.Prefs.set", "magicbyte.persistent", toString(magicbyte));
+	
+	filepath=File.openDialog("Select a File"); 
+	
+	Frames=FrameCountFLIRVideo(filepath);
+	
+	print("Magicbyte search");
+	print("Scanning: ", filepath, "for: ", magicbyte);
+	
+	// call ReadBytesFromFile function to return the first imagewidth*imageheight*2*2 bytes of data as a string
+	searchlength=imagewidth*imageheight*2*10;
+	offsetread=0;
+	res=ReadBytesFromFile(filepath, searchlength, offsetread);
+
+	// now examine the bytes for the location of the magicbyte position
+	ind=newArray(100); // ind will be the index of byte positions where magicbyte is found
+	newres=res;
+	j=0; // counter index for use in next loop. each j refers to index of magic byte detection
+		
+	for(i=0; i<10; i++){
+		position=indexOf(newres, magicbyte);
+		//print(position);
+		l=lengthOf(newres);
+		
+		if(position==-1) {
+			i=1000; // break out of loop if position does not exist
+		}
+		else {	
+		  ind[j] = position/2;
+		  if(j>0){
+		  	ind[j]=ind[j] + ind[j-1] + lengthOf(magicbyte)/2;
+		  	// add the previous index value so that ind reflects position in string
+		  }
+		  
+		  j++;  
+		  newres=substring(newres, position + lengthOf(magicbyte), l);
+		}
+	}
+		
+	ind=Array.deleteValue(ind, 0); // remove 0s from the array
+	
+	if(ind.length<2){
+		Array.print(ind);
+		print("Number of magicbyte positions detected: " + ind.length);
+		print("\n");
+		exit("Too few magicbyte positions detected. Please try a different magicbyte or use a Hex editor to search manually.");
+	}
+	
+	for(j=0; j<ind.length; j++){
+		ind[j]=ind[j]+900; 
+		// add 900 bytes to each ind entry, since the Date/Time Original Occurs 
+		// 900 bytes after the beginning of the magicbyte start		
+	}
+	
+	//Array.print(ind);
+	
+	startbyte=ind[0];
+	filelength=File.length(filepath);
+	FirstThree=Array.slice(ind,0,3);
+	//Array.print(FirstThree);
+	
+	DateTimeOffsets=GenerateBytePatternSequence(FirstThree, filelength, "even");
+	
+	print("Date/Time stamp data usually begins 900 bytes after Magicbyte in FFF header offsets.");
+	Array.print(DateTimeOffsets);
+	
+	print("Suggested offset start find first Date/Time Stamp is: ", startbyte);
+	FirstTimeStampHex=ReadBytesFromFile(filepath, 10, startbyte);
+	
+	AllTimeStampsHex=newArray(DateTimeOffsets.length);
+	DateTimeString=newArray(DateTimeOffsets.length);
+	
+	for(i=0; i<DateTimeOffsets.length; i++){
+		ind[j]=ind[j]+900; 
+		AllTimeStampsHex[i]=ReadBytesFromFile(filepath, 10, DateTimeOffsets[i]);		
+		DateTimeString[i]=ExtractDateTimeInfoFromHex(AllTimeStampsHex[i]);
+		print(DateTimeString[i]);
+	}
+	
+	//FirstTimeStampString=replace(FirstTimeStampHex, "\n", "");
+	//DateTimeString=ExtractDateTimeInfoFromHex(FirstTimeStampString);
+	
+	
+	//print("\n");
+	print("First frame time stamp: " + DateTimeString[0]); 	
+	
+	if(startbyte<0){
+		exit("Magicbyte position unsuccessful.  Possibly too many magicbyte positions detected.  Please try a different magicbyte or use a Hex editor to search manually.");
+	}
+}
+
+
+
+macro "Count FFF Headers in FLIR Video [c]" {
+	
+	print("\n");
+	print("-------------- Running Macro to Estimate Number of Frames in FLIR Video File -------------");
+	//Dialog.create("Count the number of Frames in a FLIR Videos"); 
+	//Dialog.addMessage("This macro will scan a FLIR video file (SEQ or CSQ) for the number of magicbytes: '46464600'.");
+	//Dialog.addMessage("Recommended header search: " + custommagicbyte);
+	//Dialog.addString("Custom header search (leave blank if unknown):", custommagicbyte);
+    //Dialog.show();
+    //custommagicbyte=Dialog.getString();
+    
+	filepath=File.openDialog("Select a SEQ or CSQ File to Scan"); 
+	print("Scanning: ", filepath, "for: \\x46\\x46\\x46\\x00");
+	
+	ext = substring(filepath, lengthOf(filepath) - 3, lengthOf(filepath));
+	
+	Frames=FrameCountFLIRVideo(filepath);
+	
+	print("The number of FFF headers in the file is: " + Frames);
+}
+
+
 
 //macro "Import FLIR JPG Action Tool - C000D1eD2eD38D3eD43D48D49D4aD4bD4cD4dD54D65D68D69D6aD6bD6cD6dD6eD70D71D72D73D74D75D76D78D7bD80D81D82D83D84D85D86D88D8bD95D98D99D9aDa4Db3Db9DbaDbbDbcDbdDc8DceDd8DdcDdeDecDedDeeC000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccCdddCeeeCfff"{
 //	ConvertImportFLIRJPG();
@@ -4049,7 +4878,7 @@ macro "FLIR Date Stamps Action Tool - C000D08D09D0aD0bD0cD17D1dD26D2eD35D3eD45D4
 	}
 }
 
-macro "FLIR Date Stamps" {
+macro "FLIR Date Stamps [D]" {
 	filepath=File.openDialog("Select a FLIR Image or Video File"); 
 	printvalues="Yes";
 	if(File.exists(filepath)){
@@ -4066,7 +4895,7 @@ macro "FLIR Calibration Values Action Tool - C000D00D01D02D03D04D05D10D16D20D22D
 	}
 }
 
-macro "FLIR Calibration Values" {
+macro "FLIR Calibration Values [C]" {
 	filepath=File.openDialog("Select a FLIR Image or Video File"); 
 	printvalues="Yes";
 	if(File.exists(filepath)){
@@ -4075,25 +4904,18 @@ macro "FLIR Calibration Values" {
 }
 
 
+macro "FLIR Focus Distance [F]" {
+	filepath=File.openDialog("Select a FLIR Image or Video File"); 
+	printvalues="Yes";
+	if(File.exists(filepath)){
+		flirdistance(filepath, printvalues);
+	}
+}
+
 macro "-" {} //menu divider
 
 macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D30D33D35D36D40D41D42D43D46D47D57D75D7dD85D8dD93D94D95D9bD9cD9dDa8Db8Dc8Dd8De8Df8C666D62D6aD73D7bD84D8cCf80DcbDdbCe50DcaDdaCfe2DceDdeCfc0DcdDddCd17Dc9Dd9Cff7DcfDdfCfb0DccDdc"{
 
-	// Planck Constants after Recalibration and Service with New Lens in November 2018:
-	 //var PR1=17998.529;
-	 //var PR2=0.015145967;
-	 //var PB=1453.1; 
-	 //var PF=1;
-	 //var PO=-5854;
-	
-	// var E = 0.95;
-	 //var OD = 1;
-	 //var RTemp = 20.0;
-	 //var ATemp = 20.0;
-	 //var IRWTemp = 20.0;
-	 //var IRT = 1.0;
-	 //var RH = 50.0;
-
 	byteorder=newArray("Default", "Swap");
 	defaultbyteorder="Default";
 	fastslowchoice=newArray("Fast", "Slow");
@@ -4139,34 +4961,51 @@ macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D
     Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
     Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");     
 	Dialog.show();
-	
 
-	var ByteOrder=Dialog.getChoice();
-	var FastSlow=Dialog.getChoice();
-	var imagetemperaturemin = Dialog.getNumber();
-	var imagetemperaturemax = Dialog.getNumber();
-	var E = Dialog.getNumber();
-	var OD = Dialog.getNumber();
-	var RTemp = Dialog.getNumber();
-	var ATemp = Dialog.getNumber();
-	var IRWTemp = Dialog.getNumber();
-	var IRT = Dialog.getNumber();
-	var RH = Dialog.getNumber();
-	var palettetype = Dialog.getChoice();
-	var PR1 = Dialog.getNumber();
-	var PR2 = Dialog.getNumber();
-	var PB = Dialog.getNumber();
-	var PF = Dialog.getNumber();
-	var PO = Dialog.getNumber();
-	var ATA1 = Dialog.getNumber();
-	var ATA2 = Dialog.getNumber();
-	var ATB1 = Dialog.getNumber();
-	var ATB2 = Dialog.getNumber();
-	var ATX = Dialog.getNumber();
+	 ByteOrder=Dialog.getChoice();
+	 FastSlow=Dialog.getChoice();
+	 imagetemperaturemin = Dialog.getNumber();
+	 imagetemperaturemax = Dialog.getNumber();
+	 E = Dialog.getNumber();
+	 OD = Dialog.getNumber();
+	 RTemp = Dialog.getNumber();
+	 ATemp = Dialog.getNumber();
+	 IRWTemp = Dialog.getNumber();
+	 IRT = Dialog.getNumber();
+	 RH = Dialog.getNumber();
+	 palettetype = Dialog.getChoice();
+	 PR1 = Dialog.getNumber();
+	 PR2 = Dialog.getNumber();
+	 PB = Dialog.getNumber();
+	 PF = Dialog.getNumber();
+	 PO = Dialog.getNumber();
+	 ATA1 = Dialog.getNumber();
+	 ATA2 = Dialog.getNumber();
+	 ATB1 = Dialog.getNumber();
+	 ATB2 = Dialog.getNumber();
+	 ATX = Dialog.getNumber();
 	
-
 	call("ij.Prefs.set", "imagetemperaturemin.persistent",toString(imagetemperaturemin)); 
 	call("ij.Prefs.set", "imagetemperaturemax.persistent",toString(imagetemperaturemax)); 
+	call("ij.Prefs.set", "PR1.persistent",toString(PR1)); 
+	call("ij.Prefs.set", "PB.persistent",toString(PB)); 
+	call("ij.Prefs.set", "PF.persistent",toString(PF)); 
+	call("ij.Prefs.set", "PR2.persistent",toString(PR2)); 
+	call("ij.Prefs.set", "PO.persistent",toString(PO));
+	call("ij.Prefs.set", "ATA1.persistent",toString(ATA1));
+	call("ij.Prefs.set", "ATA2.persistent",toString(ATA2));
+	call("ij.Prefs.set", "ATB1.persistent",toString(ATB1));
+	call("ij.Prefs.set", "ATB2.persistent",toString(ATB2));
+	call("ij.Prefs.set", "ATX.persistent",toString(ATX));
+	call("ij.Prefs.set", "E.persistent",toString(E)); 
+	call("ij.Prefs.set", "OD.persistent",toString(OD)); 
+	call("ij.Prefs.set", "RTemp.persistent",toString(RTemp)); 
+	call("ij.Prefs.set", "ATemp.persistent",toString(ATemp)); 
+	call("ij.Prefs.set", "IRWTemp.persistent",toString(IRWTemp)); 
+	call("ij.Prefs.set", "IRT.persistent",toString(IRT)); 
+	call("ij.Prefs.set", "RH.persistent",toString(RH)); 
+	call("ij.Prefs.set", "imagewidth.persistent",toString(imagewidth)); 
+	call("ij.Prefs.set", "imageheight.persistent",toString(imageheight)); 
 	
 	if(ByteOrder == "Swap"){
 		run("Byte Swapper");
@@ -4176,7 +5015,7 @@ macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D
 	
 }
 	
-macro "Raw2Temp Tool"{
+macro "Raw2Temp Tool [R]"{
 
 	byteorder=newArray("Default", "Swap");
 	defaultbyteorder="Default";
@@ -4224,31 +5063,50 @@ macro "Raw2Temp Tool"{
     Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");     
 	Dialog.show();
 
-	var ByteOrder=Dialog.getChoice();
-	var FastSlow=Dialog.getChoice();
-	var imagetemperaturemin = Dialog.getNumber();
-	var imagetemperaturemax = Dialog.getNumber();
-	var E = Dialog.getNumber();
-	var OD = Dialog.getNumber();
-	var RTemp = Dialog.getNumber();
-	var ATemp = Dialog.getNumber();
-	var IRWTemp = Dialog.getNumber();
-	var IRT = Dialog.getNumber();
-	var RH = Dialog.getNumber();
-	var palettetype = Dialog.getChoice();
-	var PR1 = Dialog.getNumber();
-	var PR2 = Dialog.getNumber();
-	var PB = Dialog.getNumber();
-	var PF = Dialog.getNumber();
-	var PO = Dialog.getNumber();
-	var ATA1 = Dialog.getNumber();
-	var ATA2 = Dialog.getNumber();
-	var ATB1 = Dialog.getNumber();
-	var ATB2 = Dialog.getNumber();
-	var ATX = Dialog.getNumber();
+	 ByteOrder=Dialog.getChoice();
+	 FastSlow=Dialog.getChoice();
+	 imagetemperaturemin = Dialog.getNumber();
+	 imagetemperaturemax = Dialog.getNumber();
+	 E = Dialog.getNumber();
+	 OD = Dialog.getNumber();
+	 RTemp = Dialog.getNumber();
+	 ATemp = Dialog.getNumber();
+	 IRWTemp = Dialog.getNumber();
+	 IRT = Dialog.getNumber();
+	 RH = Dialog.getNumber();
+	 palettetype = Dialog.getChoice();
+	 PR1 = Dialog.getNumber();
+	 PR2 = Dialog.getNumber();
+	 PB = Dialog.getNumber();
+	 PF = Dialog.getNumber();
+	 PO = Dialog.getNumber();
+	 ATA1 = Dialog.getNumber();
+	 ATA2 = Dialog.getNumber();
+	 ATB1 = Dialog.getNumber();
+	 ATB2 = Dialog.getNumber();
+	 ATX = Dialog.getNumber();
 	
 	call("ij.Prefs.set", "imagetemperaturemin.persistent",toString(imagetemperaturemin)); 
 	call("ij.Prefs.set", "imagetemperaturemax.persistent",toString(imagetemperaturemax)); 
+	call("ij.Prefs.set", "PR1.persistent",toString(PR1)); 
+	call("ij.Prefs.set", "PB.persistent",toString(PB)); 
+	call("ij.Prefs.set", "PF.persistent",toString(PF)); 
+	call("ij.Prefs.set", "PR2.persistent",toString(PR2)); 
+	call("ij.Prefs.set", "PO.persistent",toString(PO));
+	call("ij.Prefs.set", "ATA1.persistent",toString(ATA1));
+	call("ij.Prefs.set", "ATA2.persistent",toString(ATA2));
+	call("ij.Prefs.set", "ATB1.persistent",toString(ATB1));
+	call("ij.Prefs.set", "ATB2.persistent",toString(ATB2));
+	call("ij.Prefs.set", "ATX.persistent",toString(ATX));
+	call("ij.Prefs.set", "E.persistent",toString(E)); 
+	call("ij.Prefs.set", "OD.persistent",toString(OD)); 
+	call("ij.Prefs.set", "RTemp.persistent",toString(RTemp)); 
+	call("ij.Prefs.set", "ATemp.persistent",toString(ATemp)); 
+	call("ij.Prefs.set", "IRWTemp.persistent",toString(IRWTemp)); 
+	call("ij.Prefs.set", "IRT.persistent",toString(IRT)); 
+	call("ij.Prefs.set", "RH.persistent",toString(RH)); 
+	call("ij.Prefs.set", "imagewidth.persistent",toString(imagewidth)); 
+	call("ij.Prefs.set", "imageheight.persistent",toString(imageheight)); 
 	
 	if(ByteOrder == "Swap"){
 		run("Byte Swapper");
@@ -4259,7 +5117,6 @@ macro "Raw2Temp Tool"{
 }
 
 macro "-" {} //menu divider
-
 
 macro "Estimate Window Transmittance [T]" {
 	CalculateTransmittance();
@@ -4277,6 +5134,8 @@ macro "Estimate Camera Spot Size [S]" {
 
 macro "-" {} //menu divider
 
+
+// ROI Macros and Journalling Macros Start Here
 
 macro "Denote Image as Upright [u]" { // 
 
@@ -4969,6 +5828,209 @@ macro "ROI 7 Results [7]" { //
 }
 
 
+macro "ROI 8 Results [8]" { // 
+	
+	if(defaultroifilename=="") {
+		roifilename=getTitle() + "_roi_results.csv";
+	}
+	
+	else{
+		roifilename="Roi_results.csv";
+	}
+	
+	roilabel=ROI8;
+	
+	roitype=Roi.getType();
+	
+	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
+	getSelectionCoordinates(xCoordinates, yCoordinates);
+	len=xCoordinates.length;
+		
+	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
+
+	x1=xCoordinates[0];
+	y1=yCoordinates[0];
+	x2=xCoordinates[len-1];
+	y2=yCoordinates[len-1];
+	
+
+	//theta=180/PI*atan2((y2-y1), (x2-x1));
+	hypotenuse=sqrt((wd*wd + ht*ht));
+
+	getStatistics(area, mean, min, max, std, histogram);
+
+	filename=getTitle; 
+	
+	type = selectionType(); 
+	if(type==-1) exit("No ROI selection specified");
+	
+	updateResults();
+
+	rownum=getSliceNumber()-1;
+	
+	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
+	for (i=0; i<getSliceNumber(); i++) { 	
+		setResult("Filename", i, "");
+	}
+
+	op=pasteobjectparameters();
+
+	setResult("Filename", rownum, filename);
+	setResult("SliceLabel", rownum, getMetadata("label"));
+	setResult("Slice", rownum, getSliceNumber());
+	//setResult("ROI 1 X1", rownum, x1);
+	//setResult("ROI 1 Y1", rownum, y1);
+	//setResult("ROI 1 X2", rownum, x2);
+	//setResult("ROI 1 Y2", rownum, y2);
+	//setResult("ROI 1 Length", rownum, hypotenuse);
+	setResult("ObjectParam", rownum, op);		
+	setResult(roilabel + "Mean", rownum, mean);
+	setResult(roilabel + "Min", rownum, min);
+	setResult(roilabel + "Max", rownum, max);
+	setResult(roilabel + "SD", rownum, std);
+	setResult(roilabel + "Area", rownum, area);
+	
+	updateResults();
+	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
+	
+}
+
+
+macro "ROI 9 Results [9]" { // 
+	
+	if(defaultroifilename=="") {
+		roifilename=getTitle() + "_roi_results.csv";
+	}
+	
+	else{
+		roifilename="Roi_results.csv";
+	}
+	
+	roilabel=ROI9;
+	
+	roitype=Roi.getType();
+	
+	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
+	getSelectionCoordinates(xCoordinates, yCoordinates);
+	len=xCoordinates.length;
+		
+	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
+
+	x1=xCoordinates[0];
+	y1=yCoordinates[0];
+	x2=xCoordinates[len-1];
+	y2=yCoordinates[len-1];
+	
+
+	//theta=180/PI*atan2((y2-y1), (x2-x1));
+	hypotenuse=sqrt((wd*wd + ht*ht));
+
+	getStatistics(area, mean, min, max, std, histogram);
+
+	filename=getTitle; 
+	
+	type = selectionType(); 
+	if(type==-1) exit("No ROI selection specified");
+	
+	updateResults();
+
+	rownum=getSliceNumber()-1;
+	
+	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
+	for (i=0; i<getSliceNumber(); i++) { 	
+		setResult("Filename", i, "");
+	}
+
+	op=pasteobjectparameters();
+
+	setResult("Filename", rownum, filename);
+	setResult("SliceLabel", rownum, getMetadata("label"));
+	setResult("Slice", rownum, getSliceNumber());
+	//setResult("ROI 1 X1", rownum, x1);
+	//setResult("ROI 1 Y1", rownum, y1);
+	//setResult("ROI 1 X2", rownum, x2);
+	//setResult("ROI 1 Y2", rownum, y2);
+	//setResult("ROI 1 Length", rownum, hypotenuse);
+	setResult("ObjectParam", rownum, op);		
+	setResult(roilabel + "Mean", rownum, mean);
+	setResult(roilabel + "Min", rownum, min);
+	setResult(roilabel + "Max", rownum, max);
+	setResult(roilabel + "SD", rownum, std);
+	setResult(roilabel + "Area", rownum, area);
+	
+	updateResults();
+	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
+	
+}
+
+
+macro "ROI 10 Results [0]" { // 
+	
+	if(defaultroifilename=="") {
+		roifilename=getTitle() + "_roi_results.csv";
+	}
+	
+	else{
+		roifilename="Roi_results.csv";
+	}
+	
+	roilabel=ROI10;
+	
+	roitype=Roi.getType();
+	
+	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
+	getSelectionCoordinates(xCoordinates, yCoordinates);
+	len=xCoordinates.length;
+		
+	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
+
+	x1=xCoordinates[0];
+	y1=yCoordinates[0];
+	x2=xCoordinates[len-1];
+	y2=yCoordinates[len-1];
+	
+
+	//theta=180/PI*atan2((y2-y1), (x2-x1));
+	hypotenuse=sqrt((wd*wd + ht*ht));
+
+	getStatistics(area, mean, min, max, std, histogram);
+
+	filename=getTitle; 
+	
+	type = selectionType(); 
+	if(type==-1) exit("No ROI selection specified");
+	
+	updateResults();
+
+	rownum=getSliceNumber()-1;
+	
+	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
+	for (i=0; i<getSliceNumber(); i++) { 	
+		setResult("Filename", i, "");
+	}
+
+	op=pasteobjectparameters();
+
+	setResult("Filename", rownum, filename);
+	setResult("SliceLabel", rownum, getMetadata("label"));
+	setResult("Slice", rownum, getSliceNumber());
+	//setResult("ROI 1 X1", rownum, x1);
+	//setResult("ROI 1 Y1", rownum, y1);
+	//setResult("ROI 1 X2", rownum, x2);
+	//setResult("ROI 1 Y2", rownum, y2);
+	//setResult("ROI 1 Length", rownum, hypotenuse);
+	setResult("ObjectParam", rownum, op);		
+	setResult(roilabel + "Mean", rownum, mean);
+	setResult(roilabel + "Min", rownum, min);
+	setResult(roilabel + "Max", rownum, max);
+	setResult(roilabel + "SD", rownum, std);
+	setResult(roilabel + "Area", rownum, area);
+	
+	updateResults();
+	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
+	
+}
+
 macro "-" {} //menu divider
 
 macro "Extract ROI Pixel Values [x]"{
@@ -5059,7 +6121,7 @@ macro "Add Location of Min or Max to Image" {
 
 macro "-" {} //menu divider
 
-macro "ROI on Entire Stack [9]" {
+macro "ROI on Entire Stack [q]" {
 
 	close("Results");
  	close("ROI*");
@@ -5182,7 +6244,8 @@ macro "ROI on Entire Stack [9]" {
 			data[n]=getResult("Kurt1", n);
 			databackground[n]=getResult("Mean1", n);
 			dataname="ROI Kurtosis";
-		}		
+		}
+		
 	}
 
 	originaldata=newArray(nSlices);
@@ -5245,7 +6308,7 @@ macro "ROI on Entire Stack [9]" {
 }
 
 
-macro "Cumulative Difference Sum on Stack [0]"{
+macro "Cumulative Difference Sum on Stack [Q]"{
 	
 	run("Clear Results");
 	close("Results");
@@ -5297,4 +6360,4 @@ macro "Cumulative Difference Sum on Stack [0]"{
 
 macro "-" {} //menu divider
 
-	
+
