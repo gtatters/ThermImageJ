@@ -8,7 +8,7 @@
 ////            - Highlights: fixed Frame Start Byte Macro to work with PC better,                 ////
 ////							fixes to hotkeys, edits to create 10 ROIs						   ////	
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
+ 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 ////                                                                                               ////
 ////      User should verify the following path locations for their operating system:              ////
