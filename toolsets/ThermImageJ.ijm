@@ -4,9 +4,10 @@
 ////        Main Features: import, conversion, and transformation of thermal images.               ////
 ////                           Requires: exiftool, ffmpeg, perl, xxd                               ////
 ////                                Glenn J. Tattersall                                            ////
-////                               May, 2024 - Version 3.0                            	           ////
-////            - Highlights: fixed Frame Start Byte Macro to work with PC better,                 ////
-////							fixes to hotkeys, edits to create 10 ROIs						   ////	
+////                               June, 2026 - Version 3.3                            	           ////
+////            - Highlights: added up to 20 ROIs, plus ability to overwrite data                  ////
+////            - from these ROIS simply by typing the short-cut with no ROI drawn on image        ////
+////			- Added file skipping and limits to Import CSV Sequence Macro					   ////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
  
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -35,31 +36,47 @@ var exiftoolLinux="exiftool";
 var ffmpegpathLinux="/usr/bin/";
 
 // Windows Users verify these settings:								 // <- VERIFY THIS
-var perlpathWindows="c:/Perl64/bin/"; 			 // this might be c:/Perl/perl/bin or c:/Perl64/perl/bin
+var perlpathWindows="c:/Perl64/perl/bin/"; 		 // this might be c:/Perl/perl/bin or c:/Perl64/perl/bin
 var exiftoolpathWindows="c:/windows/"; 			 // recommended location: c:/windows folder
 var exiftoolWindows="exiftool.exe";
 var ffmpegpathWindows="c:/FFmpeg/bin/";			 // ffmpeg.exe should be in c:/FFmpeg/bin folder
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 ////                                                                                               ////
-////      There are 10 possible short cut ROI macros. Customise the names below to your preference ////
+////      There are 20 possible short cut ROI macros. Customise the names below to your preference ////
 ////       			 Each short-cut is activated by one of the keys: 1,2,3,......0                 ////
-////                                                                                               ////
+////                 Q,W,E,R,T,Y,U,I,O,P (note that caps-lock will not work for these letters      ////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Customise Region of Interest Macro Names
-// related to above, there are currently 6 numbered ROI extraction routines.  
-// Give labels to them here which will be saved in the ROI file.
-var ROI1="Bill";
-var ROI2="Tarsus";
-var ROI3="Foot";
-var ROI4="Body";
-var ROI5="Eye";
-var ROI6="Ground";
-var ROI7="EyeRegion";
-var ROI8="Wing";
-var ROI9="Sky";
-var ROI10="Reflected"
+// USER SHOULD CUSTOMISED THE REGION OF INTEREST NAMES BELOW
+// related to above, there are currently 20 numbered/lettered ROI extraction routines.  
+// Give labels to them here by editing the words in quote below, which will be saved in the ROI file.
+// Note that the letter short cuts are all capital letters activated with the shift-key: QWERTYUIOP
+var ROI1="Head"; 			// Short cut 1
+var ROI2="Eyeskin"; 		// Short cut 2
+var ROI3="Eyeball";			// Short cut 3
+var ROI4="EarInside";		// Short cut 4 
+var ROI5="NoseTip";			// Short cut 5
+var ROI6="BodyVentral";		// Short cut 6
+var ROI7="BodyDorsal";		// Short cut 7
+var ROI8="BodyLateral";		// Short cut 8
+var ROI9="LegInside";		// Short cut 9
+var ROI10="LegOutside";		// Short cut 0
+
+var ROI11="PawsFront";		// Short cut Q (shift-q)
+var ROI12="PawsBack";		// Short cut W (shift-w)
+var ROI13="TailFull";		// Short cut E (shift-e)
+var ROI14="TailFlesh";		// Short cut R (shift-r)
+var ROI15="Groin";			// Short cut T (shift-t)
+var ROI16="Testes";			// Short cut Y (shift-y)
+var ROI17="PartedBodyFur";	// Short cut U (shift-u)
+var ROI18="Ground";			// Short cut I (shift-i)
+var ROI19="Unknown1";		// Short cut O (shift-o)
+var ROI20="Unknown2";		// Short cut P (shift-p)
+
+// set the following value to "no" if you want to use the ROI tool without automatically advancing to next slice
+// set the following value to "yes" if you want to use the ROI tool with automatical advancement to next slice
+var autoadvanceslice=call("ij.Prefs.get", "autoadvanceslice", "no");
 
 // Note: This is a sample of how you could re-name the 7 ROI names:
 // Simply remove the // in front of each variable name and reboot ImageJ
@@ -117,37 +134,37 @@ var colors = newArray("Red", "Green", "Blue", "Cyan", "Magenta", "Yellow");
 // User may wish to update these values to reflect their own commonly used thermal camera in order to streamline 
 // calculations:
 
-var PR1 = parseFloat(call("ij.Prefs.get", "PR1.persistent","17998.529")); 
-var PR2 = parseFloat(call("ij.Prefs.get", "PR2.persistent","0.015145967")); 
-var PB = parseFloat(call("ij.Prefs.get", "PB.persistent","1453.1")); 
-var PF = parseFloat(call("ij.Prefs.get", "PF.persistent","1")); 
-var PO = parseFloat(call("ij.Prefs.get", "PO.persistent","-5854"));
+var PR1 = parseFloat(call("ij.Prefs.get", "PR1.persistent", "17998.529")); 
+var PR2 = parseFloat(call("ij.Prefs.get", "PR2.persistent", "0.015145967")); 
+var PB = parseFloat(call("ij.Prefs.get", "PB.persistent", "1453.1")); 
+var PF = parseFloat(call("ij.Prefs.get", "PF.persistent", "1")); 
+var PO = parseFloat(call("ij.Prefs.get", "PO.persistent", "-5854"));
  
-var ATA1 = parseFloat(call("ij.Prefs.get", "ATA1.persistent","0.006569")); 
-var ATA2 = parseFloat(call("ij.Prefs.get", "ATA2.persistent","0.01262")); 
-var ATB1 = parseFloat(call("ij.Prefs.get", "ATB1.persistent","-0.002276"));
-var ATB2 = parseFloat(call("ij.Prefs.get", "ATB2.persistent","-0.00667")); 
-var ATX = parseFloat(call("ij.Prefs.get", "ATX.persistent","1.9")); 
-var E = parseFloat(call("ij.Prefs.get", "E.persistent","0.95")); 
-var OD = parseFloat(call("ij.Prefs.get", "OD.persistent","1")); 
-var RTemp = parseFloat(call("ij.Prefs.get", "RTemp.persistent","20")); 
-var ATemp = parseFloat(call("ij.Prefs.get", "ATemp.persistent","20")); 
-var IRWTemp = parseFloat(call("ij.Prefs.get", "IRWTemp.persistent","20")); 
-var IRT = parseFloat(call("ij.Prefs.get", "IRT.persistent","1")); 
-var RH = parseFloat(call("ij.Prefs.get", "RH.persistent","50.0")); 
-var imagewidth=parseInt(call("ij.Prefs.get", "imagewidth.persistent","640"));
-var imageheight=parseInt(call("ij.Prefs.get", "imageheight.persistent","480")); 
-var magicbyte=call("ij.Prefs.get", "magicbyte.persistent","02008002e001");
+var ATA1 = parseFloat(call("ij.Prefs.get", "ATA1.persistent", "0.006569")); 
+var ATA2 = parseFloat(call("ij.Prefs.get", "ATA2.persistent", "0.01262")); 
+var ATB1 = parseFloat(call("ij.Prefs.get", "ATB1.persistent", "-0.002276"));
+var ATB2 = parseFloat(call("ij.Prefs.get", "ATB2.persistent", "-0.00667")); 
+var ATX = parseFloat(call("ij.Prefs.get", "ATX.persistent", "1.9")); 
+var E = parseFloat(call("ij.Prefs.get", "E.persistent", "0.95")); 
+var OD = parseFloat(call("ij.Prefs.get", "OD.persistent", "1")); 
+var RTemp = parseFloat(call("ij.Prefs.get", "RTemp.persistent", "20")); 
+var ATemp = parseFloat(call("ij.Prefs.get", "ATemp.persistent", "20")); 
+var IRWTemp = parseFloat(call("ij.Prefs.get", "IRWTemp.persistent", "20")); 
+var IRT = parseFloat(call("ij.Prefs.get", "IRT.persistent", "1")); 
+var RH = parseFloat(call("ij.Prefs.get", "RH.persistent", "50.0")); 
+var imagewidth=parseInt(call("ij.Prefs.get", "imagewidth.persistent", "640"));
+var imageheight=parseInt(call("ij.Prefs.get", "imageheight.persistent", "480")); 
+var magicbyte=call("ij.Prefs.get", "magicbyte.persistent", "02008002e001");
 var frameinterval=parseFloat(call("ij.Prefs.get", "frameinterval.persistent", "0.03333333333"));
-var imagetemperaturemin=parseInt(call("ij.Prefs.get", "imagetemperaturemin.persistent","-20"));
-var imagetemperaturemax=parseInt(call("ij.Prefs.get", "imagetemperaturemax.persistent","60")); 
-var usevirtual=parseInt(call("ij.Prefs.get", "usevirtual.persistent","1")); 
-var addtimestamp=parseInt(call("ij.Prefs.get", "addtimestamp.persistent","0")); 
-var converttotemperature=parseInt(call("ij.Prefs.get", "converttotemperature.persistent","1")); 
-var deletetempfiles=parseInt(call("ij.Prefs.get", "deletetempfiles.persistent","1")); 
-var offsetbyte=parseInt(call("ij.Prefs.get", "offsetbyte.persistent","1372")); 
-var gapbytes=parseInt(call("ij.Prefs.get", "gapbytes.persistent","1424")); 
-var nframes=parseInt(call("ij.Prefs.get", "nframes.persistent","20000")); 
+var imagetemperaturemin=parseInt(call("ij.Prefs.get", "imagetemperaturemin.persistent", "-20"));
+var imagetemperaturemax=parseInt(call("ij.Prefs.get", "imagetemperaturemax.persistent", "60")); 
+var usevirtual=parseInt(call("ij.Prefs.get", "usevirtual.persistent", "1")); 
+var addtimestamp=parseInt(call("ij.Prefs.get", "addtimestamp.persistent", "0")); 
+var converttotemperature=parseInt(call("ij.Prefs.get", "converttotemperature.persistent", "1")); 
+var deletetempfiles=parseInt(call("ij.Prefs.get", "deletetempfiles.persistent", "1")); 
+var offsetbyte=parseInt(call("ij.Prefs.get", "offsetbyte.persistent", "1372")); 
+var gapbytes=parseInt(call("ij.Prefs.get", "gapbytes.persistent", "1424")); 
+var nframes=parseInt(call("ij.Prefs.get", "nframes.persistent", "20000")); 
 
 
 
@@ -332,19 +349,73 @@ function ImportImageSequence(){
 }
 
 
-function ImportCSVImageSequence(){
-	dir = getDirectory("Choose directory");
-	list = getFileList(dir);
-	run("Close All");
-	setBatchMode(true);
-	for (i=0; i<list.length; i++) {
- 		file = dir + list[i];
- 		run("Text Image... ", "open=&file");
-	}
-	run("Images to Stack", "use");
-	setBatchMode(false);
-}
+//function ImportCSVImageSequence(){
+//	dir = getDirectory("Choose directory");
+//	list = getFileList(dir);
+//	run("Close All");
+//	setBatchMode(true);
+//	for (i=0; i<list.length; i++) {
+// 		file = dir + list[i];
+// 		run("Text Image... ", "open=&file");
+//	}
+//	run("Images to Stack", "use");
+//	setBatchMode(false);
+//}
 
+function ImportCSVImageSequence(){
+    dir = getDirectory("Choose directory");
+    list = getFileList(dir);
+    
+    // Filter to only CSV files and count them
+    csvList = newArray(list.length);
+    csvCount = 0;
+    for (i = 0; i < list.length; i++) {
+        if (endsWith(toLowerCase(list[i]), ".csv")) {
+            csvList[csvCount] = list[i];
+            csvCount++;
+        }
+    }
+    // Trim array to actual CSV count
+    csvList = Array.trim(csvList, csvCount);
+    
+    // Prompt user for Start, Count, and Step
+    Dialog.create("CSV Import Options");
+    Dialog.addMessage("Total CSV files found: " + csvCount);
+    Dialog.addNumber("Start (1-based index):", 1, 0, 5, "");
+    Dialog.addNumber("Count (number of files to import):", csvCount, 0, 5, "");
+    Dialog.addNumber("Step (interval between files):", 1, 0, 5, "");
+    Dialog.show();
+    
+    startIdx = Dialog.getNumber() - 1; // Convert to 0-based index
+    userCount = Dialog.getNumber();
+    step = Dialog.getNumber();
+    
+    // Validate inputs
+    if (startIdx < 0 || startIdx >= csvCount) {
+        exit("Start index is out of range. Must be between 1 and " + csvCount + ".");
+    }
+    if (step < 1) {
+        exit("Step must be at least 1.");
+    }
+    if (userCount < 1) {
+        exit("Count must be at least 1.");
+    }
+    
+    run("Close All");
+    setBatchMode(true);
+    
+    imported = 0;
+    for (i = startIdx; i < csvCount && imported < userCount; i += step) {
+        file = dir + csvList[i];
+        run("Text Image... ", "open=&file");
+        imported++;
+    }
+    
+    run("Images to Stack", "use");
+    setBatchMode(false);
+    
+    showMessage("Import Complete", imported + " file(s) imported into stack.");
+}
 
 
 // Based on the LUTFileTool by Gabriel Landini
@@ -861,6 +932,99 @@ function ImageRestructure(){
 	
 	return sdrandomdiff;
 }
+
+
+// Generic Region of Interest Function / Generic ROI Function
+// given an roilabel selected from the list of 20 rois at the beginning of this toolset
+// this function will export to a results table the mean, min, max, sd, and area of the ROI
+// if the ROI is not drawn, user will be given an option to overwrite 0 values to the results table
+// if the user has only been drawn a single point ROI, only 0 values will be exported
+function RegionOfInterest(roilabel){
+		
+	if(defaultroifilename=="") {
+		roifilename=getTitle() + "_roi_results.csv";
+	}
+	else{
+		roifilename="Roi_results.csv";
+	}
+	
+	if (selectionType() == -1) {
+		ROIproceedchoice=newArray("Yes", "No");	
+		ROIProceed="Yes";
+		Dialog.create("Region of Interest Result Control"); 
+    	Dialog.addMessage("You are seeing this pop-up because no " + roilabel + " is currently drawn.");
+		Dialog.addMessage("Would you like to overwrite existing results for " + roilabel + " with NaN values?");
+		Dialog.addMessage("\n"); 	
+		Dialog.addChoice("Would you like to proceed (hit enter for Yes)?", newArray("Yes", "No"), "Yes");
+		Dialog.show();
+		ROIProceed=Dialog.getChoice();
+		area=NaN;
+		mean=NaN;
+		min=NaN;
+		max=NaN;
+		std=NaN;
+   	} else {
+     	roitype=Roi.getType();
+     	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
+		getSelectionCoordinates(xCoordinates, yCoordinates);
+		len=xCoordinates.length;
+		getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
+		x1=xCoordinates[0];
+		y1=yCoordinates[0];
+		x2=xCoordinates[len-1];
+		y2=yCoordinates[len-1];
+		//theta=180/PI*atan2((y2-y1), (x2-x1));
+		hypotenuse=sqrt((wd*wd + ht*ht));
+		getStatistics(area, mean, min, max, std, histogram);
+   	}
+		filename=getTitle; 
+	
+		//type = selectionType(); 
+		//if(type==-1) exit("No ROI selection specified");
+	
+	updateResults();
+
+	rownum=getSliceNumber()-1;
+	
+	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
+	for (i=0; i<getSliceNumber(); i++) { 	
+		setResult("Filename", i, "");
+	}
+	
+	if(area<=1) { // this means that if you select a single point ROI, it will set all results to 0
+		//mean=0;
+		//min=0;
+		//max=0;
+		//std=0;
+	}
+
+	op=pasteobjectparameters();
+	setResult("Filename", rownum, filename);
+	setResult("SliceLabel", rownum, getMetadata("label"));
+	setResult("Slice", rownum, getSliceNumber());
+	setResult("ObjectParam", rownum, op);	
+	setResult(roilabel + "Mean", rownum, mean);
+	setResult(roilabel + "Min", rownum, min);
+	setResult(roilabel + "Max", rownum, max);
+	setResult(roilabel + "SD", rownum, std);
+	setResult(roilabel + "Area", rownum, area);
+		
+	updateResults();
+	
+	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
+	
+	if(autoadvanceslice=="yes" && getSliceNumber()<nSlices()){
+		setSlice(getSliceNumber()+1);
+	}
+	
+	if(File.exists(desktopdir + File.separator + File.getName(roifilename))==1){
+		wait(10);	
+	}
+	
+	wait(500);
+	
+}
+
 
 
 function pasteobjectparameters(){
@@ -3248,6 +3412,34 @@ function CalculateSpotsize() {
 
 
 
+// added function June 2024
+
+function SetAutoAdvance() {
+	
+	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
+    sliceadvancechoices=newArray("no", "yes");
+	Dialog.create("Automatically Advance Frame After ROI Use");
+	Dialog.addMessage("This tool will allow you to toggle the ROI tools to automatically\nadvance frame/slice after depressing one of the ROI byttons: 1,2,3,.....0.");
+	Dialog.addMessage("Setting this to 'yes' means that you can hold the ROI key down\nand capture data from multiple frames in a row, useful for time lapse stacks.");
+	Dialog.addMessage("Setting this to 'no' will prevent automatically advancing forward,\nuseful for stacks of different images.");
+	
+	Dialog.addMessage("This setting will retained until you reboot ImageJ.");
+    Dialog.addChoice("Do you wish to automatically advance frame after using ROI:", sliceadvancechoices, autoadvanceslice);
+ 	Dialog.show();
+	
+	var autoadvanceslice=Dialog.getChoice();
+	var autoadvanceslice=call("ij.Prefs.get", "autoadvanceslice", autoadvanceslice);
+	
+	if(autoadvanceslice=="yes"){
+		print("ImageJ will automatically advance forward after using one of the ROI buttons");	
+	}
+	if(autoadvanceslice=="no"){
+		print("ImageJ will not advance forward after using one of the ROI buttons");	
+	}
+}
+
+
+
 
 // Create a function that just calculates the Temperature for a given Raw Value - not for use on images, just
 // for calculating the conversion from raw to temperature
@@ -3975,12 +4167,11 @@ function spectralanalysis(data, dataname, windowType, dt, detrend, removemean){
 	fhtSize = 2*lengthOf(y);
   	peakF = frequ/len*fhtSize; // i.e., frequ/len = peakF/fhtSize
   	
-	Plot.create(dataname, "Frame", "Data", frame, data);
+	Plot.create(dataname, "Time (s)", dataname, t, data);
     Plot.show();
   	Plot.create("Fourier amplitudes of " + dataname + " with window: " + windowType, "Frequency (Hz)", "Amplitude (RMS)", f, y);
   	Plot.addText("RMS of Raw Data: " + rms_data + "  RMS of Detrended Data: " + rms_detrend, 0, 0)
   	Plot.show();
-
    
 }
 
@@ -3992,7 +4183,7 @@ function ReadBytesFromFile(filepath, searchlength, offsetread){
 	// searchlength=imagewidth*imageheight*2*2;
 	
 	// command="xxd -p -l " + searchlength + " " + filepath + " | grep -aob " + magicbyte + " | head -n10";
-	command="xxd -g 1 -s " + offsetread + " -ps -l " + searchlength + " -aob " + filepath;
+	command="xxd -g 1 -s " + offsetread + " -ps -l " + searchlength + " -aob " + "'" + filepath + "'";
 	// use the bash xxd to hexdump "searchlength" amount of the begining of file and store this as a string variable
 	
 	if(OS=="Mac OS X"){
@@ -4498,10 +4689,6 @@ macro "Import Image Sequence" {
 	ImportImageSequence();    
 }
 
-macro "Import CSV Image Sequence" {
-	ImportCSVImageSequence();    
-}
-
 macro "Import FLIR SEQ" {
 	 ImportConvertFLIRSEQ();
 }
@@ -4616,7 +4803,7 @@ macro "Frame Start Byte [j]"{
 }
 
 
-macro "Find Time Stamps in FLIR Videos [t]"{
+macro "Find Time Stamps in FLIR Videos [f]"{
 	
 	print("\n");
 	print("-------------- Running Find Time Stamps in FLIR Videos Macro -------------");
@@ -4786,7 +4973,7 @@ macro "Previous LUT Action Tool - C037T4d14<" {
         cycleLUTs(-1);
 }
 
-macro "Previous LUT" {
+macro "Previous LUT [<]" {
         cycleLUTs(-1);
 }
 
@@ -4794,7 +4981,7 @@ macro "Next LUT Action Tool - C037T4d14>" {
         cycleLUTs(1);
 }
 
-macro "Next LUT" {
+macro "Next LUT [>]" {
         cycleLUTs(1);
 }
 
@@ -5015,7 +5202,7 @@ macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D
 	
 }
 	
-macro "Raw2Temp Tool [R]"{
+macro "Raw2Temp Tool [r]"{
 
 	byteorder=newArray("Default", "Swap");
 	defaultbyteorder="Default";
@@ -5118,21 +5305,25 @@ macro "Raw2Temp Tool [R]"{
 
 macro "-" {} //menu divider
 
-macro "Estimate Window Transmittance [T]" {
+macro "Estimate Window Transmittance [t]" {
 	CalculateTransmittance();
 }
 
 
-macro "Estimate Object Emissivity [E]" {
+macro "Estimate Object Emissivity [e]" {
 	CalculateEmissivity();
 }
 
-macro "Estimate Camera Spot Size [S]" {
+macro "Estimate Camera Spot Size [s]" {
 	CalculateSpotsize();
 }
 
-
 macro "-" {} //menu divider
+
+macro "Set Frame Advance Default for ROI Use [a]"{
+	SetAutoAdvance();
+}
+
 
 
 // ROI Macros and Journalling Macros Start Here
@@ -5359,676 +5550,65 @@ macro "ROI l Results [l]" { //
 
 }
 
-macro "ROI 1 Results [1]" { // 
-
-	if(defaultroifilename=="") {
-		roifilename=getTitle() + "_roi_results.csv";
-	}
-	
-	else{
-		roifilename="Roi_results.csv";
-	}
-	
-	
-	roilabel=ROI1;
-	
-	roitype=Roi.getType();
-	
-	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
-	getSelectionCoordinates(xCoordinates, yCoordinates);
-	len=xCoordinates.length;
-		
-	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
-
-	x1=xCoordinates[0];
-	y1=yCoordinates[0];
-	x2=xCoordinates[len-1];
-	y2=yCoordinates[len-1];
-	
-	//theta=180/PI*atan2((y2-y1), (x2-x1));
-	hypotenuse=sqrt((wd*wd + ht*ht));
-
-	getStatistics(area, mean, min, max, std, histogram);
-
-	filename=getTitle; 
-	
-	type = selectionType(); 
-	if(type==-1) exit("No ROI selection specified");
-	
-	updateResults();
-
-	rownum=getSliceNumber()-1;
-	
-	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
-	for (i=0; i<getSliceNumber(); i++) { 	
-		setResult("Filename", i, "");
-	}
-
-	op=pasteobjectparameters();
-	setResult("Filename", rownum, filename);
-	setResult("SliceLabel", rownum, getMetadata("label"));
-	setResult("Slice", rownum, getSliceNumber());
-	//setResult("ROI 1 X1", rownum, x1);
-	//setResult("ROI 1 Y1", rownum, y1);
-	//setResult("ROI 1 X2", rownum, x2);
-	//setResult("ROI 1 Y2", rownum, y2);
-	//setResult("ROI 1 Length", rownum, hypotenuse);
-	setResult("ObjectParam", rownum, op);	
-	setResult(roilabel + "Mean", rownum, mean);
-	setResult(roilabel + "Min", rownum, min);
-	setResult(roilabel + "Max", rownum, max);
-	setResult(roilabel + "SD", rownum, std);
-	setResult(roilabel + "Area", rownum, area);
-	
-	updateResults();
-	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
-
+macro "ROI 1 Results [1]" {
+	RegionOfInterest(ROI1);
 }
-
 macro "ROI 2 Results [2]" {
-	
-	if(defaultroifilename=="") {
-		roifilename=getTitle() + "_roi_results.csv";
-	}
-	
-	else{
-		roifilename="Roi_results.csv";
-	}
-	
-	roilabel=ROI2;
-	
-	roitype=Roi.getType();
-	
-	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
-	getSelectionCoordinates(xCoordinates, yCoordinates);
-	len=xCoordinates.length;
-		
-	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
-
-	x1=xCoordinates[0];
-	y1=yCoordinates[0];
-	x2=xCoordinates[len-1];
-	y2=yCoordinates[len-1];
-	
-
-	//theta=180/PI*atan2((y2-y1), (x2-x1));
-	hypotenuse=sqrt((wd*wd + ht*ht));
-
-	getStatistics(area, mean, min, max, std, histogram);
-
-	filename=getTitle; 
-	
-	type = selectionType(); 
-	if(type==-1) exit("No ROI selection specified");
-	
-	updateResults();
-
-	rownum=getSliceNumber()-1;
-	
-	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
-	for (i=0; i<getSliceNumber(); i++) { 	
-		setResult("Filename", i, "");
-	}
-	
-	op=pasteobjectparameters();
-	setResult("Filename", rownum, filename);
-	setResult("SliceLabel", rownum, getMetadata("label"));
-	setResult("Slice", rownum, getSliceNumber());
-	//setResult("ROI 1 X1", rownum, x1);
-	//setResult("ROI 1 Y1", rownum, y1);
-	//setResult("ROI 1 X2", rownum, x2);
-	//setResult("ROI 1 Y2", rownum, y2);
-	//setResult("ROI 1 Length", rownum, hypotenuse);
-	setResult("ObjectParam", rownum, op);		
-	setResult(roilabel + "Mean", rownum, mean);
-	setResult(roilabel + "Min", rownum, min);
-	setResult(roilabel + "Max", rownum, max);
-	setResult(roilabel + "SD", rownum, std);
-	setResult(roilabel + "Area", rownum, area);
-	
-	updateResults();
-	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
-
+	RegionOfInterest(ROI2);
 }
-
-
-macro "ROI 3 Results [3]" { // 
-	
-	if(defaultroifilename=="") {
-		roifilename=getTitle() + "_roi_results.csv";
-	}
-	
-	else{
-		roifilename="Roi_results.csv";
-	}
-	
-	roilabel=ROI3;
-	
-	roitype=Roi.getType();
-	
-	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
-	getSelectionCoordinates(xCoordinates, yCoordinates);
-	len=xCoordinates.length;
-		
-	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
-
-	x1=xCoordinates[0];
-	y1=yCoordinates[0];
-	x2=xCoordinates[len-1];
-	y2=yCoordinates[len-1];
-	
-
-	//theta=180/PI*atan2((y2-y1), (x2-x1));
-	hypotenuse=sqrt((wd*wd + ht*ht));
-
-	getStatistics(area, mean, min, max, std, histogram);
-
-	filename=getTitle; 
-	
-	type = selectionType(); 
-	if(type==-1) exit("No ROI selection specified");
-	
-	updateResults();
-
-	rownum=getSliceNumber()-1;
-	
-	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
-	for (i=0; i<getSliceNumber(); i++) { 	
-		setResult("Filename", i, "");
-	}
-
-	op=pasteobjectparameters();
-	
-	setResult("Filename", rownum, filename);
-	setResult("SliceLabel", rownum, getMetadata("label"));
-	setResult("Slice", rownum, getSliceNumber());
-	//setResult("ROI 1 X1", rownum, x1);
-	//setResult("ROI 1 Y1", rownum, y1);
-	//setResult("ROI 1 X2", rownum, x2);
-	//setResult("ROI 1 Y2", rownum, y2);
-	//setResult("ROI 1 Length", rownum, hypotenuse);
-	setResult("ObjectParam", rownum, op);			
-	setResult(roilabel + "Mean", rownum, mean);
-	setResult(roilabel + "Min", rownum, min);
-	setResult(roilabel + "Max", rownum, max);
-	setResult(roilabel + "SD", rownum, std);
-	setResult(roilabel + "Area", rownum, area);
-	
-	updateResults();
-	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
-
+macro "ROI 3 Results [3]" {
+	RegionOfInterest(ROI3);
 }
-
-
-macro "ROI 4 Results [4]" { // 
-	
-	if(defaultroifilename=="") {
-		roifilename=getTitle() + "_roi_results.csv";
-	}
-	
-	else{
-		roifilename="Roi_results.csv";
-	}
-	
-	roilabel=ROI4;
-	
-	roitype=Roi.getType();
-	
-	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
-	getSelectionCoordinates(xCoordinates, yCoordinates);
-	len=xCoordinates.length;
-		
-	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
-
-	x1=xCoordinates[0];
-	y1=yCoordinates[0];
-	x2=xCoordinates[len-1];
-	y2=yCoordinates[len-1];
-	
-
-	//theta=180/PI*atan2((y2-y1), (x2-x1));
-	hypotenuse=sqrt((wd*wd + ht*ht));
-
-	getStatistics(area, mean, min, max, std, histogram);
-
-	filename=getTitle; 
-	
-	type = selectionType(); 
-	if(type==-1) exit("No ROI selection specified");
-	
-	updateResults();
-
-	rownum=getSliceNumber()-1;
-	
-	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
-	for (i=0; i<getSliceNumber(); i++) { 	
-		setResult("Filename", i, "");
-	}
-
-	op=pasteobjectparameters();
-	setResult("Filename", rownum, filename);
-	setResult("SliceLabel", rownum, getMetadata("label"));
-	setResult("Slice", rownum, getSliceNumber());
-	//setResult("ROI 1 X1", rownum, x1);
-	//setResult("ROI 1 Y1", rownum, y1);
-	//setResult("ROI 1 X2", rownum, x2);
-	//setResult("ROI 1 Y2", rownum, y2);
-	//setResult("ROI 1 Length", rownum, hypotenuse);
-	setResult("ObjectParam", rownum, op);		
-	setResult(roilabel + "Mean", rownum, mean);
-	setResult(roilabel + "Min", rownum, min);
-	setResult(roilabel + "Max", rownum, max);
-	setResult(roilabel + "SD", rownum, std);
-	setResult(roilabel + "Area", rownum, area);
-	
-	updateResults();
-	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
+macro "ROI 4 Results [4]" {
+	RegionOfInterest(ROI4);
 }
-
-
-macro "ROI 5 Results [5]" { // 
-	
-	if(defaultroifilename=="") {
-		roifilename=getTitle() + "_roi_results.csv";
-	}
-	
-	else{
-		roifilename="Roi_results.csv";
-	}
-	
-	roilabel=ROI5;
-	
-	roitype=Roi.getType();
-	
-	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
-	getSelectionCoordinates(xCoordinates, yCoordinates);
-	len=xCoordinates.length;
-		
-	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
-
-	x1=xCoordinates[0];
-	y1=yCoordinates[0];
-	x2=xCoordinates[len-1];
-	y2=yCoordinates[len-1];
-	
-
-	//theta=180/PI*atan2((y2-y1), (x2-x1));
-	hypotenuse=sqrt((wd*wd + ht*ht));
-
-	getStatistics(area, mean, min, max, std, histogram);
-
-	filename=getTitle; 
-	
-	type = selectionType(); 
-	if(type==-1) exit("No ROI selection specified");
-	
-	updateResults();
-
-	rownum=getSliceNumber()-1;
-	
-	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
-	for (i=0; i<getSliceNumber(); i++) { 	
-		setResult("Filename", i, "");
-	}
-
-	op=pasteobjectparameters();
-	setResult("Filename", rownum, filename);
-	setResult("SliceLabel", rownum, getMetadata("label"));
-	setResult("Slice", rownum, getSliceNumber());
-	//setResult("ROI 1 X1", rownum, x1);
-	//setResult("ROI 1 Y1", rownum, y1);
-	//setResult("ROI 1 X2", rownum, x2);
-	//setResult("ROI 1 Y2", rownum, y2);
-	//setResult("ROI 1 Length", rownum, hypotenuse);
-	setResult("ObjectParam", rownum, op);		
-	setResult(roilabel + "Mean", rownum, mean);
-	setResult(roilabel + "Min", rownum, min);
-	setResult(roilabel + "Max", rownum, max);
-	setResult(roilabel + "SD", rownum, std);
-	setResult(roilabel + "Area", rownum, area);
-	
-	updateResults();
-	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
-	
+macro "ROI 5 Results [5]" {
+	RegionOfInterest(ROI5);
 }
-
-
-macro "ROI 6 Results [6]" { // 
-	
-	if(defaultroifilename=="") {
-		roifilename=getTitle() + "_roi_results.csv";
-	}
-	
-	else{
-		roifilename="Roi_results.csv";
-	}
-	
-	roilabel=ROI6;
-	
-	roitype=Roi.getType();
-	
-	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
-	getSelectionCoordinates(xCoordinates, yCoordinates);
-	len=xCoordinates.length;
-		
-	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
-
-	x1=xCoordinates[0];
-	y1=yCoordinates[0];
-	x2=xCoordinates[len-1];
-	y2=yCoordinates[len-1];
-	
-
-	//theta=180/PI*atan2((y2-y1), (x2-x1));
-	hypotenuse=sqrt((wd*wd + ht*ht));
-
-	getStatistics(area, mean, min, max, std, histogram);
-
-	filename=getTitle; 
-	
-	type = selectionType(); 
-	if(type==-1) exit("No ROI selection specified");
-	
-	updateResults();
-
-	rownum=getSliceNumber()-1;
-	
-	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
-	for (i=0; i<getSliceNumber(); i++) { 	
-		setResult("Filename", i, "");
-	}
-
-	op=pasteobjectparameters();
-
-	setResult("Filename", rownum, filename);
-	setResult("SliceLabel", rownum, getMetadata("label"));
-	setResult("Slice", rownum, getSliceNumber());
-	//setResult("ROI 1 X1", rownum, x1);
-	//setResult("ROI 1 Y1", rownum, y1);
-	//setResult("ROI 1 X2", rownum, x2);
-	//setResult("ROI 1 Y2", rownum, y2);
-	//setResult("ROI 1 Length", rownum, hypotenuse);
-	setResult("ObjectParam", rownum, op);		
-	setResult(roilabel + "Mean", rownum, mean);
-	setResult(roilabel + "Min", rownum, min);
-	setResult(roilabel + "Max", rownum, max);
-	setResult(roilabel + "SD", rownum, std);
-	setResult(roilabel + "Area", rownum, area);
-	
-	updateResults();
-	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
-	
+macro "ROI 6 Results [6]" {
+	RegionOfInterest(ROI6);
 }
-
-macro "ROI 7 Results [7]" { // 
-	
-	if(defaultroifilename=="") {
-		roifilename=getTitle() + "_roi_results.csv";
-	}
-	
-	else{
-		roifilename="Roi_results.csv";
-	}
-	
-	roilabel=ROI7;
-	
-	roitype=Roi.getType();
-	
-	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
-	getSelectionCoordinates(xCoordinates, yCoordinates);
-	len=xCoordinates.length;
-		
-	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
-
-	x1=xCoordinates[0];
-	y1=yCoordinates[0];
-	x2=xCoordinates[len-1];
-	y2=yCoordinates[len-1];
-	
-
-	//theta=180/PI*atan2((y2-y1), (x2-x1));
-	hypotenuse=sqrt((wd*wd + ht*ht));
-
-	getStatistics(area, mean, min, max, std, histogram);
-
-	filename=getTitle; 
-	
-	type = selectionType(); 
-	if(type==-1) exit("No ROI selection specified");
-	
-	updateResults();
-
-	rownum=getSliceNumber()-1;
-	
-	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
-	for (i=0; i<getSliceNumber(); i++) { 	
-		setResult("Filename", i, "");
-	}
-
-	op=pasteobjectparameters();
-
-	setResult("Filename", rownum, filename);
-	setResult("SliceLabel", rownum, getMetadata("label"));
-	setResult("Slice", rownum, getSliceNumber());
-	//setResult("ROI 1 X1", rownum, x1);
-	//setResult("ROI 1 Y1", rownum, y1);
-	//setResult("ROI 1 X2", rownum, x2);
-	//setResult("ROI 1 Y2", rownum, y2);
-	//setResult("ROI 1 Length", rownum, hypotenuse);
-	setResult("ObjectParam", rownum, op);		
-	setResult(roilabel + "Mean", rownum, mean);
-	setResult(roilabel + "Min", rownum, min);
-	setResult(roilabel + "Max", rownum, max);
-	setResult(roilabel + "SD", rownum, std);
-	setResult(roilabel + "Area", rownum, area);
-	
-	updateResults();
-	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
-	
+macro "ROI 7 Results [7]" {
+	RegionOfInterest(ROI7);
 }
-
-
-macro "ROI 8 Results [8]" { // 
-	
-	if(defaultroifilename=="") {
-		roifilename=getTitle() + "_roi_results.csv";
-	}
-	
-	else{
-		roifilename="Roi_results.csv";
-	}
-	
-	roilabel=ROI8;
-	
-	roitype=Roi.getType();
-	
-	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
-	getSelectionCoordinates(xCoordinates, yCoordinates);
-	len=xCoordinates.length;
-		
-	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
-
-	x1=xCoordinates[0];
-	y1=yCoordinates[0];
-	x2=xCoordinates[len-1];
-	y2=yCoordinates[len-1];
-	
-
-	//theta=180/PI*atan2((y2-y1), (x2-x1));
-	hypotenuse=sqrt((wd*wd + ht*ht));
-
-	getStatistics(area, mean, min, max, std, histogram);
-
-	filename=getTitle; 
-	
-	type = selectionType(); 
-	if(type==-1) exit("No ROI selection specified");
-	
-	updateResults();
-
-	rownum=getSliceNumber()-1;
-	
-	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
-	for (i=0; i<getSliceNumber(); i++) { 	
-		setResult("Filename", i, "");
-	}
-
-	op=pasteobjectparameters();
-
-	setResult("Filename", rownum, filename);
-	setResult("SliceLabel", rownum, getMetadata("label"));
-	setResult("Slice", rownum, getSliceNumber());
-	//setResult("ROI 1 X1", rownum, x1);
-	//setResult("ROI 1 Y1", rownum, y1);
-	//setResult("ROI 1 X2", rownum, x2);
-	//setResult("ROI 1 Y2", rownum, y2);
-	//setResult("ROI 1 Length", rownum, hypotenuse);
-	setResult("ObjectParam", rownum, op);		
-	setResult(roilabel + "Mean", rownum, mean);
-	setResult(roilabel + "Min", rownum, min);
-	setResult(roilabel + "Max", rownum, max);
-	setResult(roilabel + "SD", rownum, std);
-	setResult(roilabel + "Area", rownum, area);
-	
-	updateResults();
-	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
-	
+macro "ROI 8 Results [8]" {
+	RegionOfInterest(ROI8);
 }
-
-
-macro "ROI 9 Results [9]" { // 
-	
-	if(defaultroifilename=="") {
-		roifilename=getTitle() + "_roi_results.csv";
-	}
-	
-	else{
-		roifilename="Roi_results.csv";
-	}
-	
-	roilabel=ROI9;
-	
-	roitype=Roi.getType();
-	
-	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
-	getSelectionCoordinates(xCoordinates, yCoordinates);
-	len=xCoordinates.length;
-		
-	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
-
-	x1=xCoordinates[0];
-	y1=yCoordinates[0];
-	x2=xCoordinates[len-1];
-	y2=yCoordinates[len-1];
-	
-
-	//theta=180/PI*atan2((y2-y1), (x2-x1));
-	hypotenuse=sqrt((wd*wd + ht*ht));
-
-	getStatistics(area, mean, min, max, std, histogram);
-
-	filename=getTitle; 
-	
-	type = selectionType(); 
-	if(type==-1) exit("No ROI selection specified");
-	
-	updateResults();
-
-	rownum=getSliceNumber()-1;
-	
-	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
-	for (i=0; i<getSliceNumber(); i++) { 	
-		setResult("Filename", i, "");
-	}
-
-	op=pasteobjectparameters();
-
-	setResult("Filename", rownum, filename);
-	setResult("SliceLabel", rownum, getMetadata("label"));
-	setResult("Slice", rownum, getSliceNumber());
-	//setResult("ROI 1 X1", rownum, x1);
-	//setResult("ROI 1 Y1", rownum, y1);
-	//setResult("ROI 1 X2", rownum, x2);
-	//setResult("ROI 1 Y2", rownum, y2);
-	//setResult("ROI 1 Length", rownum, hypotenuse);
-	setResult("ObjectParam", rownum, op);		
-	setResult(roilabel + "Mean", rownum, mean);
-	setResult(roilabel + "Min", rownum, min);
-	setResult(roilabel + "Max", rownum, max);
-	setResult(roilabel + "SD", rownum, std);
-	setResult(roilabel + "Area", rownum, area);
-	
-	updateResults();
-	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
-	
+macro "ROI 9 Results [9]" {
+	RegionOfInterest(ROI9);
 }
-
-
-macro "ROI 10 Results [0]" { // 
-	
-	if(defaultroifilename=="") {
-		roifilename=getTitle() + "_roi_results.csv";
-	}
-	
-	else{
-		roifilename="Roi_results.csv";
-	}
-	
-	roilabel=ROI10;
-	
-	roitype=Roi.getType();
-	
-	getSelectionBounds(xleft, yupper, wd, ht); // provides the upper left most cursor position
-	getSelectionCoordinates(xCoordinates, yCoordinates);
-	len=xCoordinates.length;
-		
-	getCursorLoc(x2, y2, z2, flags); // obtains the final cursor postion
-
-	x1=xCoordinates[0];
-	y1=yCoordinates[0];
-	x2=xCoordinates[len-1];
-	y2=yCoordinates[len-1];
-	
-
-	//theta=180/PI*atan2((y2-y1), (x2-x1));
-	hypotenuse=sqrt((wd*wd + ht*ht));
-
-	getStatistics(area, mean, min, max, std, histogram);
-
-	filename=getTitle; 
-	
-	type = selectionType(); 
-	if(type==-1) exit("No ROI selection specified");
-	
-	updateResults();
-
-	rownum=getSliceNumber()-1;
-	
-	// this will allow you to skip aheaad to a new slice, do the analysis, then scroll back
-	for (i=0; i<getSliceNumber(); i++) { 	
-		setResult("Filename", i, "");
-	}
-
-	op=pasteobjectparameters();
-
-	setResult("Filename", rownum, filename);
-	setResult("SliceLabel", rownum, getMetadata("label"));
-	setResult("Slice", rownum, getSliceNumber());
-	//setResult("ROI 1 X1", rownum, x1);
-	//setResult("ROI 1 Y1", rownum, y1);
-	//setResult("ROI 1 X2", rownum, x2);
-	//setResult("ROI 1 Y2", rownum, y2);
-	//setResult("ROI 1 Length", rownum, hypotenuse);
-	setResult("ObjectParam", rownum, op);		
-	setResult(roilabel + "Mean", rownum, mean);
-	setResult(roilabel + "Min", rownum, min);
-	setResult(roilabel + "Max", rownum, max);
-	setResult(roilabel + "SD", rownum, std);
-	setResult(roilabel + "Area", rownum, area);
-	
-	updateResults();
-	saveAs("Results", desktopdir + File.separator + File.getName(roifilename));
-	
+macro "ROI 10 Results [0]" {
+	RegionOfInterest(ROI10);
+}
+macro "ROI 11 Results [Q]" {
+	RegionOfInterest(ROI11);
+}
+macro "ROI 12 Results [W]" {
+	RegionOfInterest(ROI12);
+}
+macro "ROI 13 Results [E]" {
+	RegionOfInterest(ROI13);
+}
+macro "ROI 14 Results [R]" {
+	RegionOfInterest(ROI14);
+}
+macro "ROI 15 Results [T]" {
+	RegionOfInterest(ROI15);
+}
+macro "ROI 16 Results [Y]" {
+	RegionOfInterest(ROI16);
+}
+macro "ROI 17 Results [U]" {
+	RegionOfInterest(ROI17);
+}
+macro "ROI 18 Results [I]" {
+	RegionOfInterest(ROI18);
+}
+macro "ROI 19 Results [O]" {
+	RegionOfInterest(ROI19);
+}
+macro "ROI 20 Results [P]" {
+	RegionOfInterest(ROI20);
 }
 
 macro "-" {} //menu divider
@@ -6121,7 +5701,7 @@ macro "Add Location of Min or Max to Image" {
 
 macro "-" {} //menu divider
 
-macro "ROI on Entire Stack [q]" {
+macro "ROI on Entire Stack [z]" {
 
 	close("Results");
  	close("ROI*");
@@ -6134,7 +5714,7 @@ macro "ROI on Entire Stack [q]" {
 		dt=frameinterval;
 	}
 	
-	items=newArray("Mean", "StdDev", "Min", "Max", "Mode", "Median", "CenterMassX", "CenterMassY", "Skewness", "Kurtosis");
+	items=newArray("Mean", "StdDev", "Min", "Max", "Mode", "Median", "CenterMassX", "CenterMassY", "CenterMassXY", "Skewness", "Kurtosis");
 	Dialog.create("ROI Analysis on Stack");
 	Dialog.addMessage("This function works on stacks.  Provide an ROI and preferred summary statistic.");
 	Dialog.addMessage("This ROI value is then detrended and normalised\nto remove mean value prior to a discrete fourier analysis to return freuquency components.");
@@ -6179,11 +5759,17 @@ macro "ROI on Entire Stack [q]" {
 	x=newArray(nSlices);
 	Time=Array.getSequence(nSlices);
 	databackground=newArray(nSlices);
+	XM1=newArray(nSlices);
+	YM1=newArray(nSlices);
 	
 	// Define a time variable
 	for (i = 0; i < nSlices; i++) {
 		Time[i]=Time[i]*frameinterval;
+		XM1[i]=getResult("XM1", i);
+		YM1[i]=getResult("XM1", i);
+		ZM1=(XM1[i]+YM1[i])/2;
 		setResult("Elapsed Time", i, Time[i]);
+		setResult("ZM1", i, ZM1);
 	}
 	
 	// rename Label values to be the Slice Labels
@@ -6225,6 +5811,11 @@ macro "ROI on Entire Stack [q]" {
 			databackground[n]=getResult("Mean1", n);
 			dataname="ROI CenterMassY";
 		}
+		if(dataType=="CenterMassXY"){
+			data[n]=getResult("ZM1", n);
+			databackground[n]=getResult("Mean1", n);
+			dataname="ROI CenterMassXY";
+		}
 		if(dataType=="Mode"){
 			data[n]=getResult("Mode1", n);
 			databackground[n]=getResult("Mean1", n);
@@ -6250,7 +5841,7 @@ macro "ROI on Entire Stack [q]" {
 
 	originaldata=newArray(nSlices);
 	for (i = 0; i < nSlices; i++) {
-		Time[i]=Time[i]*frameinterval;
+		//Time[i]=Time[i]*frameinterval; 
 		originaldata[i]=data[i];
 	}
 
@@ -6289,8 +5880,8 @@ macro "ROI on Entire Stack [q]" {
 		}
 
 	
-	if(lowpasssamples>0 || highpasssamples>0){
-		Plot.create("Original Data", "Time (s)", "Data", Time, originaldata);
+	if(lowpasssamples>=0 || highpasssamples>=0){
+		Plot.create("Original Data", "Time (s)", dataname, Time, originaldata);
 		Plot.show();
 		Plot.setColor("red");
 		run("Line Width...", "line=5");
@@ -6308,7 +5899,7 @@ macro "ROI on Entire Stack [q]" {
 }
 
 
-macro "Cumulative Difference Sum on Stack [Q]"{
+macro "Cumulative Difference Sum on Stack [Z]"{
 	
 	run("Clear Results");
 	close("Results");
@@ -6361,3 +5952,6 @@ macro "Cumulative Difference Sum on Stack [Q]"{
 macro "-" {} //menu divider
 
 
+macro "Test [M]" {
+		RegionOfInterest(ROI1);
+}

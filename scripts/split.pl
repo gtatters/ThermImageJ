@@ -1,14 +1,14 @@
 #!/usr/bin/perl
 
 # Author: Glenn J Tattersall
-# Date: 2019-12-20
-# Version: 1.0
+# Date: 2024-03-22
+# Version: 2.0
 
 #use strict;
 #use warnings;
 use Getopt::Std;
 
-our($opt_i, $opt_o, $opt_b, $opt_p, $opt_x, $opt_s, $opt_v);
+our($opt_i, $opt_o, $opt_b, $opt_p, $opt_x, $opt_s, $opt_c, $opt_v);
 
 my $n=0;
 my $folder = "temp";
@@ -28,10 +28,10 @@ my $file = "";
 my $skip = "n";
 
 my (%opt)=();
-getopts("h:i:o:b:p:x:s:v:",\%opt);
+getopts("h:i:o:b:p:x:s:c:v:",\%opt);
 if ($opt{h}){
 print qq(
-    Usage: perl split -i filename -o outputfoldername -b basename -p splitpattern -x outputfileextension -s skip -v verbose
+    Usage: perl split -i filename -o outputfoldername -b basename -p splitpattern -x outputfileextension -s skip -c count -v verbose
     options:
     -i input filename
     -o output folder
@@ -39,9 +39,24 @@ print qq(
     -p split pattern (fff, fcf, seq, csq, jpegls, tiff) 
     -x output extension (fff, jpegls, tiff)
     -s skip first part of split content (y=yes, n=no)
+    -c count fff (y=yes to only count FFF headers, leave blank for no counting)
     -v verbose (y=yes, leave blank for no feedback on success) \n.);
     exit  
 }
+
+# If count=y, then just count the number of FFF headers and exit:
+if (defined $opt{i} & ($opt{c} eq "y" || $opt{c} eq "yes")){
+        binmode F; 
+        open F, '<:raw', $opt{i};
+        my $file = do { local $/; <F> };
+        # Count the occurrences of the specified byte sequence
+        my $count = () = $file =~ /\x46\x46\x46\x00/g;
+        close F; 
+        my $integer_count = int($count);
+        # Print the count
+        print ("The number of FFF headers is: $count");
+        exit;
+    }
 
 if (!defined $opt{i} & !defined $opt{o} & !defined $opt{b} & !defined $opt{p} & !defined $opt{x}){die "Error: Please specify input file, output folder, the output filename base, pattern to split, and output file extension.\n"}
 if (!defined $opt{i}){die "Error: Please specify the input file. \n"}
@@ -52,12 +67,12 @@ if (!defined $opt{x}){die "Error: Please specify the output file extension.\n"}
 
 my $pattype = "$opt_p";
 
-
 $folder = $opt{o};
 $infilename = $opt{i};
 $outfilebase = $opt{b};
 $outext = ".$opt{x}";
 $skip = $opt{s};
+
 
 if ($opt{p} eq "fff"){
         $pat = $patfff;
