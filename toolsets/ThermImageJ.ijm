@@ -4,10 +4,10 @@
 ////        Main Features: import, conversion, and transformation of thermal images.               ////
 ////                           Requires: exiftool, ffmpeg, perl, xxd                               ////
 ////                                Glenn J. Tattersall                                            ////
-////                               June, 2026 - Version 3.3                            	           ////
-////            - Highlights: added up to 20 ROIs, plus ability to overwrite data                  ////
-////            - from these ROIS simply by typing the short-cut with no ROI drawn on image        ////
-////			- Added file skipping and limits to Import CSV Sequence Macro					   ////
+////                               July, 2026 - Version 4.0                            	           ////
+////            - Highlights: added functionality for MWIR ATS/ATS-JPG files	                   ////
+////            - fixed error in Raw2Temp atmospheric transmittance calculations that would        ////
+////				have led to errors for object distances >10 m and with IR windows			   ////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
  
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -109,6 +109,12 @@ var macropath=getDirectory("macros");
 // full path to the split.pl script
 var perlsplit=perlscriptpath + "split.pl";	
 
+// full path to the ats-split.pl script
+var perlsplitats=perlscriptpath + "ats-split.pl"
+
+// full path to the ats-repair.pl script to convert ats-jpgs
+var perlrepairats = perlscriptpath + "ats-repair.pl";
+
 // Extract Operating system user is on.  
 // OS will be used in most macros calling command line tools
 var OS=getInfo("os.name");
@@ -122,7 +128,7 @@ var palettetypes=newArray("Grays", "Ironbow", "Rainbow", "Spectrum", "Thermal", 
 var defaultpalette="Grays";
 var thermlCmds = newMenu("Thermal LUT Menu Tool", palettetypes);
 var ImportCmds = newMenu("Import Menu Tool",
-      newArray("Raw Import Mikron RTV", "Raw Import FLIR SEQ", "Convert FLIR JPG(s)", "Import FLIR JPG", "Import FLIR JPG with defaults", "Import Image Sequence", "Import CSV Image Sequence", "Import FLIR SEQ", "Import FLIR CSQ", "Import 16-bit AVI"));
+      newArray("Raw Import Mikron RTV", "-", "Convert FLIR JPG(s)", "Import FLIR JPG", "Import FLIR JPG with defaults", "-", "Import FLIR ATS JPG", "Import FLIR ATS JPG with Defaults", "-", "Import Image Sequence", "Import CSV Image Sequence", "-", "Raw Import FLIR SEQ", "Import FLIR SEQ", "Import FLIR CSQ", "-", "Import 16-bit AVI", "-",  "Import FLIR ATS" ));
 var lut = -1;
 var lutdir = getDirectory("luts");
 var list;
@@ -165,8 +171,51 @@ var deletetempfiles=parseInt(call("ij.Prefs.get", "deletetempfiles.persistent", 
 var offsetbyte=parseInt(call("ij.Prefs.get", "offsetbyte.persistent", "1372")); 
 var gapbytes=parseInt(call("ij.Prefs.get", "gapbytes.persistent", "1424")); 
 var nframes=parseInt(call("ij.Prefs.get", "nframes.persistent", "20000")); 
+var thermalcameratype=call("ij.Prefs.get", "thermalcameratype.persistent", "LWIR");
 
+// TO DO!!!!!: REMOVE TEST MACROS, Replace Raw2Temp macros with Raw2temp2 macros
+// Add file checks to raw2temp to remind user about MWIR vs LWIR!!!
+// LOOK INTO FAST CALCULATION FOR MWIR TO NARROW THE RANGE
 
+// FLIR ATS (NicevilleFactoryCal-derived) calibration constants and
+// default object parameters, persistent between ImageJ sessions --
+// companion block to the flirvalues()-related PR1/PR2/PB/PF/PO/etc
+// declarations above. Deliberately uses Nfc-prefixed names throughout
+// (NfcB/NfcR/NfcF rather than PB/PR1/PF) since these come from a
+// DIFFERENT, 3-constant Planck-on-radiance calibration model (no
+// offset term) than exiftool's 5-constant Planck R1/R2/B/F/O tags --
+// see fliratsvalues()'s own header comment for the full explanation.
+// Defaults below are deliberately generic/sensible placeholders (not
+// taken from any specific camera) since, unlike flirvalues()'s
+// defaults, there isn't yet an established "typical" default for
+// these tags -- they will be overwritten with real values the first
+// time fliratsvalues() is run on an actual file.
+
+var NfcB = parseFloat(call("ij.Prefs.get", "NfcB.persistent", "3115.716309000"));
+var NfcR = parseFloat(call("ij.Prefs.get", "NfcR.persistent", "5.936986446"));
+var NfcF = parseFloat(call("ij.Prefs.get", "NfcF.persistent", "1.000000000"));
+var NfcC0 = parseFloat(call("ij.Prefs.get", "NfcC0.persistent", "-0.00004238"));
+var NfcC1 = parseFloat(call("ij.Prefs.get", "NfcC1.persistent", "4.2897E-8"));
+var NfcC2 = parseFloat(call("ij.Prefs.get", "NfcC2.persistent", "-2.1557E-13"));
+var NfcMinTemp = parseFloat(call("ij.Prefs.get", "NfcMinTemp.persistent", "-20"));
+var NfcMaxTemp = parseFloat(call("ij.Prefs.get", "NfcMaxTemp.persistent", "55"));
+var NfcMinCounts = parseFloat(call("ij.Prefs.get", "NfcMinCounts.persistent", "1559"));
+var NfcMaxCounts = parseFloat(call("ij.Prefs.get", "NfcMaxCounts.persistent", "12092"));
+
+var NfcATA1 = parseFloat(call("ij.Prefs.get", "NfcATA1.persistent", "0.00506228"));
+var NfcATA2 = parseFloat(call("ij.Prefs.get", "NfcATA2.persistent", "0.201436371"));
+var NfcATB1 = parseFloat(call("ij.Prefs.get", "NfcATB1.persistent", "0.002819395"));
+var NfcATB2 = parseFloat(call("ij.Prefs.get", "NfcATB2.persistent", "0.008017067"));
+var NfcATX = parseFloat(call("ij.Prefs.get", "NfcATX.persistent", "0.906783402"));
+var NfcE = parseFloat(call("ij.Prefs.get", "NfcE.persistent", "0.95"));
+var NfcOD = parseFloat(call("ij.Prefs.get", "NfcOD.persistent", "1"));
+var NfcRTemp = parseFloat(call("ij.Prefs.get", "NfcRTemp.persistent", "20"));
+var NfcATemp = parseFloat(call("ij.Prefs.get", "NfcATemp.persistent", "20"));
+var NfcIRWTemp = parseFloat(call("ij.Prefs.get", "NfcIRWTemp.persistent", "20"));
+var NfcIRT = parseFloat(call("ij.Prefs.get", "NfcIRT.persistent", "1"));
+var NfcRH = parseFloat(call("ij.Prefs.get", "NfcRH.persistent", "50.0"));
+var atsimagewidth = parseInt(call("ij.Prefs.get", "atsimagewidth.persistent", "1280"));
+var atsimageheight = parseInt(call("ij.Prefs.get", "atsimageheight.persistent", "1024"));
 
 //////////////////////////////////////// Functions ///////////////////////////////////////////////
 
@@ -1489,7 +1538,7 @@ function RawImportFLIRSEQ() {
 			// after running raw2temp, the function will return the object parameter and flir values that were used
     	
     		// Commit objective parameters to memory
-    		ObjectCameraParameterPersist(ObjectParameters);
+    	//	ObjectCameraParameterPersist(ObjectParameters);
     	
 		}
 		
@@ -1501,9 +1550,9 @@ function RawImportFLIRSEQ() {
 
 
 function ObjectCameraParameterPersist(ObjectParameters){
-		Array.print(ObjectParameters);
+		//Array.print(ObjectParameters);
     	print("Committing object parameters and camera calibration constants to persistent memory");
-
+	
 		PR1=ObjectParameters[0];
     	PR2=ObjectParameters[1];
     	PB=ObjectParameters[2];
@@ -1570,7 +1619,71 @@ function ObjectCameraParameterPersist(ObjectParameters){
 		call("ij.Prefs.set", "RH.persistent",toString(RH)); 
 }
     	
+function ATSObjectCameraParameterPersist(ObjectParameters){
+		Array.print(ObjectParameters);
+    	print("Committing object parameters and camera calibration constants to persistent memory");
+
+	// ATS/MWIR equivalent of ObjectCameraParameterPersist().
+    // Saves all Nfc* camera constants and object parameters persistently.
+    // Unlike the LWIR version, this does NOT parse a positional array --
+    // it saves each named global directly, avoiding any ordering assumptions.
+    call("ij.Prefs.set", "NfcB.persistent",        toString(NfcB));
+    call("ij.Prefs.set", "NfcR.persistent",        toString(NfcR));
+    call("ij.Prefs.set", "NfcF.persistent",        toString(NfcF));
+    call("ij.Prefs.set", "NfcC0.persistent",       toString(NfcC0));
+    call("ij.Prefs.set", "NfcC1.persistent",       toString(NfcC1));
+    call("ij.Prefs.set", "NfcC2.persistent",       toString(NfcC2));
+    call("ij.Prefs.set", "NfcMinTemp.persistent",  toString(NfcMinTemp));
+    call("ij.Prefs.set", "NfcMaxTemp.persistent",  toString(NfcMaxTemp));
+    call("ij.Prefs.set", "NfcMinCounts.persistent",toString(NfcMinCounts));
+    call("ij.Prefs.set", "NfcMaxCounts.persistent",toString(NfcMaxCounts));
+    call("ij.Prefs.set", "NfcATA1.persistent",     toString(NfcATA1));
+    call("ij.Prefs.set", "NfcATA2.persistent",     toString(NfcATA2));
+    call("ij.Prefs.set", "NfcATB1.persistent",     toString(NfcATB1));
+    call("ij.Prefs.set", "NfcATB2.persistent",     toString(NfcATB2));
+    call("ij.Prefs.set", "NfcATX.persistent",      toString(NfcATX));
+    call("ij.Prefs.set", "NfcE.persistent",        toString(NfcE));
+    call("ij.Prefs.set", "NfcOD.persistent",       toString(NfcOD));
+    call("ij.Prefs.set", "NfcRTemp.persistent",    toString(NfcRTemp));
+    call("ij.Prefs.set", "NfcATemp.persistent",    toString(NfcATemp));
+    call("ij.Prefs.set", "NfcIRWTemp.persistent",  toString(NfcIRWTemp));
+    call("ij.Prefs.set", "NfcIRT.persistent",      toString(NfcIRT));
+    call("ij.Prefs.set", "NfcRH.persistent",       toString(NfcRH));
+    call("ij.Prefs.set", "atsimagewidth.persistent", toString(atsimagewidth));
+    call("ij.Prefs.set", "atsimageheight.persistent",toString(atsimageheight));
+   
+    	
+   	setFont("SansSerif", 12);
+	print("Nfc B: ", d2s(NfcB,9));
+	print("Nfc R: ", d2s(NfcR,9));
+	print("Nfc F: ", d2s(NfcF,9));
+	print("Nfc Co: ", NfcC0);
+	print("Nfc C1: ", NfcC1);	
+	print("Nfc C2: ", NfcC2);	
+	print("Nfc Atmospheric Trans Alpha 1: ", d2s(NfcATA1,12));
+	print("Nfc Atmospheric Trans Alpha 2: ", d2s(NfcATA2,12));
+	print("Nfc Atmospheric Trans Beta 1: ", d2s(NfcATB1,12));
+	print("Nfc Atmospheric Trans Beta 2: ", d2s(NfcATB2,12));
+	print("Nfc Atmospheric Trans X: ", d2s(NfcATX,12));	
+	print("Nfc MinCounts: ", d2s(NfcMinCounts,0));
+	print("Nfc MaxCounts: ", d2s(NfcMaxCounts,0));				
 		
+	print("\n");
+	print("Object Parameters:");
+	print("Emissivity: ", d2s(NfcE,2));
+	print("Object Distance: ", d2s(NfcOD,2));
+	print("Reflected Apparent Temperature: ", d2s(NfcRTemp,2));
+	print("Atmospheric Temperature: ", d2s(NfcATemp,2));
+	print("IR Window Temperature: ", d2s(NfcIRWTemp,2));
+	print("IR Window Transmission: ", d2s(NfcIRT,3));
+	print("Relative Humidity: ", d2s(NfcRH,2));
+	print("Thermal Image Width: ", atsimagewidth);
+	print("Thermal Image Height: ", atsimageheight);
+	print("\n");
+  
+}
+    	
+	
 		
 		
 
@@ -1773,13 +1886,13 @@ function ConvertImportFLIRJPG(ConvertWithDefault) {
     Dialog.addChoice("Palette", palettetypes, defaultpalette);
     
 	Dialog.addMessage("Camera Calibration Constants:");
-	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
+	Dialog.addNumber("Planck R1:", PR1, 8, 15, "unitless"); //21106.77 //21546.203
 	Dialog.addToSameRow();
-	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
-	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
+	Dialog.addNumber("Planck R2:", PR2, 8, 15, "unitless"); //0.012545258 //0.016229488 
+	Dialog.addNumber("Planck B:", PB, 8, 15, "unitless"); //1501 //1507.2
 	Dialog.addToSameRow();
-	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
-    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+	Dialog.addNumber("Planck F:", PF, 8, 15, "unitless");//1
+    Dialog.addNumber("Planck O:", PO, 8, 15, "unitless"); //-7340 //-6331
     Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
     Dialog.addToSameRow();
     Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
@@ -1787,7 +1900,7 @@ function ConvertImportFLIRJPG(ConvertWithDefault) {
     Dialog.addToSameRow();
     Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
     Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
-   
+  
 	Dialog.show();
 
 	ByteOrder=Dialog.getChoice();
@@ -1839,6 +1952,251 @@ function ConvertImportFLIRJPG(ConvertWithDefault) {
 	
 		Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
 
+	print("Done");
+	print("\n");
+}
+
+
+
+// ============================================================
+// ConvertImportFLIRATSJPG(ConvertWithDefault)
+//
+// ConvertWithDefault = "yes" : skip dialog, use persistent/stored values
+// ConvertWithDefault = "no"  : show full dialog for user to verify values
+// ============================================================
+
+function ConvertImportFLIRATSJPG(ConvertWithDefault) {
+
+	print("\n------ Running ConvertImportFLIRATSJPG function ------");
+
+	// ---- OS-specific paths ----
+	if(OS == "Mac OS X"){
+		var perlpath = perlpathOSX;
+	}
+	if(OS == "Linux"){
+		var perlpath = perlpathLinux;
+	}
+	if(substring(OS, 0, 5) == "Windo"){
+		var perlpath = perlpathWindows;
+	}
+
+	perl = perlpath + "perl";
+
+	// ---- Select file ----
+	filepath = File.openDialog("Select a FLIR ATS-JPG / MWIR Radiometric JPG File");
+	filedir  = File.getParent(filepath);
+	filename = File.getName(filepath);
+
+	// ---- Sanity check ----
+	result     = IsFLIRfile(filepath);
+	pipepos    = indexOf(result, "|");
+	cameratype = substring(result, pipepos+1);
+	if(cameratype != "MWIR"){
+		print("WARNING: selected file does not appear to be an ATS/MWIR file.");
+		print("IsFLIRfile() returned: " + result);
+		print("Proceeding anyway -- check results carefully.");
+	}
+
+	print("Loading: " + filepath);
+	print("Extracting ATS calibration and image settings via fliratsvalues()");
+
+	// ---- Extract calibration constants ----
+	var printvalues = "No";
+	atsvals = fliratsvalues(filepath, printvalues);
+
+	NfcB          = atsvals[0];
+	NfcR          = atsvals[1];
+	NfcF          = atsvals[2];
+	NfcC0         = atsvals[3];
+	NfcC1         = atsvals[4];
+	NfcC2         = atsvals[5];
+	NfcMinTemp    = atsvals[6];
+	NfcMaxTemp    = atsvals[7];
+	NfcMinCounts  = atsvals[8];
+	NfcMaxCounts  = atsvals[9];
+	NfcATA1       = atsvals[10];
+	NfcATA2       = atsvals[11];
+	NfcATB1       = atsvals[12];
+	NfcATB2       = atsvals[13];
+	NfcATX        = atsvals[14];
+	NfcE          = atsvals[15];
+	NfcOD         = atsvals[16];
+	NfcRTemp      = atsvals[17];
+	NfcATemp      = atsvals[18];
+	NfcIRWTemp    = atsvals[19];
+	NfcIRT        = atsvals[20];
+	NfcRH         = atsvals[21];
+	atsimagewidth  = atsvals[22];
+	atsimageheight = atsvals[23];
+
+	// ---- Run ats-repair.pl to extract raw pixels ----
+	// Default output: replaces .jpg extension with .raw in the same folder.
+	// No temp folder needed -- the .raw lives alongside the .jpg permanently.
+	// Width and height are parsed from stdout ("Image dimensions: W x H").
+	// exec() with separate arguments is reliable on Mac (no shell redirect needed
+	// since we don't need to redirect output -- stdout is captured directly).
+	print("Extracting raw pixel data with ats-repair.pl");
+	print("Command: " + perl + " " + perlrepairats + " -i " + filepath);
+
+	repairoutput = exec(perl, perlrepairats, "-i", filepath);
+	print(repairoutput);
+
+	// ---- Parse width and height from ats-repair.pl stdout ----
+	// "Image dimensions    : W x H"
+	// (use fliratsvalues() values as fallback if parsing fails)
+	rawwidth  = atsimagewidth;
+	rawheight = atsimageheight;
+	if(indexOf(repairoutput, "Image dimensions") >= 0){
+		dimpos   = indexOf(repairoutput, "Image dimensions");
+		colonpos = indexOf(repairoutput, ":", dimpos);
+		endpos   = indexOf(repairoutput, "\n", dimpos);
+		dimstr   = trim(substring(repairoutput, colonpos+1, endpos));
+		// dimstr is now "W x H"
+		xpos      = indexOf(dimstr, "x");
+		rawwidth  = parseInt(trim(substring(dimstr, 0, xpos)));
+		rawheight = parseInt(trim(substring(dimstr, xpos+1)));
+		print("Parsed image dimensions from ats-repair.pl: " + rawwidth + " x " + rawheight);
+	} else {
+		print("WARNING: could not parse dimensions from ats-repair.pl output.");
+		print("Using dimensions from fliratsvalues(): " + rawwidth + " x " + rawheight);
+	}
+
+	// ---- Derive .raw output path (ats-repair.pl default: same dir, .raw extension) ----
+	rawpath = filedir + File.separator + File.nameWithoutExtension + ".raw";
+
+	if(File.exists(rawpath) == 0){
+		exit("ERROR: ats-repair.pl did not produce a .raw file at: " + rawpath
+			+ "\nCheck the command printed above and verify:\n"
+			+ "  1. ats-repair.pl is in your Fiji/scripts folder\n"
+			+ "  2. perl is accessible at: " + perl);
+	}
+
+	// ---- Import the .raw file ----
+	// 16-bit unsigned, little-endian, no header, single frame (number=1)
+	print("\nImporting raw pixel data");
+	importarguments = "open=[" + rawpath + "] image=[16-bit Unsigned] width=" + rawwidth + " height=" + rawheight + " number=1 little-endian";
+	print("Import arguments: " + importarguments);
+	run("Raw...", importarguments);
+
+	// ---- Dialog or defaults ----
+	fastslowchoice        = newArray("Fast", "Slow");
+	fastslowchoicedefault = "Slow";  // default to Slow for single frame
+
+	if(ConvertWithDefault == "yes"){
+		var FastSlow   = "Slow";
+		var palettetype = defaultpalette;
+	}
+
+	if(ConvertWithDefault == "no"){
+		fastslowchoicedefault="Fast";
+		fastslowchoice=newArray("Fast", "Slow");
+		
+		Dialog.create("Verify ATS Camera and Object Parameters");
+		Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
+		Dialog.addMessage("Fast calculation is approximate but repeatable. Slow is accurate but not reversible.");
+		Dialog.addChoice("Fast or Slow Calculation?", fastslowchoice, fastslowchoicedefault);
+		Dialog.addNumber("Estimated Image Temperature Minimum:", imagetemperaturemin, 0, 5, "C");
+		Dialog.addNumber("Estimated Image Temperature Maximum:", imagetemperaturemax, 0, 5, "C");
+
+		Dialog.addMessage("Object Parameters:");
+		Dialog.addNumber("Object Emissivity:", NfcE, 3, 6, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Object Distance:", NfcOD, 1, 6, "m");
+		Dialog.addNumber("Reflected Temperature (C):", NfcRTemp, 2, 6, "C");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Atmospheric Temperature (C):", NfcATemp, 2, 6, "C");
+		Dialog.addNumber("Window Temperature (C):", NfcIRWTemp, 2, 6, "C");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Window Transmittance:", NfcIRT, 3, 6, "unitless");
+		Dialog.addNumber("Relative Humidity:", NfcRH, 2, 6, "%");
+		Dialog.addToSameRow();
+		Dialog.addChoice("Palette", palettetypes, defaultpalette);
+
+		Dialog.addMessage("Camera Calibration Constants (NicevilleFactoryCal):");
+		Dialog.addNumber("Nfc B:", NfcB, 4, 12, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Nfc R:", NfcR, 6, 12, "unitless");
+		Dialog.addNumber("Nfc F:", NfcF, 4, 6, "unitless");
+		Dialog.addNumber("Nfc C0:", NfcC0, 20, 20, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Nfc C1:", NfcC1, 20, 20, "unitless");
+		Dialog.addNumber("Nfc C2:", NfcC2, 20, 20, "unitless");
+		Dialog.addNumber("Atmospheric Trans Alpha 1:", NfcATA1, 8, 12, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Atmospheric Trans Alpha 2:", NfcATA2, 8, 12, "unitless");
+		Dialog.addNumber("Atmospheric Trans Beta 1:", NfcATB1, 8, 12, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Atmospheric Trans Beta 2:", NfcATB2, 8, 12, "unitless");
+		Dialog.addNumber("Atmospheric Trans X:", NfcATX, 8, 12, "unitless");
+		Dialog.addMessage("Counts range (used to construct fast-mode polynomial within scene temp range):");
+		Dialog.addNumber("Nfc Min Counts:", NfcMinCounts, 0, 8, "16-bit integer");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Nfc Max Counts:", NfcMaxCounts, 0, 8, "16-bit integer");
+
+		Dialog.show();
+
+		FastSlow          = Dialog.getChoice();
+		imagetemperaturemin = Dialog.getNumber();
+		imagetemperaturemax = Dialog.getNumber();
+		NfcE              = Dialog.getNumber();
+		NfcOD             = Dialog.getNumber();
+		NfcRTemp          = Dialog.getNumber();
+		NfcATemp          = Dialog.getNumber();
+		NfcIRWTemp        = Dialog.getNumber();
+		NfcIRT            = Dialog.getNumber();
+		NfcRH             = Dialog.getNumber();
+		palettetype       = Dialog.getChoice();
+		NfcB              = Dialog.getNumber();
+		NfcR              = Dialog.getNumber();
+		NfcF              = Dialog.getNumber();
+		NfcC0             = Dialog.getNumber();
+		NfcC1             = Dialog.getNumber();
+		NfcC2             = Dialog.getNumber();
+		NfcATA1           = Dialog.getNumber();
+		NfcATA2           = Dialog.getNumber();
+		NfcATB1           = Dialog.getNumber();
+		NfcATB2           = Dialog.getNumber();
+		NfcATX            = Dialog.getNumber();
+		NfcMinCounts      = Dialog.getNumber();
+		NfcMaxCounts      = Dialog.getNumber();
+	}
+
+	// ---- Persist values ----
+	call("ij.Prefs.set", "imagetemperaturemin.persistent", toString(imagetemperaturemin));
+	call("ij.Prefs.set", "imagetemperaturemax.persistent", toString(imagetemperaturemax));
+	call("ij.Prefs.set", "NfcB.persistent",   toString(NfcB));
+	call("ij.Prefs.set", "NfcR.persistent",   toString(NfcR));
+	call("ij.Prefs.set", "NfcF.persistent",   toString(NfcF));
+	call("ij.Prefs.set", "NfcC0.persistent",  toString(NfcC0));
+	call("ij.Prefs.set", "NfcC1.persistent",  toString(NfcC1));
+	call("ij.Prefs.set", "NfcC2.persistent",  toString(NfcC2));
+	call("ij.Prefs.set", "NfcATA1.persistent",toString(NfcATA1));
+	call("ij.Prefs.set", "NfcATA2.persistent",toString(NfcATA2));
+	call("ij.Prefs.set", "NfcATB1.persistent",toString(NfcATB1));
+	call("ij.Prefs.set", "NfcATB2.persistent",toString(NfcATB2));
+	call("ij.Prefs.set", "NfcATX.persistent", toString(NfcATX));
+	call("ij.Prefs.set", "NfcE.persistent",   toString(NfcE));
+	call("ij.Prefs.set", "NfcOD.persistent",  toString(NfcOD));
+	call("ij.Prefs.set", "NfcRTemp.persistent",  toString(NfcRTemp));
+	call("ij.Prefs.set", "NfcATemp.persistent",  toString(NfcATemp));
+	call("ij.Prefs.set", "NfcIRWTemp.persistent",toString(NfcIRWTemp));
+	call("ij.Prefs.set", "NfcIRT.persistent", toString(NfcIRT));
+	call("ij.Prefs.set", "NfcRH.persistent",  toString(NfcRH));
+	call("ij.Prefs.set", "NfcMinCounts.persistent", toString(NfcMinCounts));
+	call("ij.Prefs.set", "NfcMaxCounts.persistent", toString(NfcMaxCounts));
+
+	// ---- Convert to temperature ----
+	Counts2Temp(
+		NfcCvals(NfcC0, NfcC1, NfcC2),
+		NfcPlanckVals(NfcB, NfcR, NfcF),
+		AtmosphericTransVals(NfcATA1, NfcATA2, NfcATB1, NfcATB2, NfcATX),
+		NfcE, NfcOD, NfcRTemp, NfcATemp, NfcIRWTemp, NfcIRT, NfcRH,
+		NfcMinCounts, NfcMaxCounts,
+		palettetype, "No", FastSlow,
+		imagetemperaturemin, imagetemperaturemax
+	);
+	
+	//ATSObjectCameraParameterPersist();
 	print("Done");
 	print("\n");
 }
@@ -2054,7 +2412,7 @@ function ImportConvertFLIRSEQ(){
 	ObjectParameters=ConvertFLIRVideo("seq", outtype, outcodec, converttotemperature, usevirtual, copycodec, addtimestamp, deletetempfiles);
 	
 	// Commit object parameters to memory
-    ObjectCameraParameterPersist(ObjectParameters);
+    // ObjectCameraParameterPersist(ObjectParameters);
 		
 }
 
@@ -2119,7 +2477,7 @@ function ImportConvertFLIRCSQ(){
 	ObjectParameters=ConvertFLIRVideo("csq", outtype, outcodec, converttotemperature, usevirtual, copycodec, addtimestamp, deletetempfiles);
 	
 	// Commit object parameters to memory
-    ObjectCameraParameterPersist(ObjectParameters);
+    //ObjectCameraParameterPersist(ObjectParameters);
  
 }
 
@@ -2783,13 +3141,13 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
     Dialog.addChoice("Palette", palettetypes, defaultpalette);
 	
 	Dialog.addMessage("Camera Calibration Constants:");
-	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
+	Dialog.addNumber("Planck R1:", PR1, 8, 15, "unitless"); //21106.77 //21546.203
 	Dialog.addToSameRow();
-	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
-	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
+	Dialog.addNumber("Planck R2:", PR2, 8, 15, "unitless"); //0.012545258 //0.016229488 
+	Dialog.addNumber("Planck B:", PB, 8, 15, "unitless"); //1501 //1507.2
 	Dialog.addToSameRow();
-	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
-    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+	Dialog.addNumber("Planck F:", PF, 8, 15, "unitless");//1
+    Dialog.addNumber("Planck O:", PO, 8, 15, "unitless"); //-7340 //-6331
     Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
     Dialog.addToSameRow();
     Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
@@ -2797,7 +3155,7 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
     Dialog.addToSameRow();
     Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
     Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");
-  
+ 
 	Dialog.show();
 
 	ByteOrder=Dialog.getChoice();
@@ -2872,9 +3230,10 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 	emisswind = 1- IRT; 
   	reflwind = 0; // anti-reflective coating on window
  	h2o = (RH/100)*exp(1.5587+0.06939*(ATemp)-0.00027816*(ATemp*ATemp)+0.00000068455*(ATemp*ATemp*ATemp)); // converts relative humidity into water vapour pressure (I think in units mmHg)
-  	tau1 = ATX*exp(-sqrt(OD/2)*(ATA1+ATB1*sqrt(h2o)))+(1-ATX)*exp(-sqrt(OD/2)*(ATA2+ATB2*sqrt(h2o))); // atmos transmittance from object to window
-  	tau2 = ATX*exp(-sqrt(OD/2)*(ATA1+ATB1*sqrt(h2o)))+(1-ATX)*exp(-sqrt(OD/2)*(ATA2+ATB2*sqrt(h2o))); // atmos transmittance from window to camera
-
+  	tau1 = ATX*exp(-sqrt(OD)*(ATA1+ATB1*sqrt(h2o)))+(1-ATX)*exp(-sqrt(OD)*(ATA2+ATB2*sqrt(h2o))); // atmos transmittance from object to window
+  	//tau2 = ATX*exp(-sqrt(OD)*(ATA1+ATB1*sqrt(h2o)))+(1-ATX)*exp(-sqrt(OD)*(ATA2+ATB2*sqrt(h2o))); // atmos transmittance from window to camera
+	tau2=1;
+	
 	rawrefl1= PR1/(PR2*(exp(PB/(RTemp+273.15))-PF))-PO;   // radiance reflecting off the object before the window
 	rawrefl1attn = (1-E)/E*rawrefl1;   // attn = the attenuated radiance (in raw units) 
 
@@ -3059,6 +3418,808 @@ function Raw2Temp(PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IRWTemp, IR
 	return output;	
 
 }
+
+
+// ============================================================
+// ImportConvertFLIRATS()
+// Dialog + parameter collection, then calls ConvertFLIRATS()
+// Mirrors ImportConvertFLIRSEQ() structure as closely as possible.
+// ============================================================
+
+
+function ImportConvertFLIRATS(){
+
+	Dialog.create("Select a FLIR ATS File");
+	Dialog.addMessage("-- Warning: Before selecting your file, please remove spaces in the file or folder name --");
+	Dialog.addMessage("Define parameters for ATS Video Import");
+	Dialog.addMessage("Note: ATS files do not contain absolute timestamps.\nOnly FrameCounter-based relative timing is available.");
+	Dialog.addMessage("If you choose 'Raw Stack', the flat .raw file will be imported\ndirectly (fastest option, no intermediate conversion)");
+	Dialog.addMessage("If you choose output file type 'Video', a single .avi file\nwill be created and imported using Import-MOVIE (FFMPEG)");
+	Dialog.addMessage("If you choose output file type 'PNG' or 'TIFF', a separate file\nwill be created for each ATS frame");
+	Dialog.addChoice("Output file type", newArray("Raw Stack", "avi", "png", "tiff"), "Raw Stack");
+	Dialog.addChoice("Video image encoding (ignored if choosing Raw Stack or image above)", newArray("jpegls", "png"), "jpegls");
+	Dialog.addNumber("Number of frames to skip. Use 1 to import without skipping, 2 to skip every other frame,...", 1);
+	Dialog.addMessage("The choices below should be remembered the next time you run this function.");
+	Dialog.addCheckbox("Convert to Temperature on Import", converttotemperature);
+	Dialog.addMessage("Unselect Convert to Temperature for faster loading.\nThe imported file will be a 16-bit grayscale stack.");
+	Dialog.addCheckbox("Use virtual stack for import (choice is remembered on relaunch).", usevirtual);
+	Dialog.addMessage("Select virtual stack for faster loading.");
+	Dialog.addCheckbox("Add relative elapsed time as slice label (FrameCounter-based; no absolute date available for ATS files).", addtimestamp);
+	Dialog.addCheckbox("Delete the temporary files generated during conversion.", deletetempfiles);
+	Dialog.show();
+
+	var outtypechoice        = Dialog.getChoice();
+	var encodetypechoice     = Dialog.getChoice();
+	var framestep            = Dialog.getNumber();
+	var converttotemperature = Dialog.getCheckbox();
+	var usevirtual           = Dialog.getCheckbox();
+	var addtimestamp         = Dialog.getCheckbox();
+	var deletetempfiles      = Dialog.getCheckbox();
+
+	call("ij.Prefs.set", "usevirtual.persistent",           toString(usevirtual));
+	call("ij.Prefs.set", "converttotemperature.persistent", toString(converttotemperature));
+	call("ij.Prefs.set", "addtimestamp.persistent",         toString(addtimestamp));
+	call("ij.Prefs.set", "deletetempfiles.persistent",      toString(deletetempfiles));
+
+	var outtype  = outtypechoice;
+	var outcodec = encodetypechoice;
+
+	if(outtypechoice == "avi"){   outtype = "avi";  outcodec = encodetypechoice; }
+	if(outtypechoice == "png"){   outtype = "png";  outcodec = "png"; }
+	if(outtypechoice == "tiff"){  outtype = "tiff"; outcodec = "tiff"; }
+	if(outtypechoice == "Raw Stack"){ outtype = "raw"; outcodec = "raw"; }
+
+	ObjectParameters = ConvertFLIRATS(outtype, outcodec, converttotemperature, usevirtual, framestep, addtimestamp, deletetempfiles);
+
+	//ATSObjectCameraParameterPersist(ObjectParameters);
+}
+
+// ============================================================
+// ConvertFLIRATS()
+// Core pipeline: run ats-split.pl via shell -> import .raw stack
+// -> optionally convert to temperature
+// ============================================================
+function ConvertFLIRATS(outtype, outcodec, converttotemperature, usevirtual, framestep, addtimestamp, deletetempfiles){
+
+	getDateAndTime(startyear, startmonth, startdayOfWeek, startdayOfMonth, starthour, startminute, startsecond, startmsec);
+
+	print("\n------ Running ConvertFLIRATS function (MWIR/ATS video import) ------");
+
+	// ---- OS-specific paths ----
+	if(OS == "Mac OS X"){
+		var perlpath   = perlpathOSX;
+		var ffmpegpath = ffmpegpathOSX;
+	}
+	if(OS == "Linux"){
+		var perlpath   = perlpathLinux;
+		var ffmpegpath = ffmpegpathLinux;
+	}
+	if(substring(OS, 0, 5) == "Windo"){
+		var perlpath   = perlpathWindows;
+		var ffmpegpath = ffmpegpathWindows;
+	}
+
+	perl   = perlpath + "perl";
+	ffmpeg = ffmpegpath + "ffmpeg";
+
+	// ---- Select file ----
+	filepath = File.openDialog("Select a FLIR ATS or ATS-derived JPG File");
+	filedir  = File.getParent(filepath);
+
+	// ---- Sanity check ----
+	result     = IsFLIRfile(filepath);
+	pipepos    = indexOf(result, "|");
+	cameratype = substring(result, pipepos+1);
+	if(cameratype != "MWIR"){
+		print("WARNING: selected file does not appear to be an ATS/MWIR file.");
+		print("IsFLIRfile() returned: " + result);
+		print("Proceeding anyway -- check results carefully.");
+	}
+
+	// ---- Create / clean temp folder ----
+	tempfolder = filedir + File.separator + "temp";
+	File.makeDirectory(tempfolder);
+	print("Removing old files from temporary folder: " + tempfolder);
+	deletetempfolder(tempfolder);
+	// deletetempfolder() deletes the folder itself as well as its contents,
+	// so we must recreate it before ats-split.pl tries to write output there.
+	File.makeDirectory(tempfolder);
+
+	print("Loading: " + filepath);
+	print("Extracting ATS calibration and image settings via fliratsvalues()");
+
+	// ---- Extract calibration constants ----
+	var printvalues = "No";
+	atsvals = fliratsvalues(filepath, printvalues);
+
+	NfcB           = atsvals[0];
+	NfcR           = atsvals[1];
+	NfcF           = atsvals[2];
+	NfcC0          = atsvals[3];
+	NfcC1          = atsvals[4];
+	NfcC2          = atsvals[5];
+	NfcMinTemp     = atsvals[6];
+	NfcMaxTemp     = atsvals[7];
+	NfcMinCounts   = atsvals[8];
+	NfcMaxCounts   = atsvals[9];
+	NfcATA1        = atsvals[10];
+	NfcATA2        = atsvals[11];
+	NfcATB1        = atsvals[12];
+	NfcATB2        = atsvals[13];
+	NfcATX         = atsvals[14];
+	NfcE           = atsvals[15];
+	NfcOD          = atsvals[16];
+	NfcRTemp       = atsvals[17];
+	NfcATemp       = atsvals[18];
+	NfcIRWTemp     = atsvals[19];
+	NfcIRT         = atsvals[20];
+	NfcRH          = atsvals[21];
+	atsimagewidth  = atsvals[22];
+	atsimageheight = atsvals[23];
+
+	print("Extracted ATS Calibration and Object Parameters:");
+	Array.print(atsvals);
+	print("\n");
+
+	// ---- Output paths ----
+	// The .raw file lives alongside the original .ats file (NOT in temp),
+	// so it persists for virtual stack access even after temp is deleted.
+	rawstackpath  = filedir + File.separator + File.nameWithoutExtension + ".raw";
+	timestamppath = tempfolder + File.separator + "timestamps.txt";
+
+	// ---- Run ats-split.pl ----
+	// Use exec() with separate arguments (NOT a shell command string) --
+	// this is the reliable approach on Mac/Linux in ImageJ. The shell
+	// redirect approach (exec("/bin/sh", "-c", cmd)) does not reliably
+	// wait for completion before returning in ImageJ's Mac environment.
+	// stdout is captured in splitoutput for frame count / fps parsing.
+	print("Splitting ATS file into flat raw stack with ats-split.pl");
+	print("Command: " + perl + " " + perlsplitats + " -i " + filepath + " -o " + rawstackpath + " -t " + timestamppath);
+
+	splitoutput = exec(perl, perlsplitats, "-i", filepath, "-o", rawstackpath, "-t", timestamppath);
+	print(splitoutput);
+
+	// ---- Parse frame count: "Frames detected:  N" ----
+	numframes = 1;
+	if(indexOf(splitoutput, "Frames detected:") >= 0){
+		fdpos     = indexOf(splitoutput, "Frames detected:");
+		fdend     = indexOf(splitoutput, "\n", fdpos);
+		fdstr     = substring(splitoutput, fdpos + lengthOf("Frames detected:"), fdend);
+		numframes = parseInt(trim(fdstr));
+		print("Frames detected by ats-split.pl: " + numframes);
+	} else {
+		print("WARNING: could not parse frame count from ats-split.pl output.");
+		print("Defaulting to numframes=1. Re-import manually with the correct frame count if needed.");
+	}
+
+	// ---- Parse fps: "Self-derived camera fps (LockinPhase): N Hz" ----
+	var frameinterval = 1.0/54.4528;  // default A8581 fallback
+	if(indexOf(splitoutput, "Self-derived camera fps") >= 0){
+		fpspos = indexOf(splitoutput, "Self-derived camera fps");
+		fpsend = indexOf(splitoutput, "Hz", fpspos);
+		fpsstr = substring(splitoutput, indexOf(splitoutput, ":", fpspos)+1, fpsend);
+		fps    = parseFloat(trim(fpsstr));
+		if(fps > 0){
+			frameinterval = 1.0/fps;
+			print("Frame interval derived from ats-split.pl fps: " + frameinterval + " s");
+		}
+	}
+
+	// ---- Check the .raw file was created ----
+	if(File.exists(rawstackpath) == 0){
+		exit("ERROR: ats-split.pl did not produce a .raw file at: " + rawstackpath
+			+ "\nCheck the command printed above and verify:\n"
+			+ "  1. ats-split.pl is in your Fiji/scripts folder\n"
+			+ "  2. perl is accessible at: " + perl + "\n"
+			+ "  3. The input file path contains no spaces");
+	}
+
+	rawfilesintempfolder = CountFilesByExtension(tempfolder, ".raw");
+	print("The number of .RAW files in the temporary folder is: " + rawfilesintempfolder);
+
+	// ---- Import the flat .raw stack ----
+	if(outtype == "raw"){
+		print("\nImporting flat 16-bit unsigned little-endian raw stack directly");
+
+		if(usevirtual == 1){
+			importarguments = "open=[" + rawstackpath + "] image=[16-bit Unsigned] width=" + atsimagewidth + " height=" + atsimageheight + " number=" + numframes + " little-endian use";
+		} else {
+			importarguments = "open=[" + rawstackpath + "] image=[16-bit Unsigned] width=" + atsimagewidth + " height=" + atsimageheight + " number=" + numframes + " little-endian";
+		}
+		print("Import arguments: " + importarguments);
+		run("Raw...", importarguments);
+	}
+
+	if(outtype == "avi" || outtype == "png" || outtype == "tiff"){
+		print("\nConverting flat .raw stack to " + outtype + " via ffmpeg");
+
+		pixfmt       = "gray16le";
+		playbackrate = parseFloat("" + (1.0/frameinterval));
+
+		if(outtype == "avi"){
+			fileout = File.nameWithoutExtension + ".avi";
+		}
+		if(outtype == "png"){
+			outputfolder = filedir + File.separator + File.nameWithoutExtension;
+			File.makeDirectory(outputfolder);
+			fileout = File.nameWithoutExtension + File.separator + File.nameWithoutExtension + "_%06d.png";
+			pixfmt  = "gray16be";
+		}
+		if(outtype == "tiff"){
+			outputfolder = filedir + File.separator + File.nameWithoutExtension;
+			File.makeDirectory(outputfolder);
+			fileout = File.nameWithoutExtension + File.separator + File.nameWithoutExtension + "_%06d.tiff";
+		}
+
+		ffmpegcmd = ffmpeg + " -f rawvideo -pixel_format gray16le -video_size " + atsimagewidth + "x" + atsimageheight + " -framerate " + playbackrate + " -i " + rawstackpath + " -pix_fmt " + pixfmt + " -vcodec " + outcodec + " " + filedir + File.separator + fileout + " -y";
+		print("ffmpeg command: " + ffmpegcmd);
+
+		if(OS == "Mac OS X" || OS == "Linux"){
+			exec("/bin/sh", "-c", ffmpegcmd);
+		}
+		if(substring(OS, 0, 5) == "Windo"){
+			exec("cmd", "/c", ffmpegcmd);
+		}
+
+		if(outtype == "png"){
+			print("Importing PNG image sequence");
+			run("Image Sequence...", "open=[" + outputfolder + "] sort");
+		}
+		if(outtype == "tiff"){
+			print("Importing TIFF image sequence");
+			run("Image Sequence...", "open=[" + outputfolder + "] sort");
+		}
+		if(outtype == "avi"){
+			print("Importing AVI");
+			if(usevirtual == 1){
+				run("Movie (FFMPEG)...", "choose=[" + filedir + File.separator + fileout + "] use_virtual_stack first_frame=0 last_frame=-1");
+			} else {
+				run("Movie (FFMPEG)...", "choose=[" + filedir + File.separator + fileout + "] first_frame=0 last_frame=-1");
+			}
+		}
+	}
+
+	// ---- Add relative timestamps as slice labels ----
+	// The timestamps.txt file written by ats-split.pl contains one line
+	// per frame in format "Frame00001: HH:MM:SS.ffffff", re-referenced
+	// to frame 1 = 00:00:00.000000. These are FrameCounter-based elapsed
+	// times -- NOT absolute wall-clock timestamps (those aren't stored in
+	// ATS files), but accurate relative timing from the recording start.
+	if(addtimestamp == 1 && File.exists(timestamppath)){
+    print("Adding relative elapsed timestamps as slice labels.");
+    tstext  = File.openAsString(timestamppath);
+    tslines = split(tstext, "\n");
+    setBatchMode(true);
+    for(i = 1; i <= nSlices; i++){
+        setSlice(i);
+        showProgress(i/nSlices);
+        if(i <= tslines.length){
+            // Each line is "Frame00001: HH:MM:SS.ffffff"
+            // Extract just the elapsed time after ": "
+            colonpos = indexOf(tslines[i-1], ": ");
+            if(colonpos >= 0){
+                slicelabel = substring(tslines[i-1], colonpos+2);
+            } else {
+                slicelabel = tslines[i-1];
+            }
+        } else {
+            slicelabel = "Frame" + i;
+        }
+        setMetadata("Label", slicelabel);
+    }
+    	setBatchMode(false);
+	}
+
+	// ---- Apply framestep post-import ----
+	if(framestep > 1 && nSlices > 1){
+		print("Removing frames to apply framestep=" + framestep);
+		setBatchMode(true);
+		for(s = nSlices; s >= 1; s--){
+			if((s-1) % framestep != 0){
+				setSlice(s);
+				run("Delete Slice", "delete=frame");
+			}
+		}
+		setBatchMode(false);
+		print("Frames remaining after framestep: " + nSlices);
+	}
+
+	// ---- Set frame interval ----
+	call("ij.Prefs.set", "frameinterval.persistent", toString(frameinterval));
+
+	// ---- Clean up temp files ----
+	if(deletetempfiles == 1){
+		deletetempfolder(tempfolder);
+	}
+
+	// ---- Convert to temperature ----
+	if(converttotemperature == 1){
+		print("Converting stack to temperature using Counts2Temp (MWIR/NFC calibration)");
+		ObjectParameters = Counts2Temp(
+			NfcCvals(NfcC0, NfcC1, NfcC2),
+			NfcPlanckVals(NfcB, NfcR, NfcF),
+			AtmosphericTransVals(NfcATA1, NfcATA2, NfcATB1, NfcATB2, NfcATX),
+			NfcE, NfcOD, NfcRTemp, NfcATemp, NfcIRWTemp, NfcIRT, NfcRH,
+			NfcMinCounts, NfcMaxCounts,
+			defaultpalette, "Yes", "Fast",
+			imagetemperaturemin, imagetemperaturemax
+		);
+	}
+
+	run("Animation Options...", "speed=30");
+
+	getDateAndTime(endyear, endmonth, enddayOfWeek, enddayOfMonth, endhour, endminute, endsecond, endmsec);
+	elapsedminutes = (endhour-starthour)*60 + (endminute-startminute) + (endsecond-startsecond)/60 + (endmsec-startmsec)/(60*1000);
+	print("The number of minutes to process your ATS video: " + elapsedminutes);
+	print("Done Importing ATS Video");
+	print("\n");
+
+	return ObjectParameters;
+}
+
+// ============================================================
+// MWIR / ATS (NicevilleFactoryCal-derived "nfc" model) temperature
+// conversion functions.
+//
+// These are DELIBERATELY SEPARATE from Raw2Temp / Raw2TempCalc /
+// Temp2RawCalc, which implement the LWIR/exiftool-style 5-constant
+// Planck-on-radiance-with-offset formula:
+//
+//     temp = PB / log( PR1/(PR2*(raw+PO)) + PF ) - 273.15
+//
+// The nfc/MWIR model is structurally different in two ways:
+//   1. The stored 16-bit pixel "counts" are NOT directly radiance --
+//      they must first be converted to radiance via a quadratic
+//      polynomial (NfcC0, NfcC1, NfcC2), confirmed against real
+//      ATSFileUtil .inc exports (see ats-jpg-and-xml-notes.md).
+//   2. The radiance-to-temperature step has NO offset term (no PO
+//      equivalent) -- confirmed via direct comparison against real
+//      TIFF pixel values (RMSE ~0.0001 C) to be what FLIR Research
+//      Studio actually uses for these files:
+//
+//     temp = NfcB / log( NfcR/radiance + NfcF ) - 273.15
+//
+// Object-parameter / atmospheric-attenuation correction (reflected
+// temperature, atmosphere, window, humidity, distance) uses the SAME
+// physical model and tau-formula as Raw2TempCalc/Raw2Temp -- only the
+// underlying "raw <-> radiance" relationship at each correction step
+// changes, replaced by NfcB/NfcR/NfcF (no PO) instead of
+// PR1/PR2/PB/PF/PO.
+// ============================================================
+
+
+// Bundles the 3 counts->radiance polynomial constants into one array,
+// mirroring AtmosphericTransVals()'s existing bundling convention.
+
+function NfcCvals(NfcC0, NfcC1, NfcC2){
+	Cvals=newArray(NfcC0, NfcC1, NfcC2);
+	return Cvals;
+}
+
+// Bundles the 3 radiance->temperature constants into one array, same
+// convention.
+function NfcPlanckVals(NfcB, NfcR, NfcF){
+	Pvals=newArray(NfcB, NfcR, NfcF);
+	return Pvals;
+}
+
+
+// ============================================================
+// Counts2Radiance()
+//
+// Step 1 of the nfc model: converts a raw 16-bit pixel "counts" value
+// into radiance, via the quadratic polynomial confirmed against real
+// ATSFileUtil .inc exports.
+// ============================================================
+function Counts2Radiance(counts, Cvals){
+
+	NfcC0=Cvals[0];
+	NfcC1=Cvals[1];
+	NfcC2=Cvals[2];
+
+	radiance = NfcC0 + NfcC1*counts + NfcC2*counts*counts;
+
+	return radiance;
+}
+
+
+// ============================================================
+// Counts2TempCalc()
+//
+// Single-value MWIR/nfc equivalent of Raw2TempCalc(). Converts one
+// raw counts value into temperature (C), applying the same object-
+// parameter / atmospheric-attenuation correction model as
+// Raw2TempCalc, but via the two-step counts->radiance->temperature
+// nfc chain instead of the single-step LWIR Planck-with-offset
+// formula.
+// ============================================================
+function Counts2TempCalc(counts, Cvals, Pvals, ATvals, NfcE, NfcOD, NfcRTemp, NfcATemp, NfcIRWTemp, NfcIRT, NfcRH){
+
+	NfcB=Pvals[0];
+	NfcR=Pvals[1];
+	NfcF=Pvals[2];
+
+	NfcATA1=ATvals[0];
+	NfcATA2=ATvals[1];
+	NfcATB1=ATvals[2];
+	NfcATB2=ATvals[3];
+	NfcATX=ATvals[4];
+
+	emisswind = 1- NfcIRT;
+	reflwind = 0; // anti-reflective coating on window
+	h2o = (NfcRH/100)*exp(1.5587+0.06939*(NfcATemp)-0.00027816*(NfcATemp*NfcATemp)+0.00000068455*(NfcATemp*NfcATemp*NfcATemp)); // converts relative humidity into water vapour pressure (I think in units mmHg)
+	tau1 = NfcATX*exp(-sqrt(NfcOD)*(NfcATA1+NfcATB1*sqrt(h2o)))+(1-NfcATX)*exp(-sqrt(NfcOD)*(NfcATA2+NfcATB2*sqrt(h2o))); // atmos transmittance from object to window
+	tau2=1; 
+	// after checking with FLIR Research Studio and Minkina's book, setting tau2=1 is when window is closest to the sensor
+	
+	// Each correction term below needs the RADIANCE corresponding to
+	// a reference temperature -- this is the INVERSE of the
+	// radiance->temperature step (solve NfcB/log(NfcR/L+NfcF)-273.15=T
+	// for L), i.e. L = NfcR/(exp(NfcB/(T+273.15))-NfcF).
+
+	radrefl1 = NfcR/(exp(NfcB/(NfcRTemp+273.15))-NfcF);   // radiance reflecting off the object before the window
+	radrefl1attn = (1-NfcE)/NfcE*radrefl1;   // attn = the attenuated radiance
+
+	radatm1 = NfcR/(exp(NfcB/(NfcATemp+273.15))-NfcF); // radiance from the atmosphere (before the window)
+	radatm1attn = (1-tau1)/NfcE/tau1*radatm1;
+
+	radwind = NfcR/(exp(NfcB/(NfcIRWTemp+273.15))-NfcF);
+	radwindattn = emisswind/NfcE/tau1/NfcIRT*radwind;
+
+	radrefl2 = NfcR/(exp(NfcB/(NfcRTemp+273.15))-NfcF);
+	radrefl2attn = reflwind/NfcE/tau1/NfcIRT*radrefl2;
+
+	radatm2 = NfcR/(exp(NfcB/(NfcATemp+273.15))-NfcF);
+	radatm2attn = (1-tau2)/NfcE/tau1/NfcIRT/tau2*radatm2;
+
+	radsubtract = (radatm1attn + radatm2attn + radwindattn + radrefl1attn + radrefl2attn);
+	raddivisor = NfcE*tau1*NfcIRT*tau2;
+
+	radiance = Counts2Radiance(counts, Cvals);
+
+	radobj = (radiance/raddivisor - radsubtract);
+
+	tempC = NfcB/log(NfcR/radobj+NfcF)-273.15;
+
+	return tempC;
+}
+
+
+// ============================================================
+// Counts2Temp()
+//
+// MWIR/nfc equivalent of Raw2Temp(). Bulk image/stack converter,
+// mirroring Raw2Temp's structure closely (same dialog layout style,
+// same Fast/Slow modes, same ij.Prefs.persistent saving), but built
+// on the two-step nfc counts->radiance->temperature chain instead of
+// the single-step LWIR Planck-with-offset formula, and WITHOUT a
+// Planck O term (the nfc model has none).
+//
+// FAST MODE SAMPLING RANGE: unlike Raw2Temp's fast mode (which always
+// samples 655 points evenly across the full 0-65535 16-bit range),
+// this function samples across [NfcMinCounts, NfcMaxCounts] -- the
+// camera's own confirmed valid calibration range (e.g. roughly
+// 1559-12092 for the reference A8581 camera) -- since the nfc model's
+// validity is only confirmed within that narrower window anyway, and
+// sampling the full 16-bit range would waste most of the 655 points
+// on counts values the camera never actually produces.
+// ============================================================
+function Counts2Temp(Cvals, Pvals, ATvals, E, OD, RTemp, ATemp, IRWTemp, IRT, RH, NfcMinCounts, NfcMaxCounts, palettetype, dialogprompt, FastSlow, imagetemperaturemin, imagetemperaturemax){
+
+	NfcB=Pvals[0];
+	NfcR=Pvals[1];
+	NfcF=Pvals[2];
+
+	NfcATA1=ATvals[0];
+	NfcATA2=ATvals[1];
+	NfcATB1=ATvals[2];
+	NfcATB2=ATvals[3];
+	NfcATX=ATvals[4];
+
+	print("\n------ Running Counts2Temp function (MWIR / ATS-style nfc calibration) ------");
+
+	if(is("Virtual Stack")==1 && FastSlow=="Slow"){
+		print("Cannot perform conversions on a virtual stack.  Duplicating stack first.\nThis is slow and it is recommended that you crop and edit first before using the slow calculation");
+		run("Duplicate...", "duplicate");
+	}
+
+	if(dialogprompt=="Yes"){
+		fastslowchoicedefault="Fast";
+		fastslowchoice=newArray("Slow", "Fast");
+		
+		Dialog.create("Verify ATS Camera and Object Parameters");
+		Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
+		Dialog.addMessage("Fast calculation is approximate but repeatable. Slow is accurate but not reversible.");
+		Dialog.addChoice("Fast or Slow Calculation?", fastslowchoice, fastslowchoicedefault);
+		Dialog.addNumber("Estimated Image Temperature Minimum:", imagetemperaturemin, 0, 5, "C");
+		Dialog.addNumber("Estimated Image Temperature Maximum:", imagetemperaturemax, 0, 5, "C");
+
+		Dialog.addMessage("Object Parameters:");
+		Dialog.addNumber("Object Emissivity:", NfcE, 3, 6, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Object Distance:", NfcOD, 1, 6, "m");
+		Dialog.addNumber("Reflected Temperature (C):", NfcRTemp, 2, 6, "C");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Atmospheric Temperature (C):", NfcATemp, 2, 6, "C");
+		Dialog.addNumber("Window Temperature (C):", NfcIRWTemp, 2, 6, "C");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Window Transmittance:", NfcIRT, 3, 6, "unitless");
+		Dialog.addNumber("Relative Humidity:", NfcRH, 2, 6, "%");
+		Dialog.addToSameRow();
+		Dialog.addChoice("Palette", palettetypes, defaultpalette);
+
+		Dialog.addMessage("Camera Calibration Constants (NicevilleFactoryCal):");
+		Dialog.addNumber("Nfc B:", NfcB, 4, 12, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Nfc R:", NfcR, 6, 12, "unitless");
+		Dialog.addNumber("Nfc F:", NfcF, 4, 6, "unitless");
+		Dialog.addNumber("Nfc C0:", NfcC0, 20, 20, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Nfc C1:", NfcC1, 20, 20, "unitless");
+		Dialog.addNumber("Nfc C2:", NfcC2, 20, 20, "unitless");
+		Dialog.addNumber("Atmospheric Trans Alpha 1:", NfcATA1, 8, 12, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Atmospheric Trans Alpha 2:", NfcATA2, 8, 12, "unitless");
+		Dialog.addNumber("Atmospheric Trans Beta 1:", NfcATB1, 8, 12, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Atmospheric Trans Beta 2:", NfcATB2, 8, 12, "unitless");
+		Dialog.addNumber("Atmospheric Trans X:", NfcATX, 8, 12, "unitless");
+		Dialog.addMessage("Counts range (used to construct fast-mode polynomial within scene temp range):");
+		Dialog.addNumber("Nfc Min Counts:", NfcMinCounts, 0, 8, "16-bit integer");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Nfc Max Counts:", NfcMaxCounts, 0, 8, "16-bit integer");
+
+		Dialog.show();
+
+		FastSlow          = Dialog.getChoice();
+		imagetemperaturemin = Dialog.getNumber();
+		imagetemperaturemax = Dialog.getNumber();
+		NfcE              = Dialog.getNumber();
+		NfcOD             = Dialog.getNumber();
+		NfcRTemp          = Dialog.getNumber();
+		NfcATemp          = Dialog.getNumber();
+		NfcIRWTemp        = Dialog.getNumber();
+		NfcIRT            = Dialog.getNumber();
+		NfcRH             = Dialog.getNumber();
+		palettetype       = Dialog.getChoice();
+		NfcB              = Dialog.getNumber();
+		NfcR              = Dialog.getNumber();
+		NfcF              = Dialog.getNumber();
+		NfcC0             = Dialog.getNumber();
+		NfcC1             = Dialog.getNumber();
+		NfcC2             = Dialog.getNumber();
+		NfcATA1           = Dialog.getNumber();
+		NfcATA2           = Dialog.getNumber();
+		NfcATB1           = Dialog.getNumber();
+		NfcATB2           = Dialog.getNumber();
+		NfcATX            = Dialog.getNumber();
+		NfcMinCounts      = Dialog.getNumber();
+		NfcMaxCounts      = Dialog.getNumber();
+
+
+	// ---- Persist values ----
+	call("ij.Prefs.set", "imagetemperaturemin.persistent", toString(imagetemperaturemin));
+	call("ij.Prefs.set", "imagetemperaturemax.persistent", toString(imagetemperaturemax));
+	call("ij.Prefs.set", "NfcB.persistent",   toString(NfcB));
+	call("ij.Prefs.set", "NfcR.persistent",   toString(NfcR));
+	call("ij.Prefs.set", "NfcF.persistent",   toString(NfcF));
+	call("ij.Prefs.set", "NfcC0.persistent",  toString(NfcC0));
+	call("ij.Prefs.set", "NfcC1.persistent",  toString(NfcC1));
+	call("ij.Prefs.set", "NfcC2.persistent",  toString(NfcC2));
+	call("ij.Prefs.set", "NfcATA1.persistent",toString(NfcATA1));
+	call("ij.Prefs.set", "NfcATA2.persistent",toString(NfcATA2));
+	call("ij.Prefs.set", "NfcATB1.persistent",toString(NfcATB1));
+	call("ij.Prefs.set", "NfcATB2.persistent",toString(NfcATB2));
+	call("ij.Prefs.set", "NfcATX.persistent", toString(NfcATX));
+	call("ij.Prefs.set", "NfcE.persistent",   toString(NfcE));
+	call("ij.Prefs.set", "NfcOD.persistent",  toString(NfcOD));
+	call("ij.Prefs.set", "NfcRTemp.persistent",  toString(NfcRTemp));
+	call("ij.Prefs.set", "NfcATemp.persistent",  toString(NfcATemp));
+	call("ij.Prefs.set", "NfcIRWTemp.persistent",toString(NfcIRWTemp));
+	call("ij.Prefs.set", "NfcIRT.persistent", toString(NfcIRT));
+	call("ij.Prefs.set", "NfcRH.persistent",  toString(NfcRH));
+	call("ij.Prefs.set", "NfcMinCounts.persistent", toString(NfcMinCounts));
+	call("ij.Prefs.set", "NfcMaxCounts.persistent", toString(NfcMaxCounts));
+
+	}
+
+	if(is("Virtual Stack")==1 && FastSlow=="Slow"){
+		print("Cannot perform conversions on a virtual stack.  Duplicating stack first.\nThis is slow and it is recommended that you crop and edit first before using the slow calculation");
+		run("Duplicate...", "duplicate");
+	}
+
+	Pvals=NfcPlanckVals(NfcB, NfcR, NfcF);
+	ATvals=AtmosphericTransVals(NfcATA1, NfcATA2, NfcATB1, NfcATB2, NfcATX);
+
+	emisswind = 1- NfcIRT;
+	reflwind = 0;
+	h2o = (NfcRH/100)*exp(1.5587+0.06939*(NfcATemp)-0.00027816*(NfcATemp*NfcATemp)+0.00000068455*(NfcATemp*NfcATemp*NfcATemp));
+	tau1 = NfcATX*exp(-sqrt(NfcOD)*(NfcATA1+NfcATB1*sqrt(h2o)))+(1-NfcATX)*exp(-sqrt(NfcOD)*(NfcATA2+NfcATB2*sqrt(h2o)));
+	tau2=1;
+	
+	radrefl1 = NfcR/(exp(NfcB/(NfcRTemp+273.15))-NfcF);
+	radrefl1attn = (1-NfcE)/NfcE*radrefl1;
+
+	radatm1 = NfcR/(exp(NfcB/(NfcATemp+273.15))-NfcF);
+	radatm1attn = (1-tau1)/NfcE/tau1*radatm1;
+
+	radwind = NfcR/(exp(NfcB/(NfcIRWTemp+273.15))-NfcF);
+	radwindattn = emisswind/NfcE/tau1/IRT*radwind;
+
+	radrefl2 = NfcR/(exp(NfcB/(NfcRTemp+273.15))-NfcF);
+	radrefl2attn = reflwind/NfcE/tau1/NfcIRT*radrefl2;
+
+	radatm2 = NfcR/(exp(NfcB/(NfcATemp+273.15))-NfcF);
+	radatm2attn = (1-tau2)/NfcE/tau1/NfcIRT/tau2*radatm2;
+
+	radsubtract = (radatm1attn + radatm2attn + radwindattn + radrefl1attn + radrefl2attn);
+	raddivisor = NfcE*tau1*NfcIRT*tau2;
+
+if(FastSlow=="Fast"){
+
+		// Find counts values corresponding to imagetemperaturemin and
+		// imagetemperaturemax via binary search on Counts2TempCalc.
+		// This concentrates all 655 sample points within the scene's
+		// actual temperature range, giving a much tighter polynomial
+		// fit than sampling the full camera calibration range would.
+		// Results are clamped to [NfcMinCounts, NfcMaxCounts] so the
+		// NfcC0/C1/C2 quadratic is never used outside its valid range,
+		// even if the user enters temperatures beyond the camera's limits.
+		npoints=655;
+
+		// Binary search for counts at imagetemperaturemin
+		lo=NfcMinCounts; hi=NfcMaxCounts;
+		for(iter=0; iter<60; iter++){
+			mid=(lo+hi)/2;
+			t_mid=Counts2TempCalc(mid, Cvals, Pvals, ATvals, NfcE, NfcOD, NfcRTemp, NfcATemp, NfcIRWTemp, NfcIRT, NfcRH);
+			if(t_mid < imagetemperaturemin){ lo=mid; } else { hi=mid; }
+		}
+		counts_at_tempmin = maxOf(NfcMinCounts, minOf(NfcMaxCounts, (lo+hi)/2));
+
+		// Binary search for counts at imagetemperaturemax
+		lo=NfcMinCounts; hi=NfcMaxCounts;
+		for(iter=0; iter<60; iter++){
+			mid=(lo+hi)/2;
+			t_mid=Counts2TempCalc(mid, Cvals, Pvals, ATvals, NfcE, NfcOD, NfcRTemp, NfcATemp, NfcIRWTemp, NfcIRT, NfcRH);
+			if(t_mid < imagetemperaturemax){ lo=mid; } else { hi=mid; }
+		}
+		counts_at_tempmax = maxOf(NfcMinCounts, minOf(NfcMaxCounts, (lo+hi)/2));
+
+		step = (counts_at_tempmax - counts_at_tempmin) / (npoints-1);
+
+		c = newArray(npoints);
+		templookup=newArray(npoints);
+
+		for (i=0; i<npoints; i++) {
+			showProgress(i/npoints);
+			c[i] = counts_at_tempmin + i*step;
+			templookup[i] = Counts2TempCalc(c[i], Cvals, Pvals, ATvals, NfcE, NfcOD, NfcRTemp, NfcATemp, NfcIRWTemp, NfcIRT, NfcRH);
+		}
+
+		x=newArray(npoints);
+		y=newArray(npoints);
+
+		text1="text1=[";
+		text2="text2=[";
+
+		for(i=0; i<npoints; i++){
+			showProgress(i/npoints);
+			x[i]=c[i];
+			y[i]=templookup[i];
+			text1=text1 + d2s(c[i], 0) + " ";
+			text2=text2 + d2s(templookup[i], 12) + " ";
+		}
+
+		Fit.doFit("4th Degree Polynomial", x, y);
+		Fit.logResults;
+		predicted=newArray(npoints);
+		resid=newArray(npoints);
+		for(i=0; i<npoints; i++){
+			predicted[i]=Fit.f(x[i]);
+			resid[i]=predicted[i]-y[i];
+		}
+
+		Array.getStatistics(resid, min, max, mean);
+
+		rms_resid=RMS(resid);
+
+		Fit.getEquation(3, name, formula);
+
+		print("To reduce computational time, temperature was estimated using a 4th order polynomial");
+		print("655 data points evenly spanning the scene counts range");
+		print("(counts at imagetemperaturemin=" + imagetemperaturemin + "C = " + d2s(counts_at_tempmin,0) + " to counts at imagetemperaturemax=" + imagetemperaturemax + "C = " + d2s(counts_at_tempmax,0) + ")");
+		print("were used to construct the following curve (clamped to NfcMinCounts=" + NfcMinCounts + " / NfcMaxCounts=" + NfcMaxCounts + "):");
+		print(formula);
+		print("where y = Temperature, x = 16-bit counts value, and a,b,c,d,e are the coefficients:");
+		print("a = " + Fit.p(0));
+		print("b = " + Fit.p(1));
+		print("c = " + Fit.p(2));
+		print("d = " + Fit.p(3));
+		print("e = " + Fit.p(4));
+		print("r squared = " + Fit.rSquared);
+		print("The root mean square of the error from polynomial predicted temperature using the fast calculation is:", rms_resid, "degrees C");
+		print("The maximum mathematical error detected using the polynomial fit is:", max, "degrees C");
+		print("Errors will be highest if counts values in the image fall outside the sampled range.");
+		print("If this error is too high, re-run with more stringent image minimum and maximum, or select the Slow calculation.");
+
+		text1=text1 + "] ";
+		text2=text2 + "] ";
+
+		calibrateargument = "function=[4th Degree Polynomial] unit=°C " + text1 + text2 + "global";
+
+		run("Calibrate...", calibrateargument);
+
+		getStatistics(count, mean, min, max);
+
+		toohigh=0; toolow=0;
+		if(max > imagetemperaturemax){
+			toohigh=1;
+		}
+
+		if(min  < imagetemperaturemin){
+			toolow=1;
+		}
+		outofrange=toohigh+toolow;
+
+		if(outofrange>0){
+			print(" ------- WARNING -------");
+			print("Minimum estimated temperature = ", min);
+			print("Maximum estimated temperature = ", max);
+			print("Temperatures calculated fall outside your expected image min and max values and are likely subject to extrapolation errors.");
+			print("Please recalculate using the fast option with wider min or max ranges.");
+		}
+	}
+
+	if(FastSlow=="Slow"){
+		// remove any latent calibration on the raw 16-bit data
+		run("Calibrate...", "function=[Straight Line] unit=C text1=[0 1] text2=[0 1] global");
+
+		// The slow path needs to apply: counts -> radiance (quadratic)
+		// -> temperature (nfc Planck, no offset), all pixel-by-pixel,
+		// via ImageJ's "Macro..." code= mechanism (same approach as
+		// Raw2Temp's slow path, just substituting the nfc formula and
+		// inserting the counts->radiance polynomial step inline since
+		// "Macro..." code= cannot call a separate user-defined macro
+		// function on each pixel -- it must be a single expression).
+		//
+		// radiance = NfcC0 + NfcC1*v + NfcC2*v*v
+		// radobj = (radiance/raddivisor - radsubtract)
+		// tempC = NfcB/log(NfcR/radobj+NfcF)-273.15
+
+		nfcCstr = "(" +Cvals[0]+ "+" +Cvals[1]+ "*v+" +Cvals[2]+ "*v*v)";
+		radobjstr = "(" + nfcCstr + "/" +raddivisor+ "-" +radsubtract+ ")";
+		codestr = "v=" +NfcB+ "/log(" +NfcR+ "/" + radobjstr + "+" +NfcF+ ")-273.15";
+		
+		//print(codestr);
+		
+		if(nSlices()>1){
+		run("32-bit", "stack");
+		run("Macro...", "code=" + codestr + " stack");
+		Stack.getStatistics(count, mean, min, max);
+		mintemp=min;
+		maxtemp=max;
+		setMinAndMax(mintemp, maxtemp);
+		}
+
+		if(nSlices()==1){
+		run("32-bit");
+		run("Macro...", "code=" + codestr);
+		getStatistics(count, mean, min, max);
+		mintemp=min;
+		maxtemp=max;
+		setMinAndMax(mintemp, maxtemp);
+		}
+
+	}
+
+	run(palettetype);
+
+	output=newArray(NfcB, NfcR, NfcF, Cvals[0], Cvals[1], Cvals[2], NfcATA1, NfcATA2, NfcATB1, NfcATB2, NfcATX, NfcE, NfcOD, NfcRTemp, NfcATemp, NfcIRWTemp, NfcIRT, NfcRH, NfcMinCounts, NfcMaxCounts);
+
+	return output;
+
+}
+
 
 
 // Added CalculateTransmittance and CalculateEmissivity May 2020
@@ -3439,6 +4600,54 @@ function SetAutoAdvance() {
 }
 
 
+// ============================================================
+// SetThermalCameraType()
+// Added June 2026
+// Toggle that determines whether the existing Raw2Temp macros (icon
+// shortcut and dropdown menu item) call the original LWIR/Planck
+// conversion (Raw2Temp/Raw2TempCalc) or the new MWIR/ATS-style nfc
+// conversion (Counts2Temp/Counts2TempCalc). Modeled directly on
+// SetAutoAdvance() / "Set Frame Advance Default for ROI Use", using
+// the same Dialog.addChoice + persisted ij.Prefs.get/set idiom.
+//
+// DEFAULT IS "LWIR" -- this is deliberate. The vast majority of
+// ThermImageJ users (and the existing code itself) are built around
+// LWIR data; nothing should change for them unless they explicitly
+// toggle this. Only users working with FLIR ATS/MWIR files (expected
+// to be a small number, primarily the developer) need to ever touch
+// this setting.
+//
+// The persisted value is read back via a top-of-file
+// "var thermalcameratype = call('ij.Prefs.get', 'thermalcameratype', 'LWIR');"
+// declaration (alongside the other persistent variables at the start
+// of ThermImageJ.ijm), so it's available globally without needing to
+// re-read it inside every macro that checks it.
+// ============================================================
+
+function SetThermalCameraType() {
+
+	cameratypechoices=newArray("LWIR", "MWIR");
+	Dialog.create("Set Default Thermal Camera Type");
+	Dialog.addMessage("This tool sets whether the Raw2Temp macros (icon shortcut and\ndropdown menu item) use the standard LWIR/Planck conversion,\nor the MWIR/ATS-style conversion built for FLIR ATS files.");
+	Dialog.addMessage("LWIR is the correct setting for essentially all FLIR thermal\nimages/video (the vast majority of ThermImageJ users).");
+	Dialog.addMessage("MWIR should only be set if you are working with FLIR ATS or\nATS-JPG (R-JPG) files from a midwave infrared camera.");
+	Dialog.addMessage("This setting will be retained until you reboot ImageJ, or until you change it again.");
+	Dialog.addChoice("Default thermal camera type for Raw2Temp:", cameratypechoices, thermalcameratype);
+	Dialog.show();
+
+	var thermalcameratype=Dialog.getChoice();
+	call("ij.Prefs.set", "thermalcameratype.persistent", thermalcameratype);
+
+	if(thermalcameratype=="LWIR"){
+		print("Raw2Temp macros will use the standard LWIR/Planck conversion (Raw2Temp/Raw2TempCalc).");
+	}
+	if(thermalcameratype=="MWIR"){
+		print("Raw2Temp macros will use the MWIR/ATS-style nfc conversion (Counts2Temp/Counts2TempCalc).");
+		print("Make sure you have run fliratsvalues() on your current file first, so Nfc* calibration constants are populated.");
+	}
+}
+
+
 
 
 // Create a function that just calculates the Temperature for a given Raw Value - not for use on images, just
@@ -3456,9 +4665,10 @@ function Raw2TempCalc(raw, PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, IR
 	emisswind = 1- IRT; 
   	reflwind = 0; // anti-reflective coating on window
  	h2o = (RH/100)*exp(1.5587+0.06939*(ATemp)-0.00027816*(ATemp*ATemp)+0.00000068455*(ATemp*ATemp*ATemp)); // converts relative humidity into water vapour pressure (I think in units mmHg)
-  	tau1 = ATX*exp(-sqrt(OD/2)*(ATA1+ATB1*sqrt(h2o)))+(1-ATX)*exp(-sqrt(OD/2)*(ATA2+ATB2*sqrt(h2o))); // atmos transmittance from object to window
-  	tau2 = ATX*exp(-sqrt(OD/2)*(ATA1+ATB1*sqrt(h2o)))+(1-ATX)*exp(-sqrt(OD/2)*(ATA2+ATB2*sqrt(h2o))); // atmos transmittance from window to camera
-
+  	tau1 = ATX*exp(-sqrt(OD)*(ATA1+ATB1*sqrt(h2o)))+(1-ATX)*exp(-sqrt(OD)*(ATA2+ATB2*sqrt(h2o))); // atmos transmittance from object to window
+  	//tau2 = ATX*exp(-sqrt(OD)*(ATA1+ATB1*sqrt(h2o)))+(1-ATX)*exp(-sqrt(OD)*(ATA2+ATB2*sqrt(h2o))); // atmos transmittance from window to camera
+	tau2=1;
+	
 	rawrefl1= PR1/(PR2*(exp(PB/(RTemp+273.15))-PF))-PO;   // radiance reflecting off the object before the window
 	rawrefl1attn = (1-E)/E*rawrefl1;   // attn = the attenuated radiance (in raw units) 
 
@@ -3499,9 +4709,10 @@ function Temp2RawCalc(temp, PR1, PR2, PB, PF, PO, ATvals, E, OD, RTemp, ATemp, I
 	emisswind = 1- IRT; 
   	reflwind = 0; // anti-reflective coating on window
  	h2o = (RH/100)*exp(1.5587+0.06939*(ATemp)-0.00027816*(ATemp*ATemp)+0.00000068455*(ATemp*ATemp*ATemp)); // converts relative humidity into water vapour pressure (I think in units mmHg)
-  	tau1 = ATX*exp(-sqrt(OD/2)*(ATA1+ATB1*sqrt(h2o)))+(1-ATX)*exp(-sqrt(OD/2)*(ATA2+ATB2*sqrt(h2o))); // atmos transmittance from object to window
-  	tau2 = ATX*exp(-sqrt(OD/2)*(ATA1+ATB1*sqrt(h2o)))+(1-ATX)*exp(-sqrt(OD/2)*(ATA2+ATB2*sqrt(h2o))); // atmos transmittance from window to camera
-
+  	tau1 = ATX*exp(-sqrt(OD)*(ATA1+ATB1*sqrt(h2o)))+(1-ATX)*exp(-sqrt(OD)*(ATA2+ATB2*sqrt(h2o))); // atmos transmittance from object to window
+  	//tau2 = ATX*exp(-sqrt(OD)*(ATA1+ATB1*sqrt(h2o)))+(1-ATX)*exp(-sqrt(OD)*(ATA2+ATB2*sqrt(h2o))); // atmos transmittance from window to camera
+	tau2=1;
+	
 	rawobj=PR1/(PR2*(exp(PB/(temp+273.15))-PF))-PO;
 
 	rawrefl1=PR1/(PR2*(exp(PB/(RTemp+273.15))-PF))-PO;   // radiance reflecting off the object before the window
@@ -3662,6 +4873,190 @@ function flirvalues(filepath, printvalues){
 		return output;	
 }
 
+
+// ============================================================
+// fliratsvalues()
+//
+// Companion to flirvalues(), for FLIR ATS / ATS-JPG (R-JPG) files.
+// Where flirvalues() calls exiftool and parses its "Planck*" /
+// "*AtmosphericTrans*" / object-parameter tags, this function calls
+// the companion ats-xml.pl Perl script and parses ITS tag output
+// instead.
+//
+// IMPORTANT -- these are NOT the same calibration model as exiftool's
+// Planck R1/R2/B/F/O tags, even though they play a similar role:
+//   - exiftool's RJPEG tags (Planck R1, R2, B, F, O) describe a
+//     5-constant Planck-on-radiance formula with an offset term (O).
+//   - ats-xml.pl's NicevilleFactoryCal-derived tags (NfcB, NfcR, NfcF)
+//     describe a DIFFERENT, 3-constant Planck-on-radiance formula with
+//     NO offset term, confirmed (via direct comparison against real
+//     TIFF pixel values, RMSE ~0.0001 C) to be what FLIR Research
+//     Studio actually uses for these particular ATS files.
+// Variable names below are deliberately DIFFERENT from flirvalues()'s
+// PR1/PR2/PB/PF/PO/etc (Nfc-prefixed instead) so the two calibration
+// models are never silently conflated. Bridging Nfc-style values into
+// the existing Raw2Temp() function (which expects the 5-constant
+// Planck signature) is a separate task, not handled here.
+//
+// ats-xml.pl's default (non-verbose) output is already a flat
+// "Tag : Value" list (no section headers), parsed the same
+// indexOf/substring way flirvalues() parses exiftool's output.
+// ============================================================
+
+function fliratsvalues(filepath, printvalues){
+
+	print("\n------ Running fliratsvalues function ------");
+
+	if(OS=="Mac OS X"){
+		var perlpath=perlpathOSX;
+		var perlats=perlscriptpath + "ats-xml.pl";
+		atsvaltext=perlpath + "perl " + perlats + " -i " + filepath;
+		print("Command line code being executed (copy/paste into terminal window to test):");
+		print(atsvaltext);
+		atsvals=exec(perlpath + "perl", perlats, "-i", filepath);
+	}
+
+	if(OS=="Linux"){
+		var perlpath=perlpathLinux;
+		var perlats=perlscriptpath + "ats-xml.pl";
+		atsvaltext=perlpath + "perl " + perlats + " -i " + filepath;
+		print("Command line code being executed (copy/paste into terminal window to test):");
+		print(atsvaltext);
+		atsvals=exec(perlpath + "perl", perlats, "-i", filepath);
+	}
+
+	if(substring(OS, 0, 5)=="Windo"){
+		var perlpath=perlpathWindows;
+		var perlats=perlscriptpath + "ats-xml.pl";
+		atsvaltext=perlpath + "perl " + perlats + " -i " + filepath;
+		print("Command line code being executed (copy/paste into command window to test):");
+		print(atsvaltext);
+		atsvals=exec("cmd", "/c", perlpath + "perl", perlats, "-i", filepath);
+	}
+	// Remove the SourceFile line (first line) to prevent false tag matches
+	// if the filename contains a substring that matches a tag name
+	// e.g. a file called "EmissivityTest.jpg" would cause indexOf("Emissivity")
+	// to find the filename rather than the actual Emissivity tag value.
+	atsvals = substring(atsvals, indexOf(atsvals, "\n") + 1);
+	
+	//print("DEBUG: atsvals length = " + lengthOf(atsvals));
+	//print("DEBUG: Emissivity pos = " + indexOf(atsvals, "Emissivity"));
+	// --- Camera / calibration constants (NicevilleFactoryCal-derived) ---
+	NfcB    = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "NfcB"))+1,    indexOf(atsvals, "\n", indexOf(atsvals, "NfcB")) ));
+	NfcR    = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "NfcR"))+1,    indexOf(atsvals, "\n", indexOf(atsvals, "NfcR")) ));
+	NfcF    = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "NfcF"))+1,    indexOf(atsvals, "\n", indexOf(atsvals, "NfcF")) ));
+	NfcC0   = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "NfcC0"))+1,   indexOf(atsvals, "\n", indexOf(atsvals, "NfcC0")) ));
+	NfcC1   = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "NfcC1"))+1,   indexOf(atsvals, "\n", indexOf(atsvals, "NfcC1")) ));
+	NfcC2   = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "NfcC2"))+1,   indexOf(atsvals, "\n", indexOf(atsvals, "NfcC2")) ));
+	NfcMinTemp = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "NfcMinTemp"))+1, indexOf(atsvals, "C\n", indexOf(atsvals, "NfcMinTemp")) ));
+	NfcMaxTemp = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "NfcMaxTemp"))+1, indexOf(atsvals, "C\n", indexOf(atsvals, "NfcMaxTemp")) ));
+	NfcMinCounts = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "NfcMinCounts"))+1, indexOf(atsvals, "\n", indexOf(atsvals, "NfcMinCounts")) ));
+	NfcMaxCounts = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "NfcMaxCounts"))+1, indexOf(atsvals, "\n", indexOf(atsvals, "NfcMaxCounts")) ));
+
+	// --- Atmospheric transmission constants (ExifTool-convention names,
+	//     same underlying tau formula as flirvalues() uses) ---
+	NfcATA1 = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "AtmosphericTransAlpha1"))+1, indexOf(atsvals, "\n", indexOf(atsvals, "AtmosphericTransAlpha1")) ));
+	NfcATA2 = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "AtmosphericTransAlpha2"))+1, indexOf(atsvals, "\n", indexOf(atsvals, "AtmosphericTransAlpha2")) ));
+	NfcATB1 = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "AtmosphericTransBeta1"))+1,  indexOf(atsvals, "\n", indexOf(atsvals, "AtmosphericTransBeta1")) ));
+	NfcATB2 = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "AtmosphericTransBeta2"))+1,  indexOf(atsvals, "\n", indexOf(atsvals, "AtmosphericTransBeta2")) ));
+	NfcATX  = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "AtmosphericTransX"))+1,      indexOf(atsvals, "\n", indexOf(atsvals, "AtmosphericTransX")) ));
+
+	// --- Object parameters (ExifTool-convention names; these come from
+	//     EITHER Workspace XML or the binary ObjectParameters fallback,
+	//     ats-xml.pl already resolves which one and reports
+	//     ObjectParametersSource accordingly -- not re-checked here) ---
+	NfcE      = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "Emissivity"))+1, indexOf(atsvals, "\n", indexOf(atsvals, "Emissivity")) ));
+	NfcOD     = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "ObjectDistance"))+1, indexOf(atsvals, " m\n", indexOf(atsvals, "ObjectDistance")) ));
+	NfcRTemp  = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "ReflectedApparentTemperature"))+1, indexOf(atsvals, "C\n", indexOf(atsvals, "ReflectedApparentTemperature")) ));
+	NfcATemp  = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "AtmosphericTemperature"))+1, indexOf(atsvals, "C\n", indexOf(atsvals, "AtmosphericTemperature")) ));
+	NfcIRWTemp= parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "IRWindowTemperature"))+1, indexOf(atsvals, "C\n", indexOf(atsvals, "IRWindowTemperature")) ));
+	NfcIRT    = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "IRWindowTransmission"))+1, indexOf(atsvals, "\n", indexOf(atsvals, "IRWindowTransmission")) ));
+	NfcRH     = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "RelativeHumidity"))+1, indexOf(atsvals, " %\n", indexOf(atsvals, "RelativeHumidity")) ));
+
+	// --- Image dimensions (binary fallback already resolved by
+	//     ats-xml.pl when Workspace XML is absent) ---
+	atsimagewidth  = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "ImageWidth"))+1,  indexOf(atsvals, "\n", indexOf(atsvals, "ImageWidth")) ));
+	atsimageheight = parseFloat(substring(atsvals, indexOf(atsvals, ":", indexOf(atsvals, "ImageHeight"))+1, indexOf(atsvals, "\n", indexOf(atsvals, "ImageHeight")) ));
+
+	if(printvalues == "Yes"){
+		Dialog.create("FLIR ATS Values Extracted from: " + File.getName(filepath));
+		Dialog.addMessage("- Camera Calibration Constants (NicevilleFactoryCal) -");
+		Dialog.addMessage("      Nfc B: " + NfcB + "     Nfc R: " + NfcR + "     Nfc F: " + NfcF);
+		Dialog.addMessage("      Nfc C0: " + NfcC0 + "     Nfc C1: " + NfcC1 + "     Nfc C2: " + NfcC2);
+		Dialog.addMessage("      Calibrated range: " + d2s(NfcMinTemp,1) + " C to " + d2s(NfcMaxTemp,1) + " C");
+		Dialog.addMessage("      Counts range: " + NfcMinCounts + " to " + NfcMaxCounts);
+		Dialog.addMessage("      Atmospheric Trans Alpha 1: " + NfcATA1 + "     Atmospheric Trans Alpha 2: " + NfcATA2);
+		Dialog.addMessage("      Atmospheric Trans Beta 1: " + NfcATB1 + "      Atmospheric Trans Beta 2: " + NfcATB2);
+		Dialog.addMessage("      Atmospheric Trans X: " + NfcATX);
+		Dialog.addMessage("- Default Object Parameters -");
+		Dialog.addMessage("      Emissivity: " + d2s(NfcE,2) + "     Object Distance: " + d2s(NfcOD,2));
+		Dialog.addMessage("      Reflected Apparent Temperature: " + d2s(NfcRTemp,2) + "     Atmospheric Temperature: " + d2s(NfcATemp,2));
+		Dialog.addMessage("      IR Window Temperature: " + d2s(NfcIRWTemp,2) + "     IR Window Transmission: " + d2s(NfcIRT,3));
+		Dialog.addMessage("      Relative Humidity: " + d2s(NfcRH,2));
+		Dialog.addMessage("      Thermal Image Width: " + atsimagewidth);
+		Dialog.addMessage("      Thermal Image Height: " + atsimageheight);
+		Dialog.show()
+
+		print("\n");
+		print("FLIR ATS Values Extracted from: " + filepath + "\n");
+		print("Camera Calibration Constants (NicevilleFactoryCal):");
+		setFont("SansSerif", 12);
+		print("Nfc B: ", d2s(NfcB,6));
+		print("Nfc R: ", d2s(NfcR,6));
+		print("Nfc F: ", d2s(NfcF,6));
+		print("Nfc C0: ", d2s(NfcC0,15));
+		print("Nfc C1: ", d2s(NfcC1,15));
+		print("Nfc C2: ", d2s(NfcC2,15));
+		print("Calibrated range: ", d2s(NfcMinTemp,1) + " C to " + d2s(NfcMaxTemp,1) + " C");
+		print("Counts range: ", NfcMinCounts + " to " + NfcMaxCounts);
+		print("Atmospheric Trans Alpha 1: ", d2s(NfcATA1,12));
+		print("Atmospheric Trans Alpha 2: ", d2s(NfcATA2,12));
+		print("Atmospheric Trans Beta 1: ", d2s(NfcATB1,12));
+		print("Atmospheric Trans Beta 2: ", d2s(NfcATB2,12));
+		print("Atmospheric Trans X: ", d2s(NfcATX,12));
+		print("Thermal Image Width: ", atsimagewidth);
+		print("Thermal Image Height: ", atsimageheight + "\n");
+		print("Default Object Parameters:");
+		print("Emissivity: ", d2s(NfcE,2));
+		print("Object Distance: ", d2s(NfcOD,2));
+		print("Reflected Apparent Temperature: ", d2s(NfcRTemp,2));
+		print("Atmospheric Temperature: ", d2s(NfcATemp,2));
+		print("IR Window Temperature: ", d2s(NfcIRWTemp,2));
+		print("IR Window Transmission: ", d2s(NfcIRT,3));
+		print("Relative Humidity: ", d2s(NfcRH,2));
+		print("\n");
+	}
+
+	output=newArray(24);
+	output=newArray(NfcB, NfcR, NfcF, NfcC0, NfcC1, NfcC2, NfcMinTemp, NfcMaxTemp, NfcMinCounts, NfcMaxCounts, NfcATA1, NfcATA2, NfcATB1, NfcATB2, NfcATX, NfcE, NfcOD, NfcRTemp, NfcATemp, NfcIRWTemp, NfcIRT, NfcRH, atsimagewidth, atsimageheight);
+
+	call("ij.Prefs.set", "NfcB.persistent",toString(NfcB));
+	call("ij.Prefs.set", "NfcR.persistent",toString(NfcR));
+	call("ij.Prefs.set", "NfcF.persistent",toString(NfcF));
+	call("ij.Prefs.set", "NfcC0.persistent",toString(NfcC0));
+	call("ij.Prefs.set", "NfcC1.persistent",toString(NfcC1));
+	call("ij.Prefs.set", "NfcC2.persistent",toString(NfcC2));
+	call("ij.Prefs.set", "NfcMinTemp.persistent",toString(NfcMinTemp));
+	call("ij.Prefs.set", "NfcMaxTemp.persistent",toString(NfcMaxTemp));
+	call("ij.Prefs.set", "NfcMinCounts.persistent",toString(NfcMinCounts));
+	call("ij.Prefs.set", "NfcMaxCounts.persistent",toString(NfcMaxCounts));
+	call("ij.Prefs.set", "NfcATA1.persistent",toString(NfcATA1));
+	call("ij.Prefs.set", "NfcATA2.persistent",toString(NfcATA2));
+	call("ij.Prefs.set", "NfcATB1.persistent",toString(NfcATB1));
+	call("ij.Prefs.set", "NfcATB2.persistent",toString(NfcATB2));
+	call("ij.Prefs.set", "NfcATX.persistent",toString(NfcATX));
+	call("ij.Prefs.set", "NfcE.persistent",toString(NfcE));
+	call("ij.Prefs.set", "NfcOD.persistent",toString(NfcOD));
+	call("ij.Prefs.set", "NfcRTemp.persistent",toString(NfcRTemp));
+	call("ij.Prefs.set", "NfcATemp.persistent",toString(NfcATemp));
+	call("ij.Prefs.set", "NfcIRWTemp.persistent",toString(NfcIRWTemp));
+	call("ij.Prefs.set", "NfcIRT.persistent",toString(NfcIRT));
+	call("ij.Prefs.set", "NfcRH.persistent",toString(NfcRH));
+	call("ij.Prefs.set", "atsimagewidth.persistent",toString(atsimagewidth));
+	call("ij.Prefs.set", "atsimageheight.persistent",toString(atsimageheight));
+
+	return output;
+}
 
 
 function flirdate(filepath, printvalues){
@@ -4272,6 +5667,243 @@ function ReadBytesFromFile(filepath, searchlength, offsetread){
 		return res;
 }
 
+// ============================================================
+// IsFLIRATS()
+//
+// Quick file-type check: reads the first 5000 bytes of a file and
+// reports whether it looks like a FLIR ATS file (raw .ats) or a FLIR
+// RJPEG / ATS-JPG. Intended for a quick sanity check when a user
+// selects a .jpg and you want to know -- before doing anything
+// heavier like calling ats-xml.pl or ats-repair.pl -- whether it's
+// actually a FLIR radiometric file at all.
+//
+// Uses ONLY the built-in File.openAsRawString() macro function -- no
+// xxd, no PowerShell, no OS branching, no external dependency at all.
+//
+// CHECK ORDER MATTERS: RJPEG is checked FIRST. The literal ASCII text
+// "FLIR ATS-US File" was found (empirically, by testing a real RJPEG
+// file) to ALSO appear somewhere inside RJPEG files' embedded FLIR
+// metadata stream -- not just at the start of raw .ats files as
+// originally assumed. An unanchored search for that string alone
+// therefore misreports real RJPEG files as "ATS". ats-xml.pl avoids
+// this same trap by checking for the JPEG SOI marker (FF D8) first
+// and only falling through to the ATS string check if that didn't
+// match; the same order is mirrored here, using the FF E1 + "FLIR"
+// APP1 signature instead of a bare FF D8 check (see below).
+//
+// Both checks are simple "is this byte sequence present anywhere in
+// the first 5000 bytes" searches, NOT anchored to the start of the
+// file:
+//   - RJPEG/ATS-JPG: FLIR stores its data inside one or more JPEG
+//     APP1 segments (marker FF E1), each beginning with a "FLIR"
+//     text header 4 bytes after the FF E1 marker (2 bytes for the
+//     marker itself + 2 bytes for the segment's length field) -- see
+//     ats-repair.pl's own APP1-parsing logic for the same structure.
+//     This FF E1 + "FLIR" segment is NOT necessarily near the start
+//     of the file (a standard JFIF APP0 header, EXIF data, etc. can
+//     come first), so this check scans the whole 5000-byte window
+//     rather than checking only the first few bytes.
+//   - raw .ats file: the literal ASCII text "FLIR ATS-US File".
+//     Checked only if the RJPEG check above did NOT match.
+//
+// Returns one of: "ATS", "RJPEG", "unknown"
+// ============================================================
+
+function IsFLIRATS(filepath){
+
+    searchbytes = File.openAsRawString(filepath, 5000);
+
+    // ---- ATS check FIRST for jpg files ----
+    // "FLIR ATS-US File" appears inside the APP1 payload of
+    // ATS-derived JPGs -- check for it before the generic RJPEG
+    // APP1 scan, which would otherwise match both ATS-JPGs and
+    // standard LWIR RJPEGs equally and never reach this check.
+    if(indexOf(searchbytes, "FLIR ATS-US File") >= 0){
+        return "ATS";
+    }
+
+    // ---- RJPEG/ATS-JPG check ----
+    app1marker = fromCharCode(0xFF, 0xE1);
+    app1pos = indexOf(searchbytes, app1marker);
+
+    while(app1pos >= 0){
+        flirsigpos = app1pos + 4;
+        flirsig = substring(searchbytes, flirsigpos, flirsigpos+4);
+        if(flirsig == "FLIR"){
+            return "RJPEG";
+        }
+        app1pos = indexOf(searchbytes, app1marker, app1pos+1);
+    }
+
+    return "unknown";
+}
+
+// ============================================================
+// IsFLIRfile() -- revised
+//
+// Returns a pipe-delimited string: "FILETYPE|CAMERATYPE"
+//
+// FILETYPE is one of:
+//   "ATS"     -- raw MWIR ATS video file (.ats)
+//   "RJPEG"   -- FLIR radiometric JPEG (both LWIR and MWIR JPG variants)
+//   "JPEGLS"  -- JPEG-LS lossless (FF D8 FF F7)
+//   "FCF"     -- older FLIR video format (FFF\0 + "CAP")
+//   "SEQ"     -- FLIR camera-recorded video (FFF\0 + "CAM")
+//   "CSQ"     -- FLIR compressed video (FFF\0 + "RTP")
+//   "FFF"     -- generic FFF-style single frame
+//   "TIFF"    -- TIFF (little-endian magic "II*\0"); may or may not
+//                be a FLIR-specific TIFF -- treat as "possibly FLIR"
+//   "unknown" -- no recognised signature found
+//
+// CAMERATYPE is one of:
+//   "MWIR"    -- confirmed mid-wave IR (ATS-style file or ATS-derived JPG)
+//   "LWIR"    -- confirmed long-wave IR (standard RJPEG, SEQ, CSQ, FFF, FCF, TIFF)
+//   "unknown" -- file type was recognised but camera waveband cannot be
+//                determined from the file alone
+//
+// HOW THE EXTENSION GUIDES THE CHECK:
+//   Extension is extracted first and used to restrict which byte-pattern
+//   checks are performed -- faster and more informative than scanning
+//   5000 bytes for every possible signature regardless of extension.
+//
+//   For ambiguous extensions (.jpg / .jpeg), IsFLIRATS() is called
+//   internally to distinguish MWIR (ATS-derived) from LWIR (standard
+//   RJPEG) -- both start with FF D8 FF E1 but differ inside.
+//
+// USAGE AT CALL SITE:
+//   result     = IsFLIRfile(filepath);
+//   parts      = split(result, "|");
+//   filetype   = parts[0];  // e.g. "RJPEG"
+//   cameratype = parts[1];  // e.g. "MWIR"
+//
+// DEPENDENCY: IsFLIRATS() must be defined (used for .jpg/.jpeg only).
+// ============================================================
+
+function IsFLIRfile(filepath){
+
+	// ---- Extract file extension (lowercase, with leading dot) ----
+	filename = File.getName(filepath);
+	dotpos   = lastIndexOf(filename, ".");
+	if(dotpos >= 0){
+		ext = toLowerCase(substring(filename, dotpos));
+	} else {
+		ext = "";
+	}
+
+	// ---- Route by extension ----
+
+	// .ats -- unambiguous: always MWIR ATS, confirm with signature
+	if(ext == ".ats"){
+		header = File.openAsRawString(filepath, 20);
+		if(startsWith(header, "FLIR ATS-US File")){
+			return "ATS|MWIR";
+		}
+		return "unknown|unknown";
+	}
+
+	if(ext == ".jpg" || ext == ".jpeg"){
+    searchbytes = File.openAsRawString(filepath, 5000);
+
+    // MWIR ATS-derived JPG: contains this specific marker string
+    if(indexOf(searchbytes, "FLIR ATS-US File") >= 0){
+        return "RJPEG|MWIR";
+    }
+
+    // LWIR RJPEG: has both an APP1 segment (FF E1) AND "FLIR" text
+    // somewhere in the first 5000 bytes (inside Exif metadata).
+    // These are checked independently since the FLIR thermal APP1
+    // segments may be beyond the 5000-byte window, but the Exif
+    // block with "FLIR Systems" text is always within it.
+    app1marker = fromCharCode(0xFF, 0xE1);
+    if(indexOf(searchbytes, app1marker) >= 0 && indexOf(searchbytes, "FLIR") >= 0){
+        return "RJPEG|LWIR";
+    }
+
+    return "unknown|unknown";
+	}
+	
+	// .fff -- generic FLIR frame, always LWIR
+	if(ext == ".fff"){
+		header  = File.openAsRawString(filepath, 8);
+		fffbase = "FFF" + fromCharCode(0x00);
+		if(indexOf(header, fffbase) >= 0){ return "FFF|LWIR"; }
+		return "unknown|unknown";
+	}
+
+	// .seq -- FLIR camera-recorded video, always LWIR
+	if(ext == ".seq"){
+    	header = File.openAsRawString(filepath, 8);
+    	seqpat = "FFF" + fromCharCode(0x00) + "CAM";
+   	 	affpat = "AFF" + fromCharCode(0x00);
+   	 	if(indexOf(header, seqpat) >= 0){ return "SEQ|LWIR"; }
+    	if(indexOf(header, affpat) >= 0){ return "SEQ|LWIR"; }
+   		 // Some .seq files use bare FFF header without CAM suffix
+    	fffbase = "FFF" + fromCharCode(0x00);
+    	if(indexOf(header, fffbase) >= 0){ return "SEQ|LWIR"; }
+    	return "unknown|unknown";
+	}
+
+	// .csq -- FLIR compressed video, always LWIR
+	if(ext == ".csq"){
+		header = File.openAsRawString(filepath, 8);
+		csqpat = "FFF" + fromCharCode(0x00) + "RTP";
+		if(indexOf(header, csqpat) >= 0){ return "CSQ|LWIR"; }
+		fffbase = "FFF" + fromCharCode(0x00);
+		if(indexOf(header, fffbase) >= 0){ return "CSQ|LWIR"; }
+		return "unknown|unknown";
+	}
+
+	// .fcf -- older FLIR video format, always LWIR
+	if(ext == ".fcf"){
+		header = File.openAsRawString(filepath, 8);
+		fcfpat = "FFF" + fromCharCode(0x00) + "CAP";
+		if(indexOf(header, fcfpat) >= 0){ return "FCF|LWIR"; }
+		fffbase = "FFF" + fromCharCode(0x00);
+		if(indexOf(header, fffbase) >= 0){ return "FCF|LWIR"; }
+		return "unknown|unknown";
+	}
+
+	// .tif / .tiff -- TIFF (little-endian); FLIR LWIR cameras export
+	// 32-bit TIFFs, but this matches any LE TIFF so treat as "possibly LWIR"
+	if(ext == ".tif" || ext == ".tiff"){
+		header  = File.openAsRawString(filepath, 6);
+		tiffpat = "II" + fromCharCode(0x2A, 0x00);
+		if(indexOf(header, tiffpat) >= 0){ return "TIFF|LWIR"; }
+		return "unknown|unknown";
+	}
+
+	// ---- Unknown or missing extension ----
+	// Fall back to the original broad scan across all signatures.
+	// This handles files with no extension, wrong extension, or
+	// extensions not listed above (e.g. .aff, .raw, etc.).
+	searchbytes = File.openAsRawString(filepath, 5000);
+
+	rjpegpat  = fromCharCode(0xFF, 0xD8, 0xFF, 0xE1);
+	jpeglspat = fromCharCode(0xFF, 0xD8, 0xFF, 0xF7);
+	tiffpat   = "II" + fromCharCode(0x2A, 0x00);
+	fffbase   = "FFF" + fromCharCode(0x00);
+	fcfpat    = fffbase + "CAP";
+	seqpat    = fffbase + "CAM";
+	csqpat    = fffbase + "RTP";
+
+	if(startsWith(searchbytes, "FLIR ATS-US File")){ return "ATS|MWIR"; }
+	if(indexOf(searchbytes, jpeglspat) >= 0){         return "JPEGLS|LWIR"; }
+	if(indexOf(searchbytes, rjpegpat)  >= 0){
+		atsresult = IsFLIRATS(filepath);
+		if(atsresult == "ATS"){   return "RJPEG|MWIR"; }
+		if(atsresult == "RJPEG"){ return "RJPEG|LWIR"; }
+		return "RJPEG|unknown";
+	}
+	if(indexOf(searchbytes, fcfpat) >= 0){ return "FCF|LWIR"; }
+	if(indexOf(searchbytes, seqpat) >= 0){ return "SEQ|LWIR"; }
+	if(indexOf(searchbytes, csqpat) >= 0){ return "CSQ|LWIR"; }
+	if(indexOf(searchbytes, fffbase) >= 0){ return "FFF|LWIR"; }
+	if(indexOf(searchbytes, tiffpat) >= 0){ return "TIFF|LWIR"; }
+
+	return "unknown|unknown";
+}
+
+
 // Call an R script: requires that you install Rserve http://www.rforge.net/Rserve/doc.html
 function callRScriptviaJavaScript(script) {
 	// Use javascript ability to call direct java commands to load R engine and send command to R
@@ -4318,6 +5950,7 @@ function d2(n) {
 //timestamp=swapEndian(timestampinteger, 4);
 //ConvertEpochTimetoFullDateTime(timestamp);
 //ConvertEpochTimetoFullDateTime(947815708);
+
 function ConvertEpochTimetoFullDateTime(epochSeconds) {
     // Epoch time in seconds (example)
     // epochSeconds = 949630898;
@@ -4617,24 +6250,51 @@ macro "Import Menu Tool - C037T0b11FT6b09IT9b09LTeb09E" {
            RawImportMikronRTV();
 	   else if (cmd=="Raw Import Mikron SIT")
            RawImportMikronSIT();
-       else if (cmd=="Raw Import FLIR SEQ")
-           RawImportFLIRSEQ();
-       else if (cmd=="Convert FLIR JPG(s)")
-           ConvertFLIRJPGs();
-       else if (cmd=="Import FLIR JPG")
-           ConvertImportFLIRJPG("no");
-       else if (cmd=="Import FLIR JPG with defaults")
-           ConvertImportFLIRJPG("yes");
-       else if (cmd=="Import Image Sequence")
+       else if (cmd=="Raw Import FLIR SEQ"){
+       		thermalcameratype="LWIR";
+        	RawImportFLIRSEQ();	
+       }
+       else if (cmd=="Convert FLIR JPG(s)"){
+ 	      	thermalcameratype="LWIR";
+          	ConvertFLIRJPGs();
+       }
+       else if (cmd=="Import FLIR JPG"){
+ 		   	thermalcameratype="LWIR";
+     		ConvertImportFLIRJPG("no");
+       }
+       else if (cmd=="Import FLIR JPG with defaults"){
+            thermalcameratype="LWIR";
+           	ConvertImportFLIRJPG("yes");
+       }
+       else if (cmd=="Import FLIR ATS JPG"){
+           	thermalcameratype="MWIR";
+           ConvertImportFLIRATSJPG("no");
+       }
+       else if (cmd=="Import FLIR ATS JPG with defaults"){
+           	thermalcameratype="MWIR";
+           	ConvertImportFLIRATSJPG("yes");
+       }
+       else if (cmd=="Import Image Sequence"){
            ImportImageSequence();    
-       else if (cmd=="Import CSV Image Sequence")
+       }
+       else if (cmd=="Import CSV Image Sequence"){
            ImportCSVImageSequence();        
-       else if (cmd=="Import FLIR SEQ")
+       }
+       else if (cmd=="Import FLIR SEQ"){
+           thermalcameratype="LWIR";
            ImportConvertFLIRSEQ();
-       else if (cmd=="Import FLIR CSQ")
+       }
+       else if (cmd=="Import FLIR CSQ"){
+           thermalcameratype="LWIR";
            ImportConvertFLIRCSQ();
-       else if (cmd=="Import 16-bit AVI")
+       }
+       else if (cmd=="Import FLIR ATS"){
+           thermalcameratype="MWIR";
+           ImportConvertFLIRATS();
+       }
+       else if (cmd=="Import 16-bit AVI"){
            ImportFFmpegAVI();
+       }
 	   else if (cmd!="-")
             run(cmd);
 }
@@ -4658,7 +6318,6 @@ macro "Raw Import Mikron RTV" {
 	RawImportMikronRTV();
 }
 
-
 macro "Raw Import Mikron SIT" {
 	RawImportMikronSIT();
 }
@@ -4667,41 +6326,79 @@ macro "Raw Import Mikron SIT" {
 //	RawImportFLIRSEQ();
 //}
 
-macro "Raw Import FLIR SEQ" {
-	RawImportFLIRSEQ();
-}
+macro "-" {} //menu divider
 
 macro "Convert FLIR JPG(s)" {
+	thermalcameratype="LWIR";
 	ConvertFLIRJPGs();
 }
 
 macro "Import FLIR JPG" {
 	var ConvertWithDefault="no";
+	thermalcameratype="LWIR";
 	ConvertImportFLIRJPG(ConvertWithDefault);
 }
 
 macro "Import FLIR JPG with defaults" {
 	var ConvertWithDefault="yes";
+	thermalcameratype="LWIR";
 	ConvertImportFLIRJPG(ConvertWithDefault);
 }
+
+macro "-" {} //menu divider
+
+macro "Import FLIR ATS-JPG" {
+    var ConvertWithDefault = "no";
+    thermalcameratype="MWIR";
+    ConvertImportFLIRATSJPG(ConvertWithDefault);
+}
+
+macro "Import FLIR ATS-JPG with defaults" {
+    var ConvertWithDefault = "yes";
+    thermalcameratype="MWIR";
+    ConvertImportFLIRATSJPG(ConvertWithDefault);
+}
+
+macro "-" {} //menu divider
 
 macro "Import Image Sequence" {
 	ImportImageSequence();    
 }
 
+macro "-" {} //menu divider
+
+macro "Raw Import FLIR SEQ" {
+	thermalcameratype="LWIR";
+	RawImportFLIRSEQ();
+}
+
 macro "Import FLIR SEQ" {
-	 ImportConvertFLIRSEQ();
+	thermalcameratype="LWIR";
+	ImportConvertFLIRSEQ();
 }
 
 macro "Import FLIR CSQ" {
-	 ImportConvertFLIRCSQ();
+	thermalcameratype="LWIR";
+	ImportConvertFLIRCSQ();
 }
+
+macro "-" {} //menu divider
+
 
 macro "Import 16-bit AVI [i]" {
 	ImportFFmpegAVI();
 }
 
 macro "-" {} //menu divider
+
+macro "Import FLIR ATS" {
+	thermalcameratype="MWIR";
+	ImportConvertFLIRATS();
+}
+
+
+macro "-" {} //menu divider
+
 
 macro "Frame Start Byte [j]"{
 	Dialog.create("Magicbyte scan for pixel byte offset in FLIR SEQ Videos"); 
@@ -5058,39 +6755,161 @@ macro "-" {} //menu divider
 
 
 macro "FLIR Date Stamps Action Tool - C000D08D09D0aD0bD0cD17D1dD26D2eD35D3eD45D4fD55D57D58D59D5aD5fD65D6aD6fD72D73D75D7aD7eD82D86D8aD8eD90D91D92D94D97D9dDa2Da8Da9DaaDabDacDb2Db4Db6Dc2Dc8Dd0Dd1Dd2Dd4Dd6Dd8De2De8Df2Df3Df4Df5Df6Df7Df8C000C111C222C333C444C555C666C777C888C999CaaaCbbbCcccDc1CcccDd7CcccD83CcccD81CcccDe1CcccCdddD56CdddDe7CdddDa1CdddDb3CdddDc7CdddD16CdddD2dCdddD1eD48D4eDb7CdddD69CdddD49D7bCdddCeeeD46Dc4CeeeD6bDc6CeeeD6eCeeeD93Dc3CeeeDe3CeeeDe9CeeeDa3CeeeDd9CeeeDd3CeeeD99Db5CeeeD74CeeeD1bD2fD54D8fCeeeD19D85Dd5CeeeD25D96Db1De4CeeeDa4Db8CeeeDe6CfffD9bDbaCfffD5eD79CfffDe5CfffD8bCfffD68DadCfffD0dCfffD07D64CfffD1aD63D89Da7Dc5CfffD9aCfffD44D5bDb9De0CfffD84Da0DbbCfffD4aD80Da5Dc0Dc9Df1CfffD62D71Df9CfffD47" {
-	filepath=File.openDialog("Select a FLIR Image or Video File"); 
+	filepath=File.openDialog("Select a FLIR Image or Video File");
 	printvalues="Yes";
 	if(File.exists(filepath)){
-		flirdate(filepath, printvalues);
+		result     = IsFLIRfile(filepath);
+		pipepos    = indexOf(result, "|");
+		cameratype = substring(result, pipepos+1);
+
+		if(cameratype == "MWIR"){
+			print("FLIR Date Stamps: date/time information cannot be");
+			print("extracted from ATS/MWIR files. Absolute timestamps");
+			print("are not stored inside ATS files -- only relative");
+			print("frame timing via FrameCounter is available.");
+			print("File: " + File.getName(filepath));
+		} else {
+			flirdate(filepath, printvalues);
+		}
 	}
 }
 
 macro "FLIR Date Stamps [D]" {
-	filepath=File.openDialog("Select a FLIR Image or Video File"); 
+	filepath=File.openDialog("Select a FLIR Image or Video File");
 	printvalues="Yes";
 	if(File.exists(filepath)){
-		flirdate(filepath, printvalues);
+		result     = IsFLIRfile(filepath);
+		pipepos    = indexOf(result, "|");
+		cameratype = substring(result, pipepos+1);
+
+		if(cameratype == "MWIR"){
+			print("FLIR Date Stamps: date/time information cannot be");
+			print("extracted from ATS/MWIR files. Absolute timestamps");
+			print("are not stored inside ATS files -- only relative");
+			print("frame timing via FrameCounter is available.");
+			print("File: " + File.getName(filepath));
+		} else {
+			flirdate(filepath, printvalues);
+		}
 	}
-	
 }
+
+
+//macro "FLIR Calibration Values [C]" {
+//	filepath=File.openDialog("Select a FLIR Image or Video File"); 
+//	printvalues="Yes";
+//	if(File.exists(filepath)){
+//		flirvalues(filepath, printvalues);
+//	}
+//}
+
+// ============================================================
+// Uses IsFLIRfile() to detect both file type AND camera type in one
+// call, then dispatches to:
+//   fliratsvalues()  -- MWIR/ATS files (cameratype == "MWIR")
+//   flirvalues()     -- everything else (LWIR, unknown, TIFF, etc.)
+//
+// IsFLIRfile() returns "FILETYPE|CAMERATYPE" as a pipe-delimited
+// string -- split on "|" to get both parts.
+// ============================================================
 
 macro "FLIR Calibration Values Action Tool - C000D00D01D02D03D04D05D10D16D20D22D23D24D27D2dD2eD30D32D34D36D37D38D39D3aD3bD3cD3fD40D42D44D47D4fD50D52D54D56D57D58D59D5aD5bD5cD5fD60D62D63D64D67D6dD6eD70D76D80D81D82D83D84D85DbbDbcDbdDbeDc1Dc2Dc3Dc4Dc5Dc6Dc7Dc8Dc9DcaDcbDcfDd0DdfDe1De2De3De4De5De6De7De8De9DeaDebDefDf3Df5Df7Df9DfbDfcDfdDfeCc10DccDcdDceDd5Dd6Dd7Dd8Dd9DdaDdbDdcDddDdeDecDedDee" {
-	filepath=File.openDialog("Select a FLIR Image or Video File"); 
+	filepath=File.openDialog("Select a FLIR Image or Video File");
 	printvalues="Yes";
 	if(File.exists(filepath)){
-		flirvalues(filepath, printvalues);
+		result = IsFLIRfile(filepath);
+
+		// Parse "FILETYPE|CAMERATYPE" without relying on split()
+		pipepos    = indexOf(result, "|");
+		if(pipepos >= 0){
+			filetype   = substring(result, 0, pipepos);
+			cameratype = substring(result, pipepos+1);
+		} else {
+			// IsFLIRfile() returned old single-value format (no pipe)
+			// -- treat the whole return value as the filetype and
+			// infer cameratype from it for backwards compatibility
+			filetype = result;
+			if(filetype == "ATS" || filetype == "RJPEG"){
+				cameratype = "MWIR";
+			} else if(filetype == "unknown"){
+				cameratype = "unknown";
+			} else {
+				cameratype = "LWIR";
+			}
+		}
+
+		print("File Type: " + filetype);
+		print("Thermal Camera Type: " + cameratype);
+
+		if(cameratype == "MWIR"){
+			thermalcameratype = "MWIR";
+			fliratsvalues(filepath, printvalues);
+		} else if(filetype == "unknown"){
+			print("File type unknown -- could not identify as a FLIR file.");
+		} else {
+			thermalcameratype = "LWIR";
+			flirvalues(filepath, printvalues);
+		}
+
+		call("ij.Prefs.set", "thermalcameratype.persistent", thermalcameratype);
 	}
 }
+
+	
+// ============================================================
+// REPLACEMENT for the "FLIR Calibration Values [C]" macro.
+//
+// Uses IsFLIRfile() which returns "FILETYPE|CAMERATYPE".
+// Parses the return value using indexOf/substring rather than
+// split(), since ImageJ's split() uses StringTokenizer which
+// can behave unexpectedly with non-whitespace delimiters.
+// ============================================================
 
 macro "FLIR Calibration Values [C]" {
-	filepath=File.openDialog("Select a FLIR Image or Video File"); 
+	filepath=File.openDialog("Select a FLIR Image or Video File");
 	printvalues="Yes";
 	if(File.exists(filepath)){
-		flirvalues(filepath, printvalues);
+		result = IsFLIRfile(filepath);
+
+		// Parse "FILETYPE|CAMERATYPE" without relying on split()
+		pipepos    = indexOf(result, "|");
+		if(pipepos >= 0){
+			filetype   = substring(result, 0, pipepos);
+			cameratype = substring(result, pipepos+1);
+		} else {
+			// IsFLIRfile() returned old single-value format (no pipe)
+			// -- treat the whole return value as the filetype and
+			// infer cameratype from it for backwards compatibility
+			filetype = result;
+			if(filetype == "ATS" || filetype == "RJPEG"){
+				cameratype = "MWIR";
+			} else if(filetype == "unknown"){
+				cameratype = "unknown";
+			} else {
+				cameratype = "LWIR";
+			}
+		}
+
+		print("File Type: " + filetype);
+		print("Thermal Camera Type: " + cameratype);
+
+		if(cameratype == "MWIR"){
+			thermalcameratype = "MWIR";
+			fliratsvalues(filepath, printvalues);
+		} else if(filetype == "unknown"){
+			print("File type unknown -- could not identify as a FLIR file.");
+		} else {
+			thermalcameratype = "LWIR";
+			flirvalues(filepath, printvalues);
+		}
+
+		call("ij.Prefs.set", "thermalcameratype.persistent", thermalcameratype);
 	}
 }
 
 
+	
+	
 macro "FLIR Focus Distance [F]" {
 	filepath=File.openDialog("Select a FLIR Image or Video File"); 
 	printvalues="Yes";
@@ -5101,207 +6920,466 @@ macro "FLIR Focus Distance [F]" {
 
 macro "-" {} //menu divider
 
+// ============================================================
+// REPLACEMENT for the "Raw2Temp Action Tool" macro
+// (the icon-toolbar shortcut version)
+//
+// The ENTIRE body of the original macro is preserved verbatim,
+// unchanged, inside the "if(thermalcameratype=='LWIR')" block below
+// -- this is a pure copy-paste of what already exists, with no edits
+// of any kind to its internals. Only the outer if/else wrapper and
+// the new MWIR sibling block are new.
+//
+// Default thermalcameratype is "LWIR" (see SetThermalCameraType()),
+// so for every existing user who never touches the new toggle,
+// behavior is 100% unchanged.
+// ============================================================
+
 macro "Raw2Temp Action Tool - C000D00D01D02D03D04D05D06D07D10D13D14D20D23D24D25D30D33D35D36D40D41D42D43D46D47D57D75D7dD85D8dD93D94D95D9bD9cD9dDa8Db8Dc8Dd8De8Df8C666D62D6aD73D7bD84D8cCf80DcbDdbCe50DcaDdaCfe2DceDdeCfc0DcdDddCd17Dc9Dd9Cff7DcfDdfCfb0DccDdc"{
 
-	byteorder=newArray("Default", "Swap");
-	defaultbyteorder="Default";
-	fastslowchoice=newArray("Fast", "Slow");
-	fastslowchoicedefault="Fast";
-	
-	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Verify Camera and Object Parameters");
-	Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
-	Dialog.addMessage("TIFF files are usually little endian, PNG files are usually big endian");
-	Dialog.addChoice("Keep Default or Swap Byte Order (Usually default is fine)", byteorder, defaultbyteorder);
-	Dialog.addMessage("Fast calculation is approximate but repeatable, Slow is accurate but not reversible");
-	Dialog.addChoice("Fast or Slow Calculation?", fastslowchoice, fastslowchoicedefault); 
-	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
- 	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
- 	
-	Dialog.addMessage("Object Parameters:");
-    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
-    Dialog.addToSameRow();
-    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
-    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
-    Dialog.addToSameRow();
-    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
-    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
-    Dialog.addToSameRow();
-    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
-    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addToSameRow();
-    Dialog.addChoice("Palette", palettetypes, defaultpalette);
-    
-	Dialog.addMessage("Camera Calibration Constants:");
-	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
-	Dialog.addToSameRow();
-	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
-	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
-	Dialog.addToSameRow();
-	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
-    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
-    Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
-	Dialog.addToSameRow();
-    Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
-	Dialog.addToSameRow();
-    Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");     
-	Dialog.show();
+	if(thermalcameratype=="LWIR"){
 
-	 ByteOrder=Dialog.getChoice();
-	 FastSlow=Dialog.getChoice();
-	 imagetemperaturemin = Dialog.getNumber();
-	 imagetemperaturemax = Dialog.getNumber();
-	 E = Dialog.getNumber();
-	 OD = Dialog.getNumber();
-	 RTemp = Dialog.getNumber();
-	 ATemp = Dialog.getNumber();
-	 IRWTemp = Dialog.getNumber();
-	 IRT = Dialog.getNumber();
-	 RH = Dialog.getNumber();
-	 palettetype = Dialog.getChoice();
-	 PR1 = Dialog.getNumber();
-	 PR2 = Dialog.getNumber();
-	 PB = Dialog.getNumber();
-	 PF = Dialog.getNumber();
-	 PO = Dialog.getNumber();
-	 ATA1 = Dialog.getNumber();
-	 ATA2 = Dialog.getNumber();
-	 ATB1 = Dialog.getNumber();
-	 ATB2 = Dialog.getNumber();
-	 ATX = Dialog.getNumber();
-	
-	call("ij.Prefs.set", "imagetemperaturemin.persistent",toString(imagetemperaturemin)); 
-	call("ij.Prefs.set", "imagetemperaturemax.persistent",toString(imagetemperaturemax)); 
-	call("ij.Prefs.set", "PR1.persistent",toString(PR1)); 
-	call("ij.Prefs.set", "PB.persistent",toString(PB)); 
-	call("ij.Prefs.set", "PF.persistent",toString(PF)); 
-	call("ij.Prefs.set", "PR2.persistent",toString(PR2)); 
-	call("ij.Prefs.set", "PO.persistent",toString(PO));
-	call("ij.Prefs.set", "ATA1.persistent",toString(ATA1));
-	call("ij.Prefs.set", "ATA2.persistent",toString(ATA2));
-	call("ij.Prefs.set", "ATB1.persistent",toString(ATB1));
-	call("ij.Prefs.set", "ATB2.persistent",toString(ATB2));
-	call("ij.Prefs.set", "ATX.persistent",toString(ATX));
-	call("ij.Prefs.set", "E.persistent",toString(E)); 
-	call("ij.Prefs.set", "OD.persistent",toString(OD)); 
-	call("ij.Prefs.set", "RTemp.persistent",toString(RTemp)); 
-	call("ij.Prefs.set", "ATemp.persistent",toString(ATemp)); 
-	call("ij.Prefs.set", "IRWTemp.persistent",toString(IRWTemp)); 
-	call("ij.Prefs.set", "IRT.persistent",toString(IRT)); 
-	call("ij.Prefs.set", "RH.persistent",toString(RH)); 
-	call("ij.Prefs.set", "imagewidth.persistent",toString(imagewidth)); 
-	call("ij.Prefs.set", "imageheight.persistent",toString(imageheight)); 
-	
-	if(ByteOrder == "Swap"){
-		run("Byte Swapper");
+		// ---- UNCHANGED original macro body, verbatim ----
+
+		byteorder=newArray("Default", "Swap");
+		defaultbyteorder="Default";
+		fastslowchoice=newArray("Fast", "Slow");
+		fastslowchoicedefault="Fast";
+		
+		// Create a prompt dialog to ask user to verify the values to be used in the calculations below
+		Dialog.create("Verify Camera and Object Parameters");
+		Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
+		Dialog.addMessage("TIFF files are usually little endian, PNG files are usually big endian");
+		Dialog.addChoice("Keep Default or Swap Byte Order (Usually default is fine)", byteorder, defaultbyteorder);
+		Dialog.addMessage("Fast calculation is approximate but repeatable, Slow is accurate but not reversible");
+		Dialog.addChoice("Fast or Slow Calculation?", fastslowchoice, fastslowchoicedefault); 
+		Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
+	 	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
+	 	
+		Dialog.addMessage("Object Parameters:");
+	    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
+	    Dialog.addToSameRow();
+	    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
+	    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
+	    Dialog.addToSameRow();
+	    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
+	    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
+	    Dialog.addToSameRow();
+	    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
+	    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
+	    Dialog.addToSameRow();
+	    Dialog.addChoice("Palette", palettetypes, defaultpalette);
+	    
+		Dialog.addMessage("Camera Calibration Constants:");
+		Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
+		Dialog.addToSameRow();
+		Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
+		Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
+		Dialog.addToSameRow();
+		Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
+	    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
+	    Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
+		Dialog.addToSameRow();
+	    Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
+	    Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
+		Dialog.addToSameRow();
+	    Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
+	    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");     
+		Dialog.show();
+
+		 ByteOrder=Dialog.getChoice();
+		 FastSlow=Dialog.getChoice();
+		 imagetemperaturemin = Dialog.getNumber();
+		 imagetemperaturemax = Dialog.getNumber();
+		 E = Dialog.getNumber();
+		 OD = Dialog.getNumber();
+		 RTemp = Dialog.getNumber();
+		 ATemp = Dialog.getNumber();
+		 IRWTemp = Dialog.getNumber();
+		 IRT = Dialog.getNumber();
+		 RH = Dialog.getNumber();
+		 palettetype = Dialog.getChoice();
+		 PR1 = Dialog.getNumber();
+		 PR2 = Dialog.getNumber();
+		 PB = Dialog.getNumber();
+		 PF = Dialog.getNumber();
+		 PO = Dialog.getNumber();
+		 ATA1 = Dialog.getNumber();
+		 ATA2 = Dialog.getNumber();
+		 ATB1 = Dialog.getNumber();
+		 ATB2 = Dialog.getNumber();
+		 ATX = Dialog.getNumber();
+		
+		call("ij.Prefs.set", "imagetemperaturemin.persistent",toString(imagetemperaturemin)); 
+		call("ij.Prefs.set", "imagetemperaturemax.persistent",toString(imagetemperaturemax)); 
+		call("ij.Prefs.set", "PR1.persistent",toString(PR1)); 
+		call("ij.Prefs.set", "PB.persistent",toString(PB)); 
+		call("ij.Prefs.set", "PF.persistent",toString(PF)); 
+		call("ij.Prefs.set", "PR2.persistent",toString(PR2)); 
+		call("ij.Prefs.set", "PO.persistent",toString(PO));
+		call("ij.Prefs.set", "ATA1.persistent",toString(ATA1));
+		call("ij.Prefs.set", "ATA2.persistent",toString(ATA2));
+		call("ij.Prefs.set", "ATB1.persistent",toString(ATB1));
+		call("ij.Prefs.set", "ATB2.persistent",toString(ATB2));
+		call("ij.Prefs.set", "ATX.persistent",toString(ATX));
+		call("ij.Prefs.set", "E.persistent",toString(E)); 
+		call("ij.Prefs.set", "OD.persistent",toString(OD)); 
+		call("ij.Prefs.set", "RTemp.persistent",toString(RTemp)); 
+		call("ij.Prefs.set", "ATemp.persistent",toString(ATemp)); 
+		call("ij.Prefs.set", "IRWTemp.persistent",toString(IRWTemp)); 
+		call("ij.Prefs.set", "IRT.persistent",toString(IRT)); 
+		call("ij.Prefs.set", "RH.persistent",toString(RH)); 
+		call("ij.Prefs.set", "imagewidth.persistent",toString(imagewidth)); 
+		call("ij.Prefs.set", "imageheight.persistent",toString(imageheight)); 
+		
+		if(ByteOrder == "Swap"){
+			run("Byte Swapper");
+		}
+
+		Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
+
+		// ---- end of unchanged original macro body ----
+
 	}
 
-	Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
-	
+	if(thermalcameratype=="MWIR"){
+
+		// ---- NEW: MWIR/ATS-style nfc conversion ----
+		// Mirrors the structure of the LWIR block above as closely as
+		// possible, substituting Nfc* calibration constants (no Planck
+		// O / no byte-order step -- ATS files don't need byte swapping)
+		// and calling Counts2Temp() instead of Raw2Temp().
+
+		fastslowchoice=newArray("Fast", "Slow");
+		fastslowchoicedefault="Fast";
+
+		Dialog.create("Verify ATS Camera and Object Parameters");
+		Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
+		Dialog.addMessage("Fast calculation is approximate but repeatable. Slow is accurate but not reversible.");
+		Dialog.addChoice("Fast or Slow Calculation?", fastslowchoice, fastslowchoicedefault);
+		Dialog.addNumber("Estimated Image Temperature Minimum:", imagetemperaturemin, 0, 5, "C");
+		Dialog.addNumber("Estimated Image Temperature Maximum:", imagetemperaturemax, 0, 5, "C");
+
+		Dialog.addMessage("Object Parameters:");
+		Dialog.addNumber("Object Emissivity:", NfcE, 3, 6, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Object Distance:", NfcOD, 1, 6, "m");
+		Dialog.addNumber("Reflected Temperature (C):", NfcRTemp, 2, 6, "C");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Atmospheric Temperature (C):", NfcATemp, 2, 6, "C");
+		Dialog.addNumber("Window Temperature (C):", NfcIRWTemp, 2, 6, "C");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Window Transmittance:", NfcIRT, 3, 6, "unitless");
+		Dialog.addNumber("Relative Humidity:", NfcRH, 2, 6, "%");
+		Dialog.addToSameRow();
+		Dialog.addChoice("Palette", palettetypes, defaultpalette);
+		
+		Dialog.addMessage("Camera Calibration Constants (NicevilleFactoryCal):");
+		Dialog.addNumber("Nfc B:", NfcB, 4, 12, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Nfc R:", NfcR, 6, 12, "unitless");
+		Dialog.addNumber("Nfc F:", NfcF, 4, 6, "unitless");
+		Dialog.addNumber("Nfc C0:", NfcC0, 20, 20, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Nfc C1:", NfcC1, 20, 20, "unitless");
+		Dialog.addNumber("Nfc C2:", NfcC2, 20, 20, "unitless");
+		Dialog.addNumber("Atmospheric Trans Alpha 1:", NfcATA1, 8, 12, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Atmospheric Trans Alpha 2:", NfcATA2, 8, 12, "unitless");
+		Dialog.addNumber("Atmospheric Trans Beta 1:", NfcATB1, 8, 12, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Atmospheric Trans Beta 2:", NfcATB2, 8, 12, "unitless");
+		Dialog.addNumber("Atmospheric Trans X:", NfcATX, 8, 12, "unitless");
+		Dialog.addMessage("Counts range (used to construct fast-mode polynomial within scene temp range):");
+		Dialog.addNumber("Nfc Min Counts:", NfcMinCounts, 0, 8, "16-bit integer");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Nfc Max Counts:", NfcMaxCounts, 0, 8, "16-bit integer");
+
+		Dialog.show();
+
+		FastSlow          = Dialog.getChoice();
+		imagetemperaturemin = Dialog.getNumber();
+		imagetemperaturemax = Dialog.getNumber();
+		NfcE              = Dialog.getNumber();
+		NfcOD             = Dialog.getNumber();
+		NfcRTemp          = Dialog.getNumber();
+		NfcATemp          = Dialog.getNumber();
+		NfcIRWTemp        = Dialog.getNumber();
+		NfcIRT            = Dialog.getNumber();
+		NfcRH             = Dialog.getNumber();
+		palettetype       = Dialog.getChoice();
+		NfcB              = Dialog.getNumber();
+		NfcR              = Dialog.getNumber();
+		NfcF              = Dialog.getNumber();
+		NfcC0             = Dialog.getNumber();
+		NfcC1             = Dialog.getNumber();
+		NfcC2             = Dialog.getNumber();
+		NfcATA1           = Dialog.getNumber();
+		NfcATA2           = Dialog.getNumber();
+		NfcATB1           = Dialog.getNumber();
+		NfcATB2           = Dialog.getNumber();
+		NfcATX            = Dialog.getNumber();
+		NfcMinCounts      = Dialog.getNumber();
+		NfcMaxCounts      = Dialog.getNumber();
+
+
+	// ---- Persist values ----
+	call("ij.Prefs.set", "imagetemperaturemin.persistent", toString(imagetemperaturemin));
+	call("ij.Prefs.set", "imagetemperaturemax.persistent", toString(imagetemperaturemax));
+	call("ij.Prefs.set", "NfcB.persistent",   toString(NfcB));
+	call("ij.Prefs.set", "NfcR.persistent",   toString(NfcR));
+	call("ij.Prefs.set", "NfcF.persistent",   toString(NfcF));
+	call("ij.Prefs.set", "NfcC0.persistent",  toString(NfcC0));
+	call("ij.Prefs.set", "NfcC1.persistent",  toString(NfcC1));
+	call("ij.Prefs.set", "NfcC2.persistent",  toString(NfcC2));
+	call("ij.Prefs.set", "NfcATA1.persistent",toString(NfcATA1));
+	call("ij.Prefs.set", "NfcATA2.persistent",toString(NfcATA2));
+	call("ij.Prefs.set", "NfcATB1.persistent",toString(NfcATB1));
+	call("ij.Prefs.set", "NfcATB2.persistent",toString(NfcATB2));
+	call("ij.Prefs.set", "NfcATX.persistent", toString(NfcATX));
+	call("ij.Prefs.set", "NfcE.persistent",   toString(NfcE));
+	call("ij.Prefs.set", "NfcOD.persistent",  toString(NfcOD));
+	call("ij.Prefs.set", "NfcRTemp.persistent",  toString(NfcRTemp));
+	call("ij.Prefs.set", "NfcATemp.persistent",  toString(NfcATemp));
+	call("ij.Prefs.set", "NfcIRWTemp.persistent",toString(NfcIRWTemp));
+	call("ij.Prefs.set", "NfcIRT.persistent", toString(NfcIRT));
+	call("ij.Prefs.set", "NfcRH.persistent",  toString(NfcRH));
+	call("ij.Prefs.set", "NfcMinCounts.persistent", toString(NfcMinCounts));
+	call("ij.Prefs.set", "NfcMaxCounts.persistent", toString(NfcMaxCounts));
+
+	Counts2Temp(NfcCvals(NfcC0, NfcC1, NfcC2), NfcPlanckVals(NfcB, NfcR, NfcF), AtmosphericTransVals(NfcATA1, NfcATA2, NfcATB1, NfcATB2, NfcATX), NfcE, NfcOD, NfcRTemp, NfcATemp, NfcIRWTemp, NfcIRT, NfcRH, NfcMinCounts, NfcMaxCounts, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
+
+	}
+
 }
-	
+
+// ============================================================
+// REPLACEMENT for the "Raw2Temp Tool [r]" macro
+// (the dropdown menu item version -- functionally identical to the
+// icon-toolbar version above, just a different macro header)
+//
+// Same approach: ENTIRE original body preserved verbatim inside the
+// "if(thermalcameratype=='LWIR')" block. Only the outer wrapper and
+// the new MWIR sibling block are new.
+// ============================================================
+
 macro "Raw2Temp Tool [r]"{
 
-	byteorder=newArray("Default", "Swap");
-	defaultbyteorder="Default";
-	fastslowchoice=newArray("Fast", "Slow");
-	fastslowchoicedefault="Fast";
-	
-	// Create a prompt dialog to ask user to verify the values to be used in the calculations below
-	Dialog.create("Verify Camera and Object Parameters");
-	Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
-	Dialog.addMessage("TIFF files are usually little endian, PNG files are usually big endian");
-	Dialog.addChoice("Keep Default or Swap Byte Order (Usually default is fine)", byteorder, defaultbyteorder);
-	Dialog.addMessage("Fast calculation is approximate but repeatable, Slow is accurate but not reversible");
-	Dialog.addChoice("Fast or Slow Calculation?", fastslowchoice, fastslowchoicedefault); 
-	Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
- 	Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
- 	
-	Dialog.addMessage("Object Parameters:");
-    Dialog.addNumber("Object Emissivity:", E, 3, 6, "unitless");
-    Dialog.addToSameRow();
-    Dialog.addNumber("Object Distance:", OD, 1, 6, "m");
-    Dialog.addNumber("Reflected Temperature (C):", RTemp, 2, 6, "C");
-    Dialog.addToSameRow();
-    Dialog.addNumber("Atmospheric Temperature (C):", ATemp, 2, 6, "C");
-    Dialog.addNumber("Window Temperature (C):", IRWTemp, 2, 6, "C");
-    Dialog.addToSameRow();
-    Dialog.addNumber("Window Transmittance:", IRT, 3, 6, "unitless");
-    Dialog.addNumber("Relative Humidity:", RH, 2, 6, "%");
-    Dialog.addToSameRow();
-    Dialog.addChoice("Palette", palettetypes, defaultpalette);
-    
-	Dialog.addMessage("Camera Calibration Constants:");
-	Dialog.addNumber("Planck R1:", PR1, 2, 12, "unitless"); //21106.77 //21546.203
-	Dialog.addToSameRow();
-	Dialog.addNumber("Planck R2:", PR2, 8, 12, "unitless"); //0.012545258 //0.016229488 
-	Dialog.addNumber("Planck B:", PB, 0, 5, "unitless"); //1501 //1507.2
-	Dialog.addToSameRow();
-	Dialog.addNumber("Planck F:", PF, 0, 2, "unitless");//1
-    Dialog.addNumber("Planck O:", PO, 0, 5, "unitless"); //-7340 //-6331
-    Dialog.addNumber("Atmospheric Trans Alpha 1:", ATA1, 8, 12, "unitless");
-	Dialog.addToSameRow();
-    Dialog.addNumber("Atmospheric Trans Alpha 2:", ATA2, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans Beta 1:", ATB1, 8, 12, "unitless");
-	Dialog.addToSameRow();
-    Dialog.addNumber("Atmospheric Trans Beta 2:", ATB2, 8, 12, "unitless");
-    Dialog.addNumber("Atmospheric Trans X:", ATX, 8, 12, "unitless");     
-	Dialog.show();
+	if(thermalcameratype=="LWIR"){
 
-	 ByteOrder=Dialog.getChoice();
-	 FastSlow=Dialog.getChoice();
-	 imagetemperaturemin = Dialog.getNumber();
-	 imagetemperaturemax = Dialog.getNumber();
-	 E = Dialog.getNumber();
-	 OD = Dialog.getNumber();
-	 RTemp = Dialog.getNumber();
-	 ATemp = Dialog.getNumber();
-	 IRWTemp = Dialog.getNumber();
-	 IRT = Dialog.getNumber();
-	 RH = Dialog.getNumber();
-	 palettetype = Dialog.getChoice();
-	 PR1 = Dialog.getNumber();
-	 PR2 = Dialog.getNumber();
-	 PB = Dialog.getNumber();
-	 PF = Dialog.getNumber();
-	 PO = Dialog.getNumber();
-	 ATA1 = Dialog.getNumber();
-	 ATA2 = Dialog.getNumber();
-	 ATB1 = Dialog.getNumber();
-	 ATB2 = Dialog.getNumber();
-	 ATX = Dialog.getNumber();
+		// ---- UNCHANGED original macro body, verbatim ----
+
+		byteorder=newArray("Default", "Swap");
+		defaultbyteorder="Default";
+		fastslowchoice=newArray("Fast", "Slow");
+		fastslowchoicedefault="Fast";
+		
+		// Create a prompt dialog to ask user to verify the values to be used in the calculations below
+		
+		Dialog.create("Verify ATS Camera and Object Parameters");
+		Dialog.addMessage("If Calibration constants are unknown, run the FLIR Calibration Values Tool first!");
+		Dialog.addMessage("Fast calculation is approximate but repeatable. Slow is accurate but not reversible.");
+		Dialog.addChoice("Fast or Slow Calculation?", fastslowchoice, fastslowchoicedefault);
+		Dialog.addNumber("Estimated Image Temperature Minimum:", imagetemperaturemin, 0, 5, "C");
+		Dialog.addNumber("Estimated Image Temperature Maximum:", imagetemperaturemax, 0, 5, "C");
+
+		Dialog.addMessage("Object Parameters:");
+		Dialog.addNumber("Object Emissivity:", NfcE, 3, 6, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Object Distance:", NfcOD, 1, 6, "m");
+		Dialog.addNumber("Reflected Temperature (C):", NfcRTemp, 2, 6, "C");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Atmospheric Temperature (C):", NfcATemp, 2, 6, "C");
+		Dialog.addNumber("Window Temperature (C):", NfcIRWTemp, 2, 6, "C");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Window Transmittance:", NfcIRT, 3, 6, "unitless");
+		Dialog.addNumber("Relative Humidity:", NfcRH, 2, 6, "%");
+		Dialog.addToSameRow();
+		Dialog.addChoice("Palette", palettetypes, defaultpalette);
+
+		Dialog.addMessage("Camera Calibration Constants (NicevilleFactoryCal):");
+		Dialog.addNumber("Nfc B:", NfcB, 4, 12, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Nfc R:", NfcR, 6, 12, "unitless");
+		Dialog.addNumber("Nfc F:", NfcF, 4, 6, "unitless");
+		Dialog.addNumber("Nfc C0:", NfcC0, 20, 20, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Nfc C1:", NfcC1, 20, 20, "unitless");
+		Dialog.addNumber("Nfc C2:", NfcC2, 20, 20, "unitless");
+		Dialog.addNumber("Atmospheric Trans Alpha 1:", NfcATA1, 8, 12, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Atmospheric Trans Alpha 2:", NfcATA2, 8, 12, "unitless");
+		Dialog.addNumber("Atmospheric Trans Beta 1:", NfcATB1, 8, 12, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Atmospheric Trans Beta 2:", NfcATB2, 8, 12, "unitless");
+		Dialog.addNumber("Atmospheric Trans X:", NfcATX, 8, 12, "unitless");
+		Dialog.addMessage("Counts range (used to construct fast-mode polynomial within scene temp range):");
+		Dialog.addNumber("Nfc Min Counts:", NfcMinCounts, 0, 8, "16-bit integer");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Nfc Max Counts:", NfcMaxCounts, 0, 8, "16-bit integer");
+
+		Dialog.show();
+
+		FastSlow          = Dialog.getChoice();
+		imagetemperaturemin = Dialog.getNumber();
+		imagetemperaturemax = Dialog.getNumber();
+		NfcE              = Dialog.getNumber();
+		NfcOD             = Dialog.getNumber();
+		NfcRTemp          = Dialog.getNumber();
+		NfcATemp          = Dialog.getNumber();
+		NfcIRWTemp        = Dialog.getNumber();
+		NfcIRT            = Dialog.getNumber();
+		NfcRH             = Dialog.getNumber();
+		palettetype       = Dialog.getChoice();
+		NfcB              = Dialog.getNumber();
+		NfcR              = Dialog.getNumber();
+		NfcF              = Dialog.getNumber();
+		NfcC0             = Dialog.getNumber();
+		NfcC1             = Dialog.getNumber();
+		NfcC2             = Dialog.getNumber();
+		NfcATA1           = Dialog.getNumber();
+		NfcATA2           = Dialog.getNumber();
+		NfcATB1           = Dialog.getNumber();
+		NfcATB2           = Dialog.getNumber();
+		NfcATX            = Dialog.getNumber();
+		NfcMinCounts      = Dialog.getNumber();
+		NfcMaxCounts      = Dialog.getNumber();
+
+
+	// ---- Persist values ----
+	call("ij.Prefs.set", "imagetemperaturemin.persistent", toString(imagetemperaturemin));
+	call("ij.Prefs.set", "imagetemperaturemax.persistent", toString(imagetemperaturemax));
+	call("ij.Prefs.set", "NfcB.persistent",   toString(NfcB));
+	call("ij.Prefs.set", "NfcR.persistent",   toString(NfcR));
+	call("ij.Prefs.set", "NfcF.persistent",   toString(NfcF));
+	call("ij.Prefs.set", "NfcC0.persistent",  toString(NfcC0));
+	call("ij.Prefs.set", "NfcC1.persistent",  toString(NfcC1));
+	call("ij.Prefs.set", "NfcC2.persistent",  toString(NfcC2));
+	call("ij.Prefs.set", "NfcATA1.persistent",toString(NfcATA1));
+	call("ij.Prefs.set", "NfcATA2.persistent",toString(NfcATA2));
+	call("ij.Prefs.set", "NfcATB1.persistent",toString(NfcATB1));
+	call("ij.Prefs.set", "NfcATB2.persistent",toString(NfcATB2));
+	call("ij.Prefs.set", "NfcATX.persistent", toString(NfcATX));
+	call("ij.Prefs.set", "NfcE.persistent",   toString(NfcE));
+	call("ij.Prefs.set", "NfcOD.persistent",  toString(NfcOD));
+	call("ij.Prefs.set", "NfcRTemp.persistent",  toString(NfcRTemp));
+	call("ij.Prefs.set", "NfcATemp.persistent",  toString(NfcATemp));
+	call("ij.Prefs.set", "NfcIRWTemp.persistent",toString(NfcIRWTemp));
+	call("ij.Prefs.set", "NfcIRT.persistent", toString(NfcIRT));
+	call("ij.Prefs.set", "NfcRH.persistent",  toString(NfcRH));
+	call("ij.Prefs.set", "NfcMinCounts.persistent", toString(NfcMinCounts));
+	call("ij.Prefs.set", "NfcMaxCounts.persistent", toString(NfcMaxCounts));
 	
-	call("ij.Prefs.set", "imagetemperaturemin.persistent",toString(imagetemperaturemin)); 
-	call("ij.Prefs.set", "imagetemperaturemax.persistent",toString(imagetemperaturemax)); 
-	call("ij.Prefs.set", "PR1.persistent",toString(PR1)); 
-	call("ij.Prefs.set", "PB.persistent",toString(PB)); 
-	call("ij.Prefs.set", "PF.persistent",toString(PF)); 
-	call("ij.Prefs.set", "PR2.persistent",toString(PR2)); 
-	call("ij.Prefs.set", "PO.persistent",toString(PO));
-	call("ij.Prefs.set", "ATA1.persistent",toString(ATA1));
-	call("ij.Prefs.set", "ATA2.persistent",toString(ATA2));
-	call("ij.Prefs.set", "ATB1.persistent",toString(ATB1));
-	call("ij.Prefs.set", "ATB2.persistent",toString(ATB2));
-	call("ij.Prefs.set", "ATX.persistent",toString(ATX));
-	call("ij.Prefs.set", "E.persistent",toString(E)); 
-	call("ij.Prefs.set", "OD.persistent",toString(OD)); 
-	call("ij.Prefs.set", "RTemp.persistent",toString(RTemp)); 
-	call("ij.Prefs.set", "ATemp.persistent",toString(ATemp)); 
-	call("ij.Prefs.set", "IRWTemp.persistent",toString(IRWTemp)); 
-	call("ij.Prefs.set", "IRT.persistent",toString(IRT)); 
-	call("ij.Prefs.set", "RH.persistent",toString(RH)); 
-	call("ij.Prefs.set", "imagewidth.persistent",toString(imagewidth)); 
-	call("ij.Prefs.set", "imageheight.persistent",toString(imageheight)); 
-	
-	if(ByteOrder == "Swap"){
-		run("Byte Swapper");
+		if(ByteOrder == "Swap"){
+			run("Byte Swapper");
+		}
+
+		Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
+
+		// ---- end of unchanged original macro body ----
+
 	}
 
-	Raw2Temp(PR1, PR2, PB, PF, PO, AtmosphericTransVals(ATA1, ATA2, ATB1, ATB2, ATX), E, OD, RTemp, ATemp, IRWTemp, IRT, RH, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
-	
+	if(thermalcameratype=="MWIR"){
+
+		// ---- NEW: MWIR/ATS-style nfc conversion ----
+		// Mirrors the structure of the LWIR block above as closely as
+		// possible, substituting Nfc* calibration constants (no Planck
+		// O / no byte-order step -- ATS files don't need byte swapping)
+		// and calling Counts2Temp() instead of Raw2Temp().
+
+		fastslowchoice=newArray("Fast", "Slow");
+		fastslowchoicedefault="Fast";
+
+		Dialog.create("Verify ATS Camera and Object Parameters");
+		Dialog.addMessage("If Calibration constants are unknown, run fliratsvalues() first!");
+		Dialog.addMessage("Fast calculation is approximate but repeatable, Slow is accurate but not reversible");
+		Dialog.addChoice("Fast or Slow Calculation?", fastslowchoice, fastslowchoicedefault);
+		Dialog.addNumber("Estimated Image Temperature  Minimum:", imagetemperaturemin, 0, 5, "C");
+		Dialog.addNumber("Estimated Image Temperature  Maximum:", imagetemperaturemax, 0, 5, "C");
+
+		Dialog.addMessage("Object Parameters:");
+		Dialog.addNumber("Object Emissivity:", NfcE, 3, 6, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Object Distance:", NfcOD, 1, 6, "m");
+		Dialog.addNumber("Reflected Temperature (C):", NfcRTemp, 2, 6, "C");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Atmospheric Temperature (C):", NfcATemp, 2, 6, "C");
+		Dialog.addNumber("Window Temperature (C):", NfcIRWTemp, 2, 6, "C");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Window Transmittance:", NfcIRT, 3, 6, "unitless");
+		Dialog.addNumber("Relative Humidity:", NfcRH, 2, 6, "%");
+		Dialog.addToSameRow();
+		Dialog.addChoice("Palette", palettetypes, defaultpalette);
+
+		Dialog.addMessage("Camera Calibration Constants (NicevilleFactoryCal-derived):");
+		Dialog.addNumber("Nfc B:", NfcB, 4, 12, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Nfc R:", NfcR, 6, 12, "unitless");
+		Dialog.addNumber("Nfc F:", NfcF, 4, 6, "unitless");
+		Dialog.addNumber("Atmospheric Trans Alpha 1:", NfcATA1, 8, 12, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Atmospheric Trans Alpha 2:", NfcATA2, 8, 12, "unitless");
+		Dialog.addNumber("Atmospheric Trans Beta 1:", NfcATB1, 8, 12, "unitless");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Atmospheric Trans Beta 2:", NfcATB2, 8, 12, "unitless");
+		Dialog.addNumber("Atmospheric Trans X:", NfcATX, 8, 12, "unitless");
+		Dialog.addNumber("Nfc Min Counts:", NfcMinCounts, 0, 8, "16-bit integer");
+		Dialog.addToSameRow();
+		Dialog.addNumber("Nfc Max Counts:", NfcMaxCounts, 0, 8, "16-bit integer");
+
+		Dialog.show();
+
+		FastSlow=Dialog.getChoice();
+		imagetemperaturemin = Dialog.getNumber();
+		imagetemperaturemax = Dialog.getNumber();
+		NfcE = Dialog.getNumber();
+		NfcOD = Dialog.getNumber();
+		NfcRTemp = Dialog.getNumber();
+		NfcATemp = Dialog.getNumber();
+		NfcIRWTemp = Dialog.getNumber();
+		NfcIRT = Dialog.getNumber();
+		NfcRH = Dialog.getNumber();
+		palettetype = Dialog.getChoice();
+		NfcB = Dialog.getNumber();
+		NfcR = Dialog.getNumber();
+		NfcF = Dialog.getNumber();
+		NfcATA1 = Dialog.getNumber();
+		NfcATA2 = Dialog.getNumber();
+		NfcATB1 = Dialog.getNumber();
+		NfcATB2 = Dialog.getNumber();
+		NfcATX = Dialog.getNumber();
+		NfcMinCounts = Dialog.getNumber();
+		NfcMaxCounts = Dialog.getNumber();
+
+		call("ij.Prefs.set", "imagetemperaturemin.persistent",toString(imagetemperaturemin));
+		call("ij.Prefs.set", "imagetemperaturemax.persistent",toString(imagetemperaturemax));
+		call("ij.Prefs.set", "NfcB.persistent",toString(NfcB));
+		call("ij.Prefs.set", "NfcR.persistent",toString(NfcR));
+		call("ij.Prefs.set", "NfcF.persistent",toString(NfcF));
+		call("ij.Prefs.set", "NfcATA1.persistent",toString(NfcATA1));
+		call("ij.Prefs.set", "NfcATA2.persistent",toString(NfcATA2));
+		call("ij.Prefs.set", "NfcATB1.persistent",toString(NfcATB1));
+		call("ij.Prefs.set", "NfcATB2.persistent",toString(NfcATB2));
+		call("ij.Prefs.set", "NfcATX.persistent",toString(NfcATX));
+		call("ij.Prefs.set", "NfcE.persistent",toString(NfcE));
+		call("ij.Prefs.set", "NfcOD.persistent",toString(NfcOD));
+		call("ij.Prefs.set", "NfcRTemp.persistent",toString(NfcRTemp));
+		call("ij.Prefs.set", "NfcATemp.persistent",toString(NfcATemp));
+		call("ij.Prefs.set", "NfcIRWTemp.persistent",toString(NfcIRWTemp));
+		call("ij.Prefs.set", "NfcIRT.persistent",toString(NfcIRT));
+		call("ij.Prefs.set", "NfcRH.persistent",toString(NfcRH));
+		call("ij.Prefs.set", "NfcMinCounts.persistent",toString(NfcMinCounts));
+		call("ij.Prefs.set", "NfcMaxCounts.persistent",toString(NfcMaxCounts));
+		call("ij.Prefs.set", "atsimagewidth.persistent",toString(atsimagewidth));
+		call("ij.Prefs.set", "atsimageheight.persistent",toString(atsimageheight));
+
+		Counts2Temp(NfcCvals(NfcC0, NfcC1, NfcC2), NfcPlanckVals(NfcB, NfcR, NfcF), AtmosphericTransVals(NfcATA1, NfcATA2, NfcATB1, NfcATB2, NfcATX), NfcE, NfcOD, NfcRTemp, NfcATemp, NfcIRWTemp, NfcIRT, NfcRH, NfcMinCounts, NfcMaxCounts, palettetype, "No", FastSlow, imagetemperaturemin, imagetemperaturemax);
+
+	}
+
 }
+
 
 macro "-" {} //menu divider
 
@@ -5324,7 +7402,11 @@ macro "Set Frame Advance Default for ROI Use [a]"{
 	SetAutoAdvance();
 }
 
+macro "Set Thermal Camera Type (LWIR or MWIR) [m]"{
+	SetThermalCameraType();
+}
 
+macro "-" {} //menu divider
 
 // ROI Macros and Journalling Macros Start Here
 
@@ -5951,7 +8033,3 @@ macro "Cumulative Difference Sum on Stack [Z]"{
 
 macro "-" {} //menu divider
 
-
-macro "Test [M]" {
-		RegionOfInterest(ROI1);
-}

@@ -78,9 +78,13 @@ similar tools but more emphasis on biological heat transfer analysis.
 
 - The primary files you need to extract from this site are:
 
-  - A custom perl script (split.pl), provided on this github repository,
-    which can be downloaded and placed in a scripts folder with ImageJ:
+  - Four perl scripts (split.pl, ats-repair.pl, ats-xml.pl, and
+    ats-split.pl), provided on this github repository, which can be
+    downloaded and placed in a scripts folder with ImageJ:
     <https://github.com/gtatters/ThermImageJ/tree/master/scripts/split.pl>
+    <https://github.com/gtatters/ThermImageJ/tree/master/scripts/ats-xml.pl>
+    <https://github.com/gtatters/ThermImageJ/tree/master/scripts/ats-repair.pl>
+    <https://github.com/gtatters/ThermImageJ/tree/master/scripts/ats-split.pl>
 
   - ThermImageJ macro toolset. A text file (.ijm) containing all the
     macros and functions:
@@ -114,7 +118,8 @@ similar tools but more emphasis on biological heat transfer analysis.
 - Download the additional **luts** files from this site and copy into
   your FIJI/luts folder. These are palettes that are commonly used in
   thermal imaging.
-- Download the perl script, **split.pl** from this site and copy into a
+- Download the perl scripts, **split.pl**, **ats-repair.pl**,
+  **ats-xml.pl**, and **ats-split.pl** from this site and copy into your
   FIJI/scripts folder.
 - Download **Byte_Swapper.class** to the plugins folder.
 - Restart ImageJ.
@@ -131,7 +136,7 @@ exiftool -ver
 which exiftool
 ```
 
-    ## 12.62
+    ## 13.59
     ## /usr/local/bin/exiftool
 
 If you see a version number (probably \> 10) and no error, then exiftool
@@ -146,9 +151,9 @@ which perl
 ```
 
     ## 
-    ## This is perl 5, version 38, subversion 0 (v5.38.0) built for darwin-thread-multi-2level
+    ## This is perl 5, version 42, subversion 2 (v5.42.2) built for darwin-thread-multi-2level
     ## 
-    ## Copyright 1987-2023, Larry Wall
+    ## Copyright 1987-2026, Larry Wall
     ## 
     ## Perl may be copied only under the terms of either the Artistic License or the
     ## GNU General Public License, which may be found in the Perl 5 source kit.
@@ -165,16 +170,11 @@ Check that the perl script is accessible by perl (be sure to provide the
 proper path to the split.pl file on your system):
 
 ``` bash
-perl /Applications/Fiji.app/scripts/split.pl
+perl ~/Fiji.app/scripts/split.pl
+perl ~/Fiji.app/scripts/ats-split.pl
+perl ~/Fiji.app/scripts/ats-repair.pl
+perl ~/Fiji.app/scripts/ats-xml.pl
 ```
-
-You should see the following warning message:
-
-*“Error: Please specify input file, output folder, the output filename
-base, pattern to split, and output file extension.”*
-
-This is a good error, and verifies that the perl script is installed
-where your machine can access it!
 
 If you see:
 
@@ -191,17 +191,18 @@ ffmpeg -version
 which ffmpeg
 ```
 
-    ## ffmpeg version 6.1.1 Copyright (c) 2000-2023 the FFmpeg developers
-    ## built with Apple clang version 15.0.0 (clang-1500.1.0.2.5)
-    ## configuration: --prefix=/usr/local/Cellar/ffmpeg/6.1.1_2 --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags='-Wl,-ld_classic' --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libaribb24 --enable-libbluray --enable-libdav1d --enable-libharfbuzz --enable-libjxl --enable-libmp3lame --enable-libopus --enable-librav1e --enable-librist --enable-librubberband --enable-libsnappy --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvmaf --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libopenvino --enable-libspeex --enable-libsoxr --enable-libzmq --enable-libzimg --disable-libjack --disable-indev=jack --enable-videotoolbox --enable-audiotoolbox
-    ## libavutil      58. 29.100 / 58. 29.100
-    ## libavcodec     60. 31.102 / 60. 31.102
-    ## libavformat    60. 16.100 / 60. 16.100
-    ## libavdevice    60.  3.100 / 60.  3.100
-    ## libavfilter     9. 12.100 /  9. 12.100
-    ## libswscale      7.  5.100 /  7.  5.100
-    ## libswresample   4. 12.100 /  4. 12.100
-    ## libpostproc    57.  3.100 / 57.  3.100
+    ## ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers
+    ## built with Apple clang version 21.0.0 (clang-2100.1.1.101)
+    ## configuration: --prefix=/usr/local/Cellar/ffmpeg/8.1.2 --enable-shared --cc=clang --host-cflags= --host-ldflags= --enable-gpl --enable-libaom --enable-libdav1d --enable-libharfbuzz --enable-libmp3lame --enable-libopus --enable-libsnappy --enable-libsvtav1 --enable-libtheora --enable-libvorbis --enable-libvpx --enable-libx264 --enable-libx265 --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-demuxer=dash --enable-opencl --enable-audiotoolbox --enable-videotoolbox --disable-htmlpages --enable-libvidstab
+    ## libavutil      60. 26.102 / 60. 26.102
+    ## libavcodec     62. 28.102 / 62. 28.102
+    ## libavformat    62. 12.102 / 62. 12.102
+    ## libavdevice    62.  3.102 / 62.  3.102
+    ## libavfilter    11. 14.102 / 11. 14.102
+    ## libswscale      9.  5.102 /  9.  5.102
+    ## libswresample   6.  3.102 /  6.  3.102
+    ## 
+    ## Exiting with exit code 0
     ## /usr/local/bin/ffmpeg
 
 ## Setting and verifying paths to command line tools
@@ -218,12 +219,12 @@ customisation necessary for your FIJI installation.
 Navigate to the ThermImageJ.ijm toolset file and open it using a text
 editor or the built-in ImageJ macro editor:
 
-<img src="./images/ToolsetHeader.png" width="100%" />
+<img src="./images/ToolsetHeader.png" alt="" width="100%" />
 
 Depending on your operating system or how system files are installed you
 may need to edit the specific path locations for your respective system:
 
-<img src="./images/UserPathCustomise.png" width="80%" />
+<img src="./images/UserPathCustomise.png" alt="" width="80%" />
 
 This also applies to the location of the split.pl file that should be
 placed in the scripts folder inside the Fiji folder.
@@ -232,7 +233,7 @@ ThermImageJ assumes you have placed the split.pl file into a scripts
 subfolder where Fiji is installed, so hopefully you will not need to
 change this:
 
-<img src="./images/UserSplitPathCustomise.png" width="100%" />
+<img src="./images/UserSplitPathCustomise.png" alt="" width="100%" />
 
 ## Setting ThermImageJ Macros Up in FIJI/ImageJ
 
@@ -242,23 +243,23 @@ can set the macros up in FIJI/ImageJ.
 Launch FIJI, left click the **more-tools menu**, which is the **\>\>**
 on the far right side of the menu bar:
 
-<img src="./images/toolbar-before-install.png" width="80%" />
+<img src="./images/toolbar-before-install.png" alt="" width="80%" />
 
 Which will reveal any of the toolsets in the folder. Click on
 **ThermImageJ** to replace the present icons with ThermImageJ specific
 icons / macros:
 
-<img src="./images/more-tools-toolsets-menu.png" width="50%" />
+<img src="./images/more-tools-toolsets-menu.png" alt="" width="50%" />
 
 Once installed, the toolbar menu populates with new icons corresponding
 to the primary ThermImageJ functions:
 
-<img src="./images/toolbar-after-install.png" width="100%" />
+<img src="./images/toolbar-after-install.png" alt="" width="100%" />
 
 Once installed, the toolset should also populate the **Plugin Dropdown
 Menu** with the same, and some additional macros used less often:
 
-<img src="./images/plugin-macro.png" width="50%" />
+<img src="./images/plugin-macro.png" alt="" width="50%" />
 
 ## Customising the Toolset
 
