@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # ats-xml.pl  v4.0
-# Author: Glenn J. Tattersall / Claude, 2026
+# Author: Glenn J. Tattersall
 #
 # Extracts metadata and calibration constants from a FLIR ATS video file
 # (.ats) or RJPEG (.jpg). Default output is ExifTool-style: a flat list

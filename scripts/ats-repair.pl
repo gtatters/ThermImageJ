@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # ats-repair.pl  v3.2
-# Author: Glenn J. Tattersall (logic); restructured with Claude, 2026
+# Author: Glenn J. Tattersall
 #
 # ============================================================
 # PLAIN ENGLISH GUIDE TO WHAT THIS SCRIPT DOES
